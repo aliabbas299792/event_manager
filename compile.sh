@@ -1,1 +1,2 @@
-clang++-14 -luring main.cpp -o test
+cd build
+ninja
