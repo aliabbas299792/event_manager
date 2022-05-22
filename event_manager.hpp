@@ -1,6 +1,8 @@
 #ifndef EVENT_MANAGER
 #define EVENT_MANAGER
 
+#include <cstddef>
+#include <cstdint>
 #include <iostream>
 
 #include <liburing.h>
@@ -15,7 +17,7 @@ enum class events {
   WRITE, READ, ACCEPT, SHUTDOWN, CLOSE
 };
 
-enum __attribute__ ((__packed__)) fd_types { // 2 byte enum
+enum fd_types : uint16_t { // 1 byte enum
   GENERIC_ERROR = 0,
   LOCAL,
   NETWORK
@@ -59,6 +61,10 @@ struct pfd_data {
   uint64_t make_pfd_number() {
     return *((uint64_t*)this);
   }
+
+  bool operator==(pfd_data other) { // redefining equality to use only the fd and the id
+    return this->fd == other.fd && this->id == other.id;
+  }
 };
 
 /*
@@ -85,9 +91,30 @@ besides that exception, return code of 0 indicates success
 
 class event_manager; // forward declaration for the callback struct
 
+struct processed_data {
+  uint8_t* buff{};
+  size_t amount_processed_before{};
+  int op_res_now{};
+  int error_num{}; // would just contain errno
+  size_t length{}; // expected length
+
+  processed_data() {}
+
+  processed_data(uint8_t *buff, size_t amount_processed_before, int op_res_now, int error_num, size_t length) {
+    this->buff = buff;
+    this->amount_processed_before = amount_processed_before;
+    this->op_res_now = op_res_now;
+    this->error_num = error_num;
+    this->length = length;
+  }
+};
+
 struct event_manager_callbacks {
   void (*accept_cb)(event_manager *ev, int listener_fd, sockaddr_storage *user_data, socklen_t size, uint64_t pfd);
-  void (*read_cb)(event_manager *ev, uint8_t* buff, size_t amount_read, size_t to_read, uint64_t pfd);
+  void (*read_cb)(event_manager *ev, processed_data read_metadata, uint64_t pfd);
+  void (*write_cb)(event_manager *ev, processed_data write_metadata, uint64_t pfd);
+  void (*shutdown_cb)(event_manager *ev, int how, uint64_t pfd);
+  void (*close_cb)(event_manager *ev, uint64_t pfd);
 };
 
 class event_manager {
@@ -262,6 +289,7 @@ public:
     auto data = new request_data();
     data->ev = events::SHUTDOWN;
     data->pfd = pfd;
+    data->additional_info = how;
 
     auto sqe = io_uring_get_sqe(&ring);
 
@@ -312,7 +340,7 @@ public:
       perror("io_uring_wait_cqe");
     }
     if (cqe->res < 0) {
-      std::cerr << "io_uring request failure";
+      std::cerr << "\t(io_uring request failure)\n";
     }
 
     auto req_data = reinterpret_cast<request_data*>(io_uring_cqe_get_data(cqe));
@@ -324,11 +352,32 @@ public:
 
   void event_handler(int res, request_data* req_data) {
     switch (req_data->ev) {
-      case events::WRITE:
+      case events::WRITE: {
+        std::cout << "\t\t\twrote: " << res << "\n";
+        if(callbacks.write_cb != nullptr) {
+          callbacks.write_cb(
+            this,
+            processed_data(
+              req_data->buffer,
+              req_data->progress,
+              res, 
+              errno, req_data->length),
+            req_data->pfd
+          );
+        }
         break;
+      }
       case events::READ: {
         if(callbacks.read_cb != nullptr) {
-          callbacks.read_cb(this, req_data->buffer, req_data->progress, req_data->length, req_data->pfd);
+          callbacks.read_cb(
+            this,
+            processed_data(
+              req_data->buffer,
+              req_data->progress,
+              res, 
+              errno, req_data->length),
+            req_data->pfd
+          );
         }
         break;
       }
@@ -344,10 +393,21 @@ public:
         free(user_data); // free the sockaddr_storage
         break;
       }
-      case events::SHUTDOWN:
+      case events::SHUTDOWN: {
+        if(callbacks.shutdown_cb != nullptr) {
+          // additional_data stores the "how" parameter for the shutdown call
+          callbacks.shutdown_cb(this, req_data->additional_info, req_data->pfd);
+        }
+
         break;
-      case events::CLOSE:
+      }
+      case events::CLOSE: {
+        if(callbacks.close_cb != nullptr) {
+          callbacks.close_cb(this, req_data->pfd);
+        }
+
         break;
+      }
     }
   }
 };

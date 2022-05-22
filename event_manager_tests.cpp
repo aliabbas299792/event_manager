@@ -1,14 +1,22 @@
 #include "event_manager.hpp"
 
+#include <chrono>
 #include <cstdint>
 #include <cstring>
+#include <sys/socket.h>
 #include <thread>
+#include <unistd.h>
 
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "vendor/doctest/doctest/doctest.h"
 
 #include <netinet/tcp.h>
 #include <netdb.h>
+
+const std::string text_message = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis.";
+const std::string text_message_2 = "Cras lorem quam, interdum sit amet sem a, congue blandit urna. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna.";
+const std::string long_message = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis ante rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis ante rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis ante rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna.";
+const std::string super_long_message = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis ante rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis ante rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis ante rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis ante rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis ante rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis ante rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis ante rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis ante rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis ante rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis ante rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna.";
 
 int test_setup_listener(int port) {
   int listener_fd;
@@ -52,8 +60,7 @@ int test_setup_listener(int port) {
 }
 
 void test_accept_callback(event_manager *ev, int listener_fd, sockaddr_storage *user_data, socklen_t size, uint64_t pfd) {
-  std::cout << "got a pfd: " << pfd << "\n";
-  std::cout << "the fd is " << pfd_data(pfd).fd << "\n";
+  std::cout << "Got a pfd (" << pfd << "), with fd: " << pfd_data(pfd).fd << "\n";
 
   ev->queue_accept(listener_fd); // want it to continue listening
 
@@ -62,6 +69,74 @@ void test_accept_callback(event_manager *ev, int listener_fd, sockaddr_storage *
   ev->queue_read(pfd, buff, read_size);
 
   ev->submit_all_queued_sqes();
+}
+
+void test_read_callback(event_manager *ev, processed_data read_metadata, uint64_t pfd) {
+  if(read_metadata.op_res_now < 0) {
+    std::cout << "read callback got res " << read_metadata.op_res_now << "\n";
+    if(read_metadata.error_num == 111) {
+      // deal with this
+    }
+    // etc, deal with errors as you please
+    return;
+  }
+
+  if(read_metadata.op_res_now == 0) {
+    // end of file reached, i.e no more data can be read from it
+    std::cout << ev->submit_shutdown(pfd, SHUT_WR) << " is shutdown code\n";
+    // try to close writing side of the connection, since we can't send anything anymore
+    return;
+  }
+
+  size_t amount_read = read_metadata.amount_processed_before + read_metadata.op_res_now;
+
+  std::cout << "Received message: \"" << std::string(reinterpret_cast<char*>(read_metadata.buff), amount_read)
+    << "\", length was " << amount_read << ", with pfd: " << pfd << ", with fd: " << pfd_data(pfd).fd << "\n";
+  std::memset(read_metadata.buff, 0, read_metadata.length);
+  ev->submit_read(pfd, read_metadata.buff, read_metadata.length);
+
+  char *write_buff = new char[long_message.size()];
+  std::memcpy(write_buff, text_message_2.c_str(), text_message_2.size());
+  ev->submit_write(pfd, reinterpret_cast<uint8_t*>(write_buff), text_message_2.size());
+}
+
+void test_write_callback(event_manager *ev, processed_data write_metadata, uint64_t pfd) {
+  if(write_metadata.op_res_now < 0) {
+    std::cout << "write callback got res " << write_metadata.op_res_now << "\n";
+    if(write_metadata.error_num == 111) {
+      // deal with this
+    }
+    // etc, deal with errors as you please
+    return;
+  }
+
+  size_t amount_read = write_metadata.amount_processed_before + write_metadata.op_res_now;
+  
+  std::cout << "Wrote message: \"" << std::string(reinterpret_cast<char*>(write_metadata.buff), amount_read)
+    << "\", length was " << amount_read << ", with pfd: " << pfd << ", with fd: " << pfd_data(pfd).fd << "\n";
+  free(write_metadata.buff);
+
+  ev->submit_shutdown(pfd, SHUT_RD);
+}
+
+void test_shutdown_callback(event_manager *ev, int how, uint64_t pfd) {
+  switch (how) {
+    case SHUT_RD: {
+      std::cout << "shut down stage 1 done\n";
+      break;
+    }
+    case SHUT_WR: {
+      std::cout << "shut down stage 2 done\n";
+      std::cout << ev->submit_close(pfd) << " is close code\n";;
+      break;
+    };
+  }
+}
+
+void test_close_callback(event_manager *ev, uint64_t pfd) {
+  std::cout << "pfd closed: " << pfd << ", of fd " << pfd_data(pfd).fd << "\n";
+
+  std::cout << "close again: " << close(pfd_data(pfd).fd) << " # " << errno << "\n";
 }
 
 int connect_to_local_test_server() {
@@ -127,6 +202,10 @@ TEST_CASE("event manager full tests") {
 
     event_manager_callbacks ev_cbs{};
     ev_cbs.accept_cb = test_accept_callback;
+    ev_cbs.read_cb = test_read_callback;
+    ev_cbs.write_cb = test_write_callback;
+    ev_cbs.shutdown_cb = test_shutdown_callback;
+    ev_cbs.close_cb = test_close_callback;
     ev.set_callbacks(ev_cbs);
     
     std::thread t([&] () {
@@ -137,12 +216,21 @@ TEST_CASE("event manager full tests") {
     REQUIRE(tmp_listener >= 0);
     REQUIRE(ev.submit_accept(tmp_listener) == 1);
 
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-
     int sockfd = connect_to_local_test_server();
     REQUIRE(sockfd >= 0);
 
-    
+    REQUIRE(write(sockfd, text_message.c_str(), text_message.size()) >= 0);
+
+    char read_buff[4096];
+    std::memset(read_buff, 0, sizeof(read_buff));
+    read(sockfd, read_buff, sizeof(read_buff));
+
+    REQUIRE(strcmp(read_buff, text_message_2.c_str()) == 0);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    // the test write callback closes the socket, so read should return 0 (i.e end of file)
+    REQUIRE(read(sockfd, read_buff, 1) == 0);
 
     t.join();
   }
