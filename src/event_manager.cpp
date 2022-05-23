@@ -1,5 +1,5 @@
-#include "event_manager.hpp"
-#include "event_manager_metadata.hpp"
+#include "../event_manager.hpp"
+#include "../header/event_manager_metadata.hpp"
 
 int event_manager::shared_ring_fd = -1; // static variable, so must initialise here or somewhere
 std::mutex event_manager::init_mutex{};
