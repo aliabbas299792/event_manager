@@ -9,12 +9,15 @@
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/eventfd.h>
+#include <sys/types.h>
 #include <vector>
 
 constexpr int QUEUE_DEPTH = 256;
 
 enum class events {
-  WRITE, READ, ACCEPT, SHUTDOWN, CLOSE
+  WRITE, READ, ACCEPT, SHUTDOWN, CLOSE,
+  KILL = 999
 };
 
 enum fd_types : uint16_t { // 1 byte enum
@@ -118,14 +121,22 @@ struct event_manager_callbacks {
 };
 
 class event_manager {
-    io_uring ring;
+    io_uring ring{};
+    bool killed{};
 
     uint16_t max_current_id{};
     std::vector<int> fd_id_map{};
     event_manager_callbacks callbacks{};
+
+    int kill_efd = eventfd(0, 0); // used to kill the start loop
 public:
   void set_callbacks(event_manager_callbacks callbacks) {
     this->callbacks = callbacks;
+  }
+
+  void kill() {
+    uint64_t data = 1;
+    write(kill_efd, &data, sizeof(uint64_t));
   }
 
   // flags are the same flags as open(2)
@@ -202,6 +213,31 @@ public:
       return -2;
     }
     return submit_all_queued_sqes();
+  }
+
+  int submit_event_read(int event_fd, events event) {
+    if(queue_event_read(event_fd, event) == -1) {
+      return -2;
+    }
+    return submit_all_queued_sqes();
+  }
+
+  int queue_event_read(int event_fd, events event) {
+    io_uring_sqe *sqe = io_uring_get_sqe(&ring); //get a valid SQE (correct index and all)
+
+    if(sqe == nullptr) {
+      return -1;
+    }
+
+    auto data = new request_data();
+    data->buffer = reinterpret_cast<uint8_t*>(new char[sizeof(uint64_t)]);
+    data->length = sizeof(uint64_t);
+    data->ev = event;
+
+    io_uring_prep_read(sqe, event_fd, data->buffer, sizeof(uint64_t), 0); //don't read at an offset
+    io_uring_sqe_set_data(sqe, data);
+
+    return 0;
   }
 
   int close_pfd(uint64_t pfd) {
@@ -324,10 +360,11 @@ public:
 
   event_manager() {
     io_uring_queue_init(QUEUE_DEPTH, &ring, 0);
+    submit_event_read(kill_efd, events::KILL); // to ensure the system responds to the kill() command
   }
 
   void start() {
-    while(true) {
+    while(!killed) {
       await_single_message();
     }
   }
@@ -348,6 +385,11 @@ public:
 
     io_uring_cqe_seen(&ring, cqe);
     free(req_data);
+
+    if(killed == true) { // clean up all resources if killed
+      io_uring_queue_exit(&ring);
+      close(kill_efd);
+    }
   }
 
   void event_handler(int res, request_data* req_data) {
@@ -408,7 +450,11 @@ public:
 
         break;
       }
-    }
+      case events::KILL: {
+        killed = true;
+        break;
+      }
+      }
   }
 };
 

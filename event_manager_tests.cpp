@@ -232,6 +232,8 @@ TEST_CASE("event manager full tests") {
     // the test write callback closes the socket, so read should return 0 (i.e end of file)
     REQUIRE(read(sockfd, read_buff, 1) == 0);
 
+    ev.kill(); // kill the server to exit
+
     t.join();
   }
 }
