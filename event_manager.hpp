@@ -16,7 +16,7 @@
 constexpr int QUEUE_DEPTH = 256;
 
 enum class events {
-  WRITE, READ, ACCEPT, SHUTDOWN, CLOSE,
+  WRITE, READ, ACCEPT, SHUTDOWN, CLOSE, EVENT,
   KILL = 999
 };
 
@@ -116,6 +116,7 @@ struct event_manager_callbacks {
   void (*accept_cb)(event_manager *ev, int listener_fd, sockaddr_storage *user_data, socklen_t size, uint64_t pfd);
   void (*read_cb)(event_manager *ev, processed_data read_metadata, uint64_t pfd);
   void (*write_cb)(event_manager *ev, processed_data write_metadata, uint64_t pfd);
+  void (*event_cb)(event_manager *ev, uint64_t additional_info, int fd);
   void (*shutdown_cb)(event_manager *ev, int how, uint64_t pfd);
   void (*close_cb)(event_manager *ev, uint64_t pfd);
 };
@@ -215,14 +216,26 @@ public:
     return submit_all_queued_sqes();
   }
 
-  int submit_event_read(int event_fd, events event) {
-    if(queue_event_read(event_fd, event) == -1) {
+  int event_alert_normal(int event_fd) {
+    return eventfd_write(event_fd, 1);
+  }
+
+  int submit_generic_event(int event_fd, uint64_t additional_info) {
+    return submit_event_read(event_fd, additional_info, events::EVENT);
+  }
+
+  int queue_generic_event(int event_fd, uint64_t additional_info) {
+    return queue_event_read(event_fd, additional_info, events::EVENT);
+  }
+
+  int submit_event_read(int event_fd, uint64_t additional_info, events event) {
+    if(queue_event_read(event_fd, additional_info, event) == -1) {
       return -2;
     }
     return submit_all_queued_sqes();
   }
 
-  int queue_event_read(int event_fd, events event) {
+  int queue_event_read(int event_fd, uint64_t additional_info, events event) {
     io_uring_sqe *sqe = io_uring_get_sqe(&ring); //get a valid SQE (correct index and all)
 
     if(sqe == nullptr) {
@@ -233,6 +246,8 @@ public:
     data->buffer = reinterpret_cast<uint8_t*>(new char[sizeof(uint64_t)]);
     data->length = sizeof(uint64_t);
     data->ev = event;
+    data->fd = event_fd;
+    data->additional_info = additional_info;
 
     io_uring_prep_read(sqe, event_fd, data->buffer, sizeof(uint64_t), 0); //don't read at an offset
     io_uring_sqe_set_data(sqe, data);
@@ -360,7 +375,7 @@ public:
 
   event_manager() {
     io_uring_queue_init(QUEUE_DEPTH, &ring, 0);
-    submit_event_read(kill_efd, events::KILL); // to ensure the system responds to the kill() command
+    submit_event_read(kill_efd, 0, events::KILL); // to ensure the system responds to the kill() command
   }
 
   void start() {
@@ -447,6 +462,12 @@ public:
           callbacks.close_cb(this, req_data->pfd);
         }
 
+        break;
+      }
+      case events::EVENT: {
+        if(callbacks.event_cb != nullptr) {
+          callbacks.event_cb(this, req_data->additional_info, req_data->fd);
+        }
         break;
       }
       case events::KILL: {

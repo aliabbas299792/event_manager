@@ -3,6 +3,7 @@
 #include <chrono>
 #include <cstdint>
 #include <cstring>
+#include <sys/eventfd.h>
 #include <sys/socket.h>
 #include <thread>
 #include <unistd.h>
@@ -139,6 +140,10 @@ void test_close_callback(event_manager *ev, uint64_t pfd) {
   std::cout << "close again: " << close(pfd_data(pfd).fd) << " # " << errno << "\n";
 }
 
+void test_event_callback(event_manager *ev, uint64_t additional_info, int fd) {
+  std::cout << "received event signal for: " << fd << ", with additional info: " << additional_info << "\n";
+}
+
 int connect_to_local_test_server() {
   struct addrinfo hints, *res;
   int sockfd;
@@ -206,6 +211,7 @@ TEST_CASE("event manager full tests") {
     ev_cbs.write_cb = test_write_callback;
     ev_cbs.shutdown_cb = test_shutdown_callback;
     ev_cbs.close_cb = test_close_callback;
+    ev_cbs.event_cb = test_event_callback;
     ev.set_callbacks(ev_cbs);
     
     std::thread t([&] () {
@@ -233,6 +239,28 @@ TEST_CASE("event manager full tests") {
     REQUIRE(read(sockfd, read_buff, 1) == 0);
 
     ev.kill(); // kill the server to exit
+
+    t.join();
+  }
+
+  SUBCASE("event callbacks") {
+    event_manager ev{};
+
+    event_manager_callbacks ev_cbs{};
+    ev_cbs.event_cb = test_event_callback;
+    ev.set_callbacks(ev_cbs);
+    
+    std::thread t([&] () {
+      ev.start();
+    });
+
+    int efd = eventfd(0, 0);
+    const int CUSTOM_EVENT_ID = 122343;
+    ev.submit_generic_event(efd, CUSTOM_EVENT_ID);
+
+    REQUIRE(ev.event_alert_normal(efd) == 0);
+
+    ev.kill();
 
     t.join();
   }
