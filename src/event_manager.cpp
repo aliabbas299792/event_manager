@@ -383,6 +383,7 @@ void event_manager::event_handler(int res, request_data* req_data) {
       if(callbacks.event_cb != nullptr) {
         callbacks.event_cb(this, req_data->additional_info, req_data->fd);
       }
+      free(req_data->buffer); // allocated in the queue_event_read function
       break;
     }
     case events::KILL: {
