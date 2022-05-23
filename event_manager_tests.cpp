@@ -14,6 +14,9 @@
 #include <netinet/tcp.h>
 #include <netdb.h>
 
+int event_manager::shared_ring_fd = -1; // static variable, so must initialise here or somewhere
+std::mutex event_manager::init_mutex{};
+
 const std::string text_message = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis.";
 const std::string text_message_2 = "Cras lorem quam, interdum sit amet sem a, congue blandit urna. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna.";
 const std::string long_message = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis ante rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis ante rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis ante rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna.";
@@ -136,8 +139,6 @@ void test_shutdown_callback(event_manager *ev, int how, uint64_t pfd) {
 
 void test_close_callback(event_manager *ev, uint64_t pfd) {
   std::cout << "pfd closed: " << pfd << ", of fd " << pfd_data(pfd).fd << "\n";
-
-  std::cout << "close again: " << close(pfd_data(pfd).fd) << " # " << errno << "\n";
 }
 
 void test_event_callback(event_manager *ev, uint64_t additional_info, int fd) {
@@ -254,11 +255,11 @@ TEST_CASE("event manager full tests") {
       ev.start();
     });
 
-    int efd = eventfd(0, 0);
     const int CUSTOM_EVENT_ID = 122343;
-    ev.submit_generic_event(efd, CUSTOM_EVENT_ID);
+    auto pfd = ev.create_event_fd_normally();
+    ev.submit_generic_event(pfd, CUSTOM_EVENT_ID);
 
-    REQUIRE(ev.event_alert_normal(efd) == 0);
+    REQUIRE(ev.event_alert_normal(pfd) == 0);
 
     ev.kill();
 

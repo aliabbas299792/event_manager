@@ -7,6 +7,7 @@
 
 #include <liburing.h>
 #include <fcntl.h>
+#include <mutex>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/eventfd.h>
@@ -23,7 +24,8 @@ enum class events {
 enum fd_types : uint16_t { // 1 byte enum
   GENERIC_ERROR = 0,
   LOCAL,
-  NETWORK
+  NETWORK,
+  EVENT
 };
 
 struct request_data {
@@ -122,6 +124,9 @@ struct event_manager_callbacks {
 };
 
 class event_manager {
+    static int shared_ring_fd;
+    static std::mutex init_mutex;
+
     io_uring ring{};
     bool killed{};
 
@@ -129,7 +134,7 @@ class event_manager {
     std::vector<int> fd_id_map{};
     event_manager_callbacks callbacks{};
 
-    int kill_efd = eventfd(0, 0); // used to kill the start loop
+    uint64_t kill_pfd = create_event_fd_normally(); // used to kill the start loop
 public:
   void set_callbacks(event_manager_callbacks callbacks) {
     this->callbacks = callbacks;
@@ -137,7 +142,18 @@ public:
 
   void kill() {
     uint64_t data = 1;
-    write(kill_efd, &data, sizeof(uint64_t));
+    write(pfd_data(kill_pfd).fd, &data, sizeof(uint64_t));
+  }
+
+  uint64_t create_event_fd_normally() {
+    auto efd = eventfd(0, 0);
+    if(efd == -1) {
+      std::cerr << "Error in making eventfd: " << errno << "\n";
+      return 0;
+    }
+
+    auto pfd = pfd_data(fd_types::EVENT, max_current_id++, efd);
+    return pfd.make_pfd_number();
   }
 
   // flags are the same flags as open(2)
@@ -145,6 +161,7 @@ public:
     auto potential_fd = open(pathname, flags);
 
     if(potential_fd < 0) {
+      std::cerr << "Error in opening file: " << errno << "\n";
       return 0;
     }
 
@@ -216,26 +233,28 @@ public:
     return submit_all_queued_sqes();
   }
 
-  int event_alert_normal(int event_fd) {
-    return eventfd_write(event_fd, 1);
+  int event_alert_normal(uint64_t pfd) {
+    return eventfd_write(pfd_data(pfd).fd, 1);
   }
 
-  int submit_generic_event(int event_fd, uint64_t additional_info) {
-    return submit_event_read(event_fd, additional_info, events::EVENT);
+  int submit_generic_event(uint64_t pfd, uint64_t additional_info) {
+    return submit_event_read(pfd, additional_info, events::EVENT);
   }
 
-  int queue_generic_event(int event_fd, uint64_t additional_info) {
-    return queue_event_read(event_fd, additional_info, events::EVENT);
+  int queue_generic_event(uint64_t pfd, uint64_t additional_info) {
+    return queue_event_read(pfd, additional_info, events::EVENT);
   }
 
-  int submit_event_read(int event_fd, uint64_t additional_info, events event) {
-    if(queue_event_read(event_fd, additional_info, event) == -1) {
+  int submit_event_read(uint64_t pfd, uint64_t additional_info, events event) {
+    if(queue_event_read(pfd, additional_info, event) == -1) {
       return -2;
     }
     return submit_all_queued_sqes();
   }
 
-  int queue_event_read(int event_fd, uint64_t additional_info, events event) {
+  int queue_event_read(uint64_t pfd, uint64_t additional_info, events event) {
+    auto fd = pfd_data(pfd).fd;
+
     io_uring_sqe *sqe = io_uring_get_sqe(&ring); //get a valid SQE (correct index and all)
 
     if(sqe == nullptr) {
@@ -246,10 +265,10 @@ public:
     data->buffer = reinterpret_cast<uint8_t*>(new char[sizeof(uint64_t)]);
     data->length = sizeof(uint64_t);
     data->ev = event;
-    data->fd = event_fd;
+    data->fd = fd;
     data->additional_info = additional_info;
 
-    io_uring_prep_read(sqe, event_fd, data->buffer, sizeof(uint64_t), 0); //don't read at an offset
+    io_uring_prep_read(sqe, fd, data->buffer, sizeof(uint64_t), 0); //don't read at an offset
     io_uring_sqe_set_data(sqe, data);
 
     return 0;
@@ -374,8 +393,19 @@ public:
   }
 
   event_manager() {
-    io_uring_queue_init(QUEUE_DEPTH, &ring, 0);
-    submit_event_read(kill_efd, 0, events::KILL); // to ensure the system responds to the kill() command
+    std::unique_lock<std::mutex> init_lock(init_mutex);
+
+    if(shared_ring_fd == -1) { // uses a shared asynchronous backend for all threads
+      io_uring_queue_init(QUEUE_DEPTH, &ring, 0);
+      shared_ring_fd = ring.ring_fd;
+    } else {
+      io_uring_params params{};
+      params.wq_fd = shared_ring_fd;
+      params.flags = IORING_SETUP_ATTACH_WQ;
+      io_uring_queue_init_params(QUEUE_DEPTH, &ring, &params);
+    }
+
+    submit_event_read(kill_pfd, 0, events::KILL); // to ensure the system responds to the kill() command
   }
 
   void start() {
@@ -403,7 +433,7 @@ public:
 
     if(killed == true) { // clean up all resources if killed
       io_uring_queue_exit(&ring);
-      close(kill_efd);
+      close(pfd_data(kill_pfd).fd);
     }
   }
 
