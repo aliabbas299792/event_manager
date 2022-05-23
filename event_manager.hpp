@@ -78,7 +78,7 @@ private:
   bool killed{};
 
   uint16_t max_current_id{};
-  std::vector<int> fd_id_map{};
+  std::vector<int> fd_id_map{}; // used to verify if an fd has been reassigned
   event_manager_callbacks callbacks{};
 
   uint64_t kill_pfd = create_event_fd_normally(); // used to kill the start loop

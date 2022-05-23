@@ -311,6 +311,14 @@ void event_manager::await_single_message() {
 }
 
 void event_manager::event_handler(int res, request_data* req_data) {
+  auto pfd = pfd_data(req_data->pfd);
+  if((uint64_t)pfd.fd < fd_id_map.size() && fd_id_map[pfd.fd] != pfd.id) {
+    // the pfd id is compared with the id stored in the fd_id_map, must be same for this request to be valid
+    if(callbacks.close_cb != nullptr) {
+      callbacks.close_cb(this, req_data->pfd);
+    }
+  }
+
   switch (req_data->ev) {
     case events::WRITE: {
       if(callbacks.write_cb != nullptr) {
@@ -343,7 +351,11 @@ void event_manager::event_handler(int res, request_data* req_data) {
     case events::ACCEPT: {
       auto user_data = reinterpret_cast<sockaddr_storage*>(req_data->buffer);
 
-      auto pfd_num = pfd_data(fd_types::NETWORK, max_current_id++, res).make_pfd_number();
+      auto id = max_current_id++;
+      auto pfd_num = pfd_data(fd_types::NETWORK, id, res).make_pfd_number();
+
+      fd_id_map.resize(res+1);
+      fd_id_map[res] = id;
 
       if(callbacks.accept_cb != nullptr) {
         callbacks.accept_cb(this, req_data->fd, user_data, req_data->additional_info, pfd_num);
