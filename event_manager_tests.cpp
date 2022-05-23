@@ -14,13 +14,11 @@
 #include <netinet/tcp.h>
 #include <netdb.h>
 
-int event_manager::shared_ring_fd = -1; // static variable, so must initialise here or somewhere
-std::mutex event_manager::init_mutex{};
-
 const std::string text_message = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis.";
 const std::string text_message_2 = "Cras lorem quam, interdum sit amet sem a, congue blandit urna. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna.";
 const std::string long_message = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis ante rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis ante rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis ante rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna.";
-const std::string super_long_message = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis ante rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis ante rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis ante rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis ante rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis ante rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis ante rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis ante rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis ante rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis ante rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis ante rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna.";
+
+constexpr int READ_SIZE = 4096;
 
 int test_setup_listener(int port) {
   int listener_fd;
@@ -64,13 +62,12 @@ int test_setup_listener(int port) {
 }
 
 void test_accept_callback(event_manager *ev, int listener_fd, sockaddr_storage *user_data, socklen_t size, uint64_t pfd) {
-  std::cout << "Got a pfd (" << pfd << "), with fd: " << pfd_data(pfd).fd << "\n";
+  std::cout << "Got a pfd (" << pfd << "\n";
 
   ev->queue_accept(listener_fd); // want it to continue listening
 
-  constexpr int read_size = 4096;
-  uint8_t *buff = new uint8_t[read_size];
-  ev->queue_read(pfd, buff, read_size);
+  uint8_t *buff = new uint8_t[READ_SIZE];
+  ev->queue_read(pfd, buff, READ_SIZE);
 
   ev->submit_all_queued_sqes();
 }
@@ -95,7 +92,7 @@ void test_read_callback(event_manager *ev, processed_data read_metadata, uint64_
   size_t amount_read = read_metadata.amount_processed_before + read_metadata.op_res_now;
 
   std::cout << "Received message: \"" << std::string(reinterpret_cast<char*>(read_metadata.buff), amount_read)
-    << "\", length was " << amount_read << ", with pfd: " << pfd << ", with fd: " << pfd_data(pfd).fd << "\n";
+    << "\", length was " << amount_read << ", with pfd: " << pfd << "\n";
   std::memset(read_metadata.buff, 0, read_metadata.length);
   ev->submit_read(pfd, read_metadata.buff, read_metadata.length);
 
@@ -117,7 +114,7 @@ void test_write_callback(event_manager *ev, processed_data write_metadata, uint6
   size_t amount_read = write_metadata.amount_processed_before + write_metadata.op_res_now;
   
   std::cout << "Wrote message: \"" << std::string(reinterpret_cast<char*>(write_metadata.buff), amount_read)
-    << "\", length was " << amount_read << ", with pfd: " << pfd << ", with fd: " << pfd_data(pfd).fd << "\n";
+    << "\", length was " << amount_read << ", with pfd: " << pfd << "\n";
   free(write_metadata.buff);
 
   ev->submit_shutdown(pfd, SHUT_RD);
@@ -138,7 +135,7 @@ void test_shutdown_callback(event_manager *ev, int how, uint64_t pfd) {
 }
 
 void test_close_callback(event_manager *ev, uint64_t pfd) {
-  std::cout << "pfd closed: " << pfd << ", of fd " << pfd_data(pfd).fd << "\n";
+  std::cout << "pfd closed: " << pfd << "\n";
 }
 
 void test_event_callback(event_manager *ev, uint64_t additional_info, int fd) {
@@ -173,6 +170,10 @@ TEST_CASE("event manager full tests") {
   // as a result of this, start() should work since it is just await_single_message in a loop
   SUBCASE("writing a new file, stat/fstat contents, read contents and check that too") {
     event_manager ev{};
+    
+    std::thread t([&] () {
+      ev.start();
+    });
 
     std::string filename = "test.txt";
     std::string data = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi et ipsum pellentesque, vestibulum dolor sed, egestas nibh.\n";
@@ -180,7 +181,8 @@ TEST_CASE("event manager full tests") {
     auto new_file_pfd = ev.open_normally_get_pfd(filename.c_str(), O_WRONLY | O_CREAT, 0666);
     REQUIRE(ev.submit_write(new_file_pfd, reinterpret_cast<uint8_t*>(data.data()), data.length()) == 1);
     // == 1 above since should have submitted 1 sqe
-    ev.await_single_message();
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     struct stat statbuf{};
     REQUIRE(ev.fstat_normally(new_file_pfd, &statbuf) == 0);
@@ -195,12 +197,17 @@ TEST_CASE("event manager full tests") {
     char buff[1024];
     REQUIRE(ev.submit_read(that_file_pfd, reinterpret_cast<uint8_t*>(&buff[0]), sizeof(buff)) == 1);
     // == 1 above since should have submitted 1 sqe
-    ev.await_single_message();
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
     REQUIRE(ev.close_pfd(that_file_pfd) == 0);
 
     REQUIRE(ev.unlink_normally(filename.c_str()) == 0);
 
     REQUIRE(strcmp(data.c_str(), buff) == 0);
+
+    ev.kill();
+    t.join();
   }
 
   SUBCASE("network operations") {
@@ -228,7 +235,7 @@ TEST_CASE("event manager full tests") {
 
     REQUIRE(write(sockfd, text_message.c_str(), text_message.size()) >= 0);
 
-    char read_buff[4096];
+    char read_buff[READ_SIZE];
     std::memset(read_buff, 0, sizeof(read_buff));
     read(sockfd, read_buff, sizeof(read_buff));
 

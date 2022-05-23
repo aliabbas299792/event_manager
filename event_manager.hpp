@@ -14,63 +14,7 @@
 #include <sys/types.h>
 #include <vector>
 
-constexpr int QUEUE_DEPTH = 256;
-
-enum class events {
-  WRITE, READ, ACCEPT, SHUTDOWN, CLOSE, EVENT,
-  KILL = 999
-};
-
-enum fd_types : uint16_t { // 1 byte enum
-  GENERIC_ERROR = 0,
-  LOCAL,
-  NETWORK,
-  EVENT
-};
-
-struct request_data {
-  int fd{};
-  uint64_t pfd{};
-  events ev{};
-
-  uint8_t *buffer{};
-  size_t length{};
-  size_t progress{};
-  uint64_t additional_info{};
-};
-
-struct pfd_data {
-  // can be converted to/from uint64_t because 8 bytes
-  fd_types type{};
-
-  uint16_t id{}; // used to distinguish stale fds from new ones
-  // i.e, submit read request, then fd is closed, then new fd
-  // with same fd num is opened, then when old fd request
-  // returns, then we can distinguish
-  // the ID number could be the same as well, but unlikely
-  // if you just set it to previous max value + 1
-  int fd{};
-
-  pfd_data(uint64_t data) {
-    this->fd = ((pfd_data*)&data)->fd;
-    this->type = ((pfd_data*)&data)->type;
-    this->id = ((pfd_data*)&data)->id;
-  }
-
-  pfd_data(uint16_t type, uint16_t id, int fd) {
-    this->fd = fd;
-    this->type = fd_types(type);
-    this->id = id;
-  }
-
-  uint64_t make_pfd_number() {
-    return *((uint64_t*)this);
-  }
-
-  bool operator==(pfd_data other) { // redefining equality to use only the fd and the id
-    return this->fd == other.fd && this->id == other.id;
-  }
-};
+#include "events_enum.hpp"
 
 /*
 pfd = pseudo fd, they are 64 bit structs cast to uint64_t and contain:
@@ -78,7 +22,7 @@ pfd = pseudo fd, they are 64 bit structs cast to uint64_t and contain:
   - the id (explained above)
   - the actual fd
 So to use most of the functions in event_manager, a pfd is needed
-open_normally_get_pfd returns a 64 bit integer which is a pfd struct cast
+open_normally_get_pfd returns a 64 bit integer which is a pfd struct cast to uint64_t
 
 int return functions:
   - return code of -1 indicates a generic error
@@ -95,6 +39,7 @@ besides that exception, return code of 0 indicates success
 */
 
 class event_manager; // forward declaration for the callback struct
+struct request_data;
 
 struct processed_data {
   uint8_t* buff{};
@@ -124,388 +69,60 @@ struct event_manager_callbacks {
 };
 
 class event_manager {
-    static int shared_ring_fd;
-    static std::mutex init_mutex;
+private:
+  static int shared_ring_fd;
+  static int ring_instances;
+  static std::mutex init_mutex;
 
-    io_uring ring{};
-    bool killed{};
+  io_uring ring{};
+  bool killed{};
 
-    uint16_t max_current_id{};
-    std::vector<int> fd_id_map{};
-    event_manager_callbacks callbacks{};
+  uint16_t max_current_id{};
+  std::vector<int> fd_id_map{};
+  event_manager_callbacks callbacks{};
 
-    uint64_t kill_pfd = create_event_fd_normally(); // used to kill the start loop
+  uint64_t kill_pfd = create_event_fd_normally(); // used to kill the start loop
+private:
+  void await_single_message();
+  void event_handler(int res, request_data* req_data);
+
+  int submit_event_read(uint64_t pfd, uint64_t additional_info, events event);
+  int queue_event_read(uint64_t pfd, uint64_t additional_info, events event);
 public:
-  void set_callbacks(event_manager_callbacks callbacks) {
-    this->callbacks = callbacks;
-  }
-
-  void kill() {
-    uint64_t data = 1;
-    write(pfd_data(kill_pfd).fd, &data, sizeof(uint64_t));
-  }
-
-  uint64_t create_event_fd_normally() {
-    auto efd = eventfd(0, 0);
-    if(efd == -1) {
-      std::cerr << "Error in making eventfd: " << errno << "\n";
-      return 0;
-    }
-
-    auto pfd = pfd_data(fd_types::EVENT, max_current_id++, efd);
-    return pfd.make_pfd_number();
-  }
-
-  // flags are the same flags as open(2)
-  uint64_t open_normally_get_pfd(const char *pathname, int flags) {
-    auto potential_fd = open(pathname, flags);
-
-    if(potential_fd < 0) {
-      std::cerr << "Error in opening file: " << errno << "\n";
-      return 0;
-    }
-
-    auto pfd = pfd_data(fd_types::LOCAL, max_current_id++, potential_fd);
-    return pfd.make_pfd_number();
-  }
-
-  // flags are the same flags as open(2)
-  uint64_t open_normally_get_pfd(const char *pathname, int flags, int mode) {
-    auto potential_fd = open(pathname, flags, mode);
-
-    if(potential_fd < 0) {
-      return 0;
-    }
-
-    auto pfd = pfd_data(fd_types::LOCAL, max_current_id++, potential_fd);
-    return pfd.make_pfd_number();
-  }
-
-  int unlink_normally(const char *name) {
-    return unlink(name);
-  }
-
-  int stat_normally(const char *path, struct stat* buf) {
-    return stat(path, buf);
-  }
-
-  int fstat_normally(uint64_t pfd, struct stat* buf) {
-    auto fd = pfd_data(pfd).fd;
-    return fstat(fd, buf);
-  }
-
-  int submit_all_queued_sqes() {
-    return io_uring_submit(&ring);
-  }
-
-  int submit_read(uint64_t pfd, uint8_t* buffer, size_t length) {
-    if(queue_read(pfd, buffer, length) == -1) {
-      return -2;
-    }
-    return submit_all_queued_sqes();
-  }
-
-  int submit_write(uint64_t pfd, uint8_t* buffer, size_t length) {
-    if(queue_write(pfd, buffer, length) == -1) {
-      return -2;
-    }
-    return submit_all_queued_sqes();
-  }
-
-  int submit_accept(int fd) {
-    if(queue_accept(fd) == -1) {
-      return -2;
-    }
-    return submit_all_queued_sqes();
-  }
-
-  int submit_shutdown(uint64_t pfd, int how) {
-    if(queue_shutdown(pfd, how) == -1) {
-      return -2;
-    }
-    return submit_all_queued_sqes();
-  }
-
-  int submit_close(uint64_t pfd) {
-    if(queue_close(pfd) == -1) {
-      return -2;
-    }
-    return submit_all_queued_sqes();
-  }
-
-  int event_alert_normal(uint64_t pfd) {
-    return eventfd_write(pfd_data(pfd).fd, 1);
-  }
-
-  int submit_generic_event(uint64_t pfd, uint64_t additional_info) {
-    return submit_event_read(pfd, additional_info, events::EVENT);
-  }
-
-  int queue_generic_event(uint64_t pfd, uint64_t additional_info) {
-    return queue_event_read(pfd, additional_info, events::EVENT);
-  }
-
-  int submit_event_read(uint64_t pfd, uint64_t additional_info, events event) {
-    if(queue_event_read(pfd, additional_info, event) == -1) {
-      return -2;
-    }
-    return submit_all_queued_sqes();
-  }
-
-  int queue_event_read(uint64_t pfd, uint64_t additional_info, events event) {
-    auto fd = pfd_data(pfd).fd;
-
-    io_uring_sqe *sqe = io_uring_get_sqe(&ring); //get a valid SQE (correct index and all)
-
-    if(sqe == nullptr) {
-      return -1;
-    }
-
-    auto data = new request_data();
-    data->buffer = reinterpret_cast<uint8_t*>(new char[sizeof(uint64_t)]);
-    data->length = sizeof(uint64_t);
-    data->ev = event;
-    data->fd = fd;
-    data->additional_info = additional_info;
-
-    io_uring_prep_read(sqe, fd, data->buffer, sizeof(uint64_t), 0); //don't read at an offset
-    io_uring_sqe_set_data(sqe, data);
-
-    return 0;
-  }
-
-  int close_pfd(uint64_t pfd) {
-    auto pfd_stuff = pfd_data(pfd);
-    if(pfd_stuff.type == fd_types::LOCAL) {
-      return close(pfd_stuff.fd);
-    }else{
-      return submit_close(pfd);
-    }
-  }
-
-  int queue_read(uint64_t pfd, uint8_t* buffer, size_t length) {
-    auto fd = pfd_data(pfd).fd;
-
-    auto data = new request_data();
-    data->buffer = buffer;
-    data->length = length;
-    data->ev = events::READ;
-    data->pfd = pfd;
-
-    auto sqe = io_uring_get_sqe(&ring);
-
-    if(sqe == nullptr) {
-      return -1;
-    }
-
-    io_uring_prep_read(sqe, fd, buffer, length, 0);
-    io_uring_sqe_set_data(sqe, data);
-
-    return 0;
-  }
-
-  int queue_write(uint64_t pfd, uint8_t* buffer, size_t length) {
-    auto fd = pfd_data(pfd).fd;
-    
-    auto data = new request_data();
-    data->buffer = buffer;
-    data->length = length;
-    data->ev = events::WRITE;
-    data->pfd = pfd;
-
-    auto sqe = io_uring_get_sqe(&ring);
-
-    if(sqe == nullptr) {
-      return -1;
-    }
-
-    io_uring_prep_write(sqe, fd, buffer, length, 0);
-    io_uring_sqe_set_data(sqe, data);
-
-    return 0;
-  }
-
-  int queue_accept(int fd) {
-    auto data = new request_data();
-    data->ev = events::ACCEPT;
-
-    auto client_address = new sockaddr_storage;
-    data->fd = fd;
-    data->buffer = reinterpret_cast<uint8_t*>(client_address);
-    data->additional_info = sizeof(*client_address);
-
-
-    auto sqe = io_uring_get_sqe(&ring);
-
-    if(sqe == nullptr) {
-      return -1;
-    }
-    
-    io_uring_prep_accept(
-      sqe,
-      fd, 
-      (sockaddr*)client_address,
-      reinterpret_cast<uint32_t*>(&data->additional_info), 
-      0
-    );
-    io_uring_sqe_set_data(sqe, data);
-
-    return 0;
-  }
-
-  int queue_shutdown(uint64_t pfd, int how) {
-    auto fd = pfd_data(pfd).fd;
-    
-    auto data = new request_data();
-    data->ev = events::SHUTDOWN;
-    data->pfd = pfd;
-    data->additional_info = how;
-
-    auto sqe = io_uring_get_sqe(&ring);
-
-    if(sqe == nullptr) {
-      return -1;
-    }
-    
-    io_uring_prep_shutdown(sqe, fd, how);
-    io_uring_sqe_set_data(sqe, data);
-
-    return 0;
-  }
-
-  int queue_close(uint64_t pfd) {
-    auto fd = pfd_data(pfd).fd;
-    
-    auto data = new request_data();
-    data->ev = events::CLOSE;
-    data->pfd = pfd;
-
-    auto sqe = io_uring_get_sqe(&ring);
-
-    if(sqe == nullptr) {
-      return -1;
-    }
-    
-    io_uring_prep_close(sqe, fd);
-    io_uring_sqe_set_data(sqe, data);
-
-    return 0;
-  }
-
-  event_manager() {
-    std::unique_lock<std::mutex> init_lock(init_mutex);
-
-    if(shared_ring_fd == -1) { // uses a shared asynchronous backend for all threads
-      io_uring_queue_init(QUEUE_DEPTH, &ring, 0);
-      shared_ring_fd = ring.ring_fd;
-    } else {
-      io_uring_params params{};
-      params.wq_fd = shared_ring_fd;
-      params.flags = IORING_SETUP_ATTACH_WQ;
-      io_uring_queue_init_params(QUEUE_DEPTH, &ring, &params);
-    }
-
-    submit_event_read(kill_pfd, 0, events::KILL); // to ensure the system responds to the kill() command
-  }
-
-  void start() {
-    while(!killed) {
-      await_single_message();
-    }
-  }
-
-  void await_single_message() {
-    io_uring_cqe *cqe;
-    int ret = io_uring_wait_cqe(&ring, &cqe);
-
-    if (ret < 0) {
-      perror("io_uring_wait_cqe");
-    }
-    if (cqe->res < 0) {
-      std::cerr << "\t(io_uring request failure)\n";
-    }
-
-    auto req_data = reinterpret_cast<request_data*>(io_uring_cqe_get_data(cqe));
-    event_handler(cqe->res, req_data);
-
-    io_uring_cqe_seen(&ring, cqe);
-    free(req_data);
-
-    if(killed == true) { // clean up all resources if killed
-      io_uring_queue_exit(&ring);
-      close(pfd_data(kill_pfd).fd);
-    }
-  }
-
-  void event_handler(int res, request_data* req_data) {
-    switch (req_data->ev) {
-      case events::WRITE: {
-        if(callbacks.write_cb != nullptr) {
-          callbacks.write_cb(
-            this,
-            processed_data(
-              req_data->buffer,
-              req_data->progress,
-              res, 
-              errno, req_data->length),
-            req_data->pfd
-          );
-        }
-        break;
-      }
-      case events::READ: {
-        if(callbacks.read_cb != nullptr) {
-          callbacks.read_cb(
-            this,
-            processed_data(
-              req_data->buffer,
-              req_data->progress,
-              res, 
-              errno, req_data->length),
-            req_data->pfd
-          );
-        }
-        break;
-      }
-      case events::ACCEPT: {
-        auto user_data = reinterpret_cast<sockaddr_storage*>(req_data->buffer);
-
-        auto pfd_num = pfd_data(fd_types::NETWORK, max_current_id++, res).make_pfd_number();
-
-        if(callbacks.accept_cb != nullptr) {
-          callbacks.accept_cb(this, req_data->fd, user_data, req_data->additional_info, pfd_num);
-        }
-
-        free(user_data); // free the sockaddr_storage
-        break;
-      }
-      case events::SHUTDOWN: {
-        if(callbacks.shutdown_cb != nullptr) {
-          // additional_data stores the "how" parameter for the shutdown call
-          callbacks.shutdown_cb(this, req_data->additional_info, req_data->pfd);
-        }
-
-        break;
-      }
-      case events::CLOSE: {
-        if(callbacks.close_cb != nullptr) {
-          callbacks.close_cb(this, req_data->pfd);
-        }
-
-        break;
-      }
-      case events::EVENT: {
-        if(callbacks.event_cb != nullptr) {
-          callbacks.event_cb(this, req_data->additional_info, req_data->fd);
-        }
-        break;
-      }
-      case events::KILL: {
-        killed = true;
-        break;
-      }
-      }
-  }
+  // methods for managing the class/class data
+  event_manager();
+  void start();
+  void kill();
+  void set_callbacks(event_manager_callbacks callbacks);
+
+  // eventfd methods
+  uint64_t create_event_fd_normally();
+  int submit_generic_event(uint64_t pfd, uint64_t additional_info);
+  int queue_generic_event(uint64_t pfd, uint64_t additional_info);
+  int event_alert_normal(uint64_t pfd);
+
+  // file ops
+  uint64_t open_normally_get_pfd(const char *pathname, int flags); // flags are the same flags as open(2)
+  uint64_t open_normally_get_pfd(const char *pathname, int flags, int mode); // flags are the same flags as open(2)
+  int unlink_normally(const char *name);
+  int stat_normally(const char *path, struct stat* buf);
+  int fstat_normally(uint64_t pfd, struct stat* buf);
+
+  // generic fd submit ops (i.e calls submit_all_queues_sqes() immediately)
+  int submit_read(uint64_t pfd, uint8_t* buffer, size_t length);
+  int submit_write(uint64_t pfd, uint8_t* buffer, size_t length);
+  int submit_accept(int fd);
+  int submit_shutdown(uint64_t pfd, int how);
+  int submit_close(uint64_t pfd);
+  int close_pfd(uint64_t pfd);
+  int submit_all_queued_sqes();
+  
+  // generic fd queue ops (just queues data in the ring without submitting anything)
+  int queue_read(uint64_t pfd, uint8_t* buffer, size_t length);
+  int queue_write(uint64_t pfd, uint8_t* buffer, size_t length);
+  int queue_accept(int fd);
+  int queue_shutdown(uint64_t pfd, int how);
+  int queue_close(uint64_t pfd);
 };
 
 #endif
