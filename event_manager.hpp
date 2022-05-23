@@ -395,7 +395,6 @@ public:
   void event_handler(int res, request_data* req_data) {
     switch (req_data->ev) {
       case events::WRITE: {
-        std::cout << "\t\t\twrote: " << res << "\n";
         if(callbacks.write_cb != nullptr) {
           callbacks.write_cb(
             this,
