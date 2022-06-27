@@ -105,6 +105,7 @@ public:
   void start();
   void kill();
   void set_callbacks(event_manager_callbacks callbacks);
+  const pfd_data &get_pfd_data(int pfd) { return pfd_to_data[pfd]; }
 
   // eventfd methods
   int create_event_fd_normally();
@@ -117,7 +118,7 @@ public:
                             int flags); // flags are the same flags as open(2)
   int open_normally_get_pfd(const char *pathname, int flags,
                             int mode); // flags are the same flags as open(2)
-
+  int socket_create(int domain, int type, int protocol);
   int unlink_normally(const char *name);
   int stat_normally(const char *path, struct stat *buf);
   int fstat_normally(int pfd, struct stat *buf);

@@ -52,7 +52,7 @@ int event_manager::open_normally_get_pfd(const char *pathname, int flags) {
 
   if (potential_fd < 0) {
     std::cerr << "Error in opening file: " << errno << "\n";
-    return 0;
+    return potential_fd;
   }
 
   return pfd_make(potential_fd, fd_types::LOCAL);
@@ -64,10 +64,22 @@ int event_manager::open_normally_get_pfd(const char *pathname, int flags,
   auto potential_fd = open(pathname, flags, mode);
 
   if (potential_fd < 0) {
-    return 0;
+    std::cerr << "Error in opening file: " << errno << "\n";
+    return potential_fd;
   }
 
   return pfd_make(potential_fd, fd_types::LOCAL);
+}
+
+int event_manager::socket_create(int domain, int type, int protocol) {
+  auto potential_sock = socket(domain, type, protocol);
+
+  if (potential_sock < 0) {
+    std::cerr << "Error in opening socket: " << errno << "\n";
+    return potential_sock;
+  }
+
+  return pfd_make(potential_sock, fd_types::NETWORK);
 }
 
 int event_manager::unlink_normally(const char *name) { return unlink(name); }
