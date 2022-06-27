@@ -36,7 +36,7 @@ void event_manager::kill() {
   write(pfd_to_data[kill_pfd].fd, &data, sizeof(uint64_t));
 }
 
-uint64_t event_manager::create_event_fd_normally() {
+int event_manager::create_event_fd_normally() {
   auto efd = eventfd(0, 0);
   if (efd == -1) {
     std::cerr << "Error in making eventfd: " << errno << "\n";
@@ -47,7 +47,7 @@ uint64_t event_manager::create_event_fd_normally() {
 }
 
 // flags are the same flags as open(2)
-uint64_t event_manager::open_normally_get_pfd(const char *pathname, int flags) {
+int event_manager::open_normally_get_pfd(const char *pathname, int flags) {
   auto potential_fd = open(pathname, flags);
 
   if (potential_fd < 0) {
@@ -59,8 +59,8 @@ uint64_t event_manager::open_normally_get_pfd(const char *pathname, int flags) {
 }
 
 // flags are the same flags as open(2)
-uint64_t event_manager::open_normally_get_pfd(const char *pathname, int flags,
-                                              int mode) {
+int event_manager::open_normally_get_pfd(const char *pathname, int flags,
+                                         int mode) {
   auto potential_fd = open(pathname, flags, mode);
 
   if (potential_fd < 0) {
@@ -76,21 +76,21 @@ int event_manager::stat_normally(const char *path, struct stat *buf) {
   return stat(path, buf);
 }
 
-int event_manager::fstat_normally(uint64_t pfd, struct stat *buf) {
+int event_manager::fstat_normally(int pfd, struct stat *buf) {
   auto fd = pfd_to_data[pfd].fd;
   return fstat(fd, buf);
 }
 
 int event_manager::submit_all_queued_sqes() { return io_uring_submit(&ring); }
 
-int event_manager::submit_read(uint64_t pfd, uint8_t *buffer, size_t length) {
+int event_manager::submit_read(int pfd, uint8_t *buffer, size_t length) {
   if (queue_read(pfd, buffer, length) == -1) {
     return -2;
   }
   return submit_all_queued_sqes();
 }
 
-int event_manager::submit_write(uint64_t pfd, uint8_t *buffer, size_t length) {
+int event_manager::submit_write(int pfd, uint8_t *buffer, size_t length) {
   if (queue_write(pfd, buffer, length) == -1) {
     return -2;
   }
@@ -104,34 +104,33 @@ int event_manager::submit_accept(int fd) {
   return submit_all_queued_sqes();
 }
 
-int event_manager::submit_shutdown(uint64_t pfd, int how) {
+int event_manager::submit_shutdown(int pfd, int how) {
   if (queue_shutdown(pfd, how) == -1) {
     return -2;
   }
   return submit_all_queued_sqes();
 }
 
-int event_manager::submit_close(uint64_t pfd) {
+int event_manager::submit_close(int pfd) {
   if (queue_close(pfd) == -1) {
     return -2;
   }
   return submit_all_queued_sqes();
 }
 
-int event_manager::event_alert_normal(uint64_t pfd) {
+int event_manager::event_alert_normal(int pfd) {
   return eventfd_write(pfd_to_data[pfd].fd, 1);
 }
 
-int event_manager::submit_generic_event(uint64_t pfd,
-                                        uint64_t additional_info) {
+int event_manager::submit_generic_event(int pfd, uint64_t additional_info) {
   return submit_event_read(pfd, additional_info, events::EVENT);
 }
 
-int event_manager::queue_generic_event(uint64_t pfd, uint64_t additional_info) {
+int event_manager::queue_generic_event(int pfd, uint64_t additional_info) {
   return queue_event_read(pfd, additional_info, events::EVENT);
 }
 
-int event_manager::submit_event_read(uint64_t pfd, uint64_t additional_info,
+int event_manager::submit_event_read(int pfd, uint64_t additional_info,
                                      events event) {
   if (queue_event_read(pfd, additional_info, event) == -1) {
     return -2;
@@ -139,7 +138,7 @@ int event_manager::submit_event_read(uint64_t pfd, uint64_t additional_info,
   return submit_all_queued_sqes();
 }
 
-int event_manager::queue_event_read(uint64_t pfd, uint64_t additional_info,
+int event_manager::queue_event_read(int pfd, uint64_t additional_info,
                                     events event) {
   auto fd = pfd_to_data[pfd].fd;
 
@@ -164,7 +163,7 @@ int event_manager::queue_event_read(uint64_t pfd, uint64_t additional_info,
   return 0;
 }
 
-int event_manager::close_pfd(uint64_t pfd) {
+int event_manager::close_pfd(int pfd) {
   auto pfd_stuff = pfd_to_data[pfd];
   if (pfd_stuff.type == fd_types::LOCAL) {
     return close(pfd_stuff.fd);
@@ -173,7 +172,7 @@ int event_manager::close_pfd(uint64_t pfd) {
   }
 }
 
-int event_manager::queue_read(uint64_t pfd, uint8_t *buffer, size_t length) {
+int event_manager::queue_read(int pfd, uint8_t *buffer, size_t length) {
   auto fd = pfd_to_data[pfd].fd;
 
   auto data = new request_data();
@@ -194,7 +193,7 @@ int event_manager::queue_read(uint64_t pfd, uint8_t *buffer, size_t length) {
   return 0;
 }
 
-int event_manager::queue_write(uint64_t pfd, uint8_t *buffer, size_t length) {
+int event_manager::queue_write(int pfd, uint8_t *buffer, size_t length) {
   auto fd = pfd_to_data[pfd].fd;
 
   auto data = new request_data();
@@ -237,7 +236,7 @@ int event_manager::queue_accept(int fd) {
   return 0;
 }
 
-int event_manager::queue_shutdown(uint64_t pfd, int how) {
+int event_manager::queue_shutdown(int pfd, int how) {
   auto fd = pfd_to_data[pfd].fd;
 
   auto data = new request_data();
@@ -257,7 +256,7 @@ int event_manager::queue_shutdown(uint64_t pfd, int how) {
   return 0;
 }
 
-int event_manager::queue_close(uint64_t pfd) {
+int event_manager::queue_close(int pfd) {
   auto fd = pfd_to_data[pfd].fd;
 
   auto data = new request_data();

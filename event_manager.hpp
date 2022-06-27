@@ -96,8 +96,8 @@ private:
   void await_single_message();
   void event_handler(int res, request_data *req_data);
 
-  int submit_event_read(uint64_t pfd, uint64_t additional_info, events event);
-  int queue_event_read(uint64_t pfd, uint64_t additional_info, events event);
+  int submit_event_read(int pfd, uint64_t additional_info, events event);
+  int queue_event_read(int pfd, uint64_t additional_info, events event);
 
 public:
   // methods for managing the class/class data
@@ -107,38 +107,38 @@ public:
   void set_callbacks(event_manager_callbacks callbacks);
 
   // eventfd methods
-  uint64_t create_event_fd_normally();
-  int submit_generic_event(uint64_t pfd, uint64_t additional_info);
-  int queue_generic_event(uint64_t pfd, uint64_t additional_info);
-  int event_alert_normal(uint64_t pfd);
+  int create_event_fd_normally();
+  int submit_generic_event(int pfd, uint64_t additional_info);
+  int queue_generic_event(int pfd, uint64_t additional_info);
+  int event_alert_normal(int pfd);
 
   // file ops
-  uint64_t
-  open_normally_get_pfd(const char *pathname,
-                        int flags); // flags are the same flags as open(2)
-  uint64_t
-  open_normally_get_pfd(const char *pathname, int flags,
-                        int mode); // flags are the same flags as open(2)
+  int open_normally_get_pfd(const char *pathname,
+                            int flags); // flags are the same flags as open(2)
+  int open_normally_get_pfd(const char *pathname, int flags,
+                            int mode); // flags are the same flags as open(2)
+
   int unlink_normally(const char *name);
   int stat_normally(const char *path, struct stat *buf);
-  int fstat_normally(uint64_t pfd, struct stat *buf);
+  int fstat_normally(int pfd, struct stat *buf);
 
   // generic fd submit ops (i.e calls submit_all_queues_sqes() immediately)
-  int submit_read(uint64_t pfd, uint8_t *buffer, size_t length);
-  int submit_write(uint64_t pfd, uint8_t *buffer, size_t length);
+  int submit_read(int pfd, uint8_t *buffer, size_t length);
+  int submit_write(int pfd, uint8_t *buffer, size_t length);
   int submit_accept(int fd);
-  int submit_shutdown(uint64_t pfd, int how);
-  int submit_close(uint64_t pfd);
-  int close_pfd(uint64_t pfd);
+  int submit_shutdown(int pfd, int how);
+  int submit_close(int pfd);
   int submit_all_queued_sqes();
+
+  int close_pfd(int pfd);
 
   // generic fd queue ops (just queues data in the ring without submitting
   // anything)
-  int queue_read(uint64_t pfd, uint8_t *buffer, size_t length);
-  int queue_write(uint64_t pfd, uint8_t *buffer, size_t length);
+  int queue_read(int pfd, uint8_t *buffer, size_t length);
+  int queue_write(int pfd, uint8_t *buffer, size_t length);
   int queue_accept(int fd);
-  int queue_shutdown(uint64_t pfd, int how);
-  int queue_close(uint64_t pfd);
+  int queue_shutdown(int pfd, int how);
+  int queue_close(int pfd);
 };
 
 #endif
