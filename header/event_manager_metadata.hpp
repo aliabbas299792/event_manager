@@ -16,7 +16,6 @@ enum fd_types : uint16_t { // 1 byte enum
 };
 
 struct request_data {
-  int fd{};
   uint64_t pfd{};
   events ev{};
 

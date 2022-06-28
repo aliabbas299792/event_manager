@@ -59,13 +59,13 @@ struct processed_data {
 };
 
 struct event_manager_callbacks {
-  void (*accept_cb)(event_manager *ev, int listener_fd,
+  void (*accept_cb)(event_manager *ev, int listener_pfd,
                     sockaddr_storage *user_data, socklen_t size, uint64_t pfd);
   void (*read_cb)(event_manager *ev, processed_data read_metadata,
                   uint64_t pfd);
   void (*write_cb)(event_manager *ev, processed_data write_metadata,
                    uint64_t pfd);
-  void (*event_cb)(event_manager *ev, uint64_t additional_info, int fd);
+  void (*event_cb)(event_manager *ev, uint64_t additional_info, int pfd);
   void (*shutdown_cb)(event_manager *ev, int how, uint64_t pfd);
   void (*close_cb)(event_manager *ev, uint64_t pfd);
 };
@@ -90,7 +90,7 @@ private:
   std::vector<pfd_data> pfd_to_data{};
   std::unordered_set<int> pfd_freed_pfds{};
   int pfd_make(int fd, fd_types type);
-  void pfd_free(int fd);
+  void pfd_free(int pfd);
 
 private:
   void await_single_message();
