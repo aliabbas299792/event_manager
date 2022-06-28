@@ -109,8 +109,8 @@ int event_manager::submit_write(int pfd, uint8_t *buffer, size_t length) {
   return submit_all_queued_sqes();
 }
 
-int event_manager::submit_accept(int fd) {
-  if (queue_accept(fd) == -1) {
+int event_manager::submit_accept(int pfd) {
+  if (queue_accept(pfd) == -1) {
     return -2;
   }
   return submit_all_queued_sqes();
@@ -226,7 +226,9 @@ int event_manager::queue_write(int pfd, uint8_t *buffer, size_t length) {
   return 0;
 }
 
-int event_manager::queue_accept(int fd) {
+int event_manager::queue_accept(int pfd) {
+  auto fd = pfd_to_data[pfd].fd;
+
   auto data = new request_data();
   data->ev = events::ACCEPT;
 
