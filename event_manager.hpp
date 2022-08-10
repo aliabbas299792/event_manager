@@ -24,7 +24,7 @@ pfd = pseudo fd, they are indexes to 64 bit structs in pfd_to_data and contain:
   - the id (explained above)
   - the actual fd
 So to use most of the functions in event_manager, a pfd is needed
-open_normally_get_pfd returns a 32 bit integer which is a pfd
+open_get_pfd_normally returns a 32 bit integer which is a pfd
 
 int return functions:
   - return code of -1 indicates a generic error
@@ -100,6 +100,10 @@ private:
   int queue_event_read(int pfd, uint64_t additional_info, events event);
 
 public:
+  // the *_normally functions all are just wrappers for
+  // the usual way to do those (i.e socket_create_normally is basically just
+  // socket(...)), but gives back a pfd (pseudo fd) rather than an actual fd
+
   // methods for managing the class/class data
   event_manager();
   void start();
@@ -108,17 +112,17 @@ public:
   const pfd_data &get_pfd_data(int pfd) { return pfd_to_data[pfd]; }
 
   // eventfd methods
-  int create_event_fd_normally();
   int submit_generic_event(int pfd, uint64_t additional_info);
   int queue_generic_event(int pfd, uint64_t additional_info);
-  int event_alert_normal(int pfd);
+  int create_event_fd_normally();
+  int event_alert_normally(int pfd);
 
   // file ops
-  int open_normally_get_pfd(const char *pathname,
+  int open_get_pfd_normally(const char *pathname,
                             int flags); // flags are the same flags as open(2)
-  int open_normally_get_pfd(const char *pathname, int flags,
+  int open_get_pfd_normally(const char *pathname, int flags,
                             int mode); // flags are the same flags as open(2)
-  int socket_create(int domain, int type, int protocol);
+  int socket_create_normally(int domain, int type, int protocol);
   int unlink_normally(const char *name);
   int stat_normally(const char *path, struct stat *buf);
   int fstat_normally(int pfd, struct stat *buf);

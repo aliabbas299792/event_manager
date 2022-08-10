@@ -71,7 +71,7 @@ int event_manager::open_normally_get_pfd(const char *pathname, int flags,
   return pfd_make(potential_fd, fd_types::LOCAL);
 }
 
-int event_manager::socket_create(int domain, int type, int protocol) {
+int event_manager::socket_normally_create(int domain, int type, int protocol) {
   auto potential_sock = socket(domain, type, protocol);
 
   if (potential_sock < 0) {
