@@ -57,8 +57,8 @@ const std::string long_message =
 
 constexpr int READ_SIZE = 4096;
 
-inline int test_setup_listener(int port) {
-  int listener_fd;
+inline int test_setup_listener_get_pfd(int port, event_manager *ev) {
+  int listener_fd, listener_pfd;
   int yes = 1;
   addrinfo hints, *server_info, *traverser;
 
@@ -73,8 +73,10 @@ inline int test_setup_listener(int port) {
 
   for (traverser = server_info; traverser != NULL;
        traverser = traverser->ai_next) {
-    listener_fd = socket(traverser->ai_family, traverser->ai_socktype,
-                         traverser->ai_protocol);
+
+    listener_pfd = ev->socket_create_normally(
+        traverser->ai_family, traverser->ai_socktype, traverser->ai_protocol);
+    listener_fd = ev->get_pfd_data(listener_pfd).fd;
     setsockopt(listener_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
     setsockopt(listener_fd, SOL_SOCKET, SO_REUSEPORT, &yes, sizeof(yes));
     setsockopt(listener_fd, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(yes));
@@ -110,13 +112,13 @@ inline int test_setup_listener(int port) {
     return -1;
   }
 
-  return listener_fd;
+  return listener_pfd;
 }
 
 inline void test_accept_callback(event_manager *ev, int listener_fd,
                                  sockaddr_storage *user_data, socklen_t size,
                                  uint64_t pfd) {
-  std::cout << "Got a pfd (" << pfd << "\n";
+  std::cout << "Got a pfd (" << pfd << ")\n";
 
   ev->queue_accept(listener_fd); // want it to continue listening
 

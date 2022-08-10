@@ -47,7 +47,7 @@ int main() {
   data.copy(write_buff, data.size());
 
   auto new_file_pfd =
-      ev.open_normally_get_pfd(filename.c_str(), O_WRONLY | O_CREAT, 0666);
+      ev.open_get_pfd_normally(filename.c_str(), O_WRONLY | O_CREAT, 0666);
 
   ev.submit_write(new_file_pfd, reinterpret_cast<uint8_t *>(write_buff),
                   data.length());
@@ -62,7 +62,7 @@ int main() {
   std::memset(&statbuf, 0, sizeof(statbuf));
   ev.stat_normally(filename.c_str(), &statbuf);
 
-  auto that_file_pfd = ev.open_normally_get_pfd(filename.c_str(), O_RDONLY);
+  auto that_file_pfd = ev.open_get_pfd_normally(filename.c_str(), O_RDONLY);
   char buff[1024];
 
   ev.submit_read(that_file_pfd, reinterpret_cast<uint8_t *>(&buff[0]),

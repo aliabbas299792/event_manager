@@ -47,7 +47,7 @@ int event_manager::create_event_fd_normally() {
 }
 
 // flags are the same flags as open(2)
-int event_manager::open_normally_get_pfd(const char *pathname, int flags) {
+int event_manager::open_get_pfd_normally(const char *pathname, int flags) {
   auto potential_fd = open(pathname, flags);
 
   if (potential_fd < 0) {
@@ -59,7 +59,7 @@ int event_manager::open_normally_get_pfd(const char *pathname, int flags) {
 }
 
 // flags are the same flags as open(2)
-int event_manager::open_normally_get_pfd(const char *pathname, int flags,
+int event_manager::open_get_pfd_normally(const char *pathname, int flags,
                                          int mode) {
   auto potential_fd = open(pathname, flags, mode);
 
@@ -71,7 +71,7 @@ int event_manager::open_normally_get_pfd(const char *pathname, int flags,
   return pfd_make(potential_fd, fd_types::LOCAL);
 }
 
-int event_manager::socket_normally_create(int domain, int type, int protocol) {
+int event_manager::socket_create_normally(int domain, int type, int protocol) {
   auto potential_sock = socket(domain, type, protocol);
 
   if (potential_sock < 0) {
@@ -130,7 +130,7 @@ int event_manager::submit_close(int pfd) {
   return submit_all_queued_sqes();
 }
 
-int event_manager::event_alert_normal(int pfd) {
+int event_manager::event_alert_normally(int pfd) {
   return eventfd_write(pfd_to_data[pfd].fd, 1);
 }
 
@@ -346,6 +346,7 @@ void event_manager::await_single_message() {
 
 void event_manager::event_handler(int res, request_data *req_data) {
   auto pfd = pfd_to_data[req_data->pfd];
+
   if ((uint64_t)pfd.fd < fd_id_map.size() && fd_id_map[pfd.fd] != pfd.id) {
     // the pfd id is compared with the id stored in the fd_id_map, must be same
     // for this request to be valid
@@ -375,6 +376,12 @@ void event_manager::event_handler(int res, request_data *req_data) {
   }
   case events::ACCEPT: {
     auto user_data = reinterpret_cast<sockaddr_storage *>(req_data->buffer);
+
+    if (res < 0) {
+      std::cerr << "accept, event_handler, res < 0: (res is " << res << ")\n";
+      free(user_data); // free the sockaddr_storage
+      return;
+    }
 
     auto id = max_current_id++;
     auto pfd_num = pfd_make(res, fd_types::NETWORK);
