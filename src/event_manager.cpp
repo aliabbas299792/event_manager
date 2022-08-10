@@ -25,7 +25,7 @@ int event_manager::pfd_make(int fd, fd_types type) {
   return idx;
 }
 
-void event_manager::pfd_free(int fd) { pfd_freed_pfds.insert(fd); }
+void event_manager::pfd_free(int pfd) { pfd_freed_pfds.insert(pfd); }
 
 void event_manager::set_callbacks(event_manager_callbacks callbacks) {
   this->callbacks = callbacks;
@@ -109,8 +109,8 @@ int event_manager::submit_write(int pfd, uint8_t *buffer, size_t length) {
   return submit_all_queued_sqes();
 }
 
-int event_manager::submit_accept(int fd) {
-  if (queue_accept(fd) == -1) {
+int event_manager::submit_accept(int pfd) {
+  if (queue_accept(pfd) == -1) {
     return -2;
   }
   return submit_all_queued_sqes();
@@ -165,7 +165,7 @@ int event_manager::queue_event_read(int pfd, uint64_t additional_info,
   data->buffer = reinterpret_cast<uint8_t *>(new char[sizeof(uint64_t)]);
   data->length = sizeof(uint64_t);
   data->ev = event;
-  data->fd = fd;
+  data->pfd = pfd;
   data->additional_info = additional_info;
 
   io_uring_prep_read(sqe, fd, data->buffer, sizeof(uint64_t),
@@ -226,12 +226,14 @@ int event_manager::queue_write(int pfd, uint8_t *buffer, size_t length) {
   return 0;
 }
 
-int event_manager::queue_accept(int fd) {
+int event_manager::queue_accept(int pfd) {
+  auto fd = pfd_to_data[pfd].fd;
+
   auto data = new request_data();
   data->ev = events::ACCEPT;
 
   auto client_address = new sockaddr_storage;
-  data->fd = fd;
+  data->pfd = pfd;
   data->buffer = reinterpret_cast<uint8_t *>(client_address);
   data->additional_info = sizeof(*client_address);
 
@@ -381,7 +383,7 @@ void event_manager::event_handler(int res, request_data *req_data) {
     fd_id_map[res] = id;
 
     if (callbacks.accept_cb != nullptr) {
-      callbacks.accept_cb(this, req_data->fd, user_data,
+      callbacks.accept_cb(this, req_data->pfd, user_data,
                           req_data->additional_info, pfd_num);
     }
 
@@ -401,11 +403,13 @@ void event_manager::event_handler(int res, request_data *req_data) {
       callbacks.close_cb(this, req_data->pfd);
     }
 
+    pfd_free(req_data->pfd);
+
     break;
   }
   case events::EVENT: {
     if (callbacks.event_cb != nullptr) {
-      callbacks.event_cb(this, req_data->additional_info, req_data->fd);
+      callbacks.event_cb(this, req_data->additional_info, req_data->pfd);
     }
     free(req_data->buffer); // allocated in the queue_event_read function
     break;
