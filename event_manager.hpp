@@ -71,13 +71,17 @@ struct event_manager_callbacks {
 };
 
 class event_manager {
+public:
+  enum living_state { LIVING, DYING, DEAD };
+  living_state get_living_state() { return manager_life_state; }
+
 private:
   static int shared_ring_fd;
   static int ring_instances;
   static std::mutex init_mutex;
 
   io_uring ring{};
-  bool killed{};
+  living_state manager_life_state = LIVING;
 
   uint16_t max_current_id{};
   std::vector<int> fd_id_map{}; // used to verify if an fd has been reassigned

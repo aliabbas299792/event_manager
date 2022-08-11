@@ -7,6 +7,12 @@ std::mutex event_manager::init_mutex{};
 int event_manager::ring_instances = 0;
 
 int event_manager::pfd_make(int fd, fd_types type) {
+  if (manager_life_state == living_state::DYING ||
+      manager_life_state == living_state::DEAD) {
+    std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
+    return -1;
+  }
+
   int idx = 0;
 
   if (pfd_freed_pfds.size() > 0) {
@@ -93,7 +99,15 @@ int event_manager::fstat_normally(int pfd, struct stat *buf) {
   return fstat(fd, buf);
 }
 
-int event_manager::submit_all_queued_sqes() { return io_uring_submit(&ring); }
+int event_manager::submit_all_queued_sqes() {
+  if (manager_life_state == living_state::DYING ||
+      manager_life_state == living_state::DEAD) {
+    std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
+    return -1;
+  }
+
+  return io_uring_submit(&ring);
+}
 
 int event_manager::submit_read(int pfd, uint8_t *buffer, size_t length) {
   if (queue_read(pfd, buffer, length) == -1) {
@@ -152,6 +166,12 @@ int event_manager::submit_event_read(int pfd, uint64_t additional_info,
 
 int event_manager::queue_event_read(int pfd, uint64_t additional_info,
                                     events event) {
+  if (manager_life_state == living_state::DYING ||
+      manager_life_state == living_state::DEAD) {
+    std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
+    return -1;
+  }
+
   auto fd = pfd_to_data[pfd].fd;
 
   io_uring_sqe *sqe =
@@ -185,6 +205,12 @@ int event_manager::close_pfd(int pfd) {
 }
 
 int event_manager::queue_read(int pfd, uint8_t *buffer, size_t length) {
+  if (manager_life_state == living_state::DYING ||
+      manager_life_state == living_state::DEAD) {
+    std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
+    return -1;
+  }
+
   auto fd = pfd_to_data[pfd].fd;
 
   auto data = new request_data();
@@ -206,6 +232,12 @@ int event_manager::queue_read(int pfd, uint8_t *buffer, size_t length) {
 }
 
 int event_manager::queue_write(int pfd, uint8_t *buffer, size_t length) {
+  if (manager_life_state == living_state::DYING ||
+      manager_life_state == living_state::DEAD) {
+    std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
+    return -1;
+  }
+
   auto fd = pfd_to_data[pfd].fd;
 
   auto data = new request_data();
@@ -227,6 +259,12 @@ int event_manager::queue_write(int pfd, uint8_t *buffer, size_t length) {
 }
 
 int event_manager::queue_accept(int pfd) {
+  if (manager_life_state == living_state::DYING ||
+      manager_life_state == living_state::DEAD) {
+    std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
+    return -1;
+  }
+
   auto fd = pfd_to_data[pfd].fd;
 
   auto data = new request_data();
@@ -251,6 +289,12 @@ int event_manager::queue_accept(int pfd) {
 }
 
 int event_manager::queue_shutdown(int pfd, int how) {
+  if (manager_life_state == living_state::DYING ||
+      manager_life_state == living_state::DEAD) {
+    std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
+    return -1;
+  }
+
   auto fd = pfd_to_data[pfd].fd;
 
   auto data = new request_data();
@@ -271,6 +315,12 @@ int event_manager::queue_shutdown(int pfd, int how) {
 }
 
 int event_manager::queue_close(int pfd) {
+  if (manager_life_state == living_state::DYING ||
+      manager_life_state == living_state::DEAD) {
+    std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
+    return -1;
+  }
+
   auto fd = pfd_to_data[pfd].fd;
 
   auto data = new request_data();
@@ -314,7 +364,7 @@ event_manager::event_manager() {
 }
 
 void event_manager::start() {
-  while (!killed) {
+  while (manager_life_state != living_state::DEAD) {
     await_single_message();
   }
 }
@@ -336,7 +386,26 @@ void event_manager::await_single_message() {
   io_uring_cqe_seen(&ring, cqe);
   free(req_data);
 
-  if (killed == true) { // clean up all resources if killed
+  if (manager_life_state ==
+      living_state::DYING) { // clean up all resources if killed
+    // submit anything in the queue first, not using helper function since in
+    // DYING state
+    io_uring_submit(&ring);
+
+    auto sqe = io_uring_get_sqe(&ring);
+    auto data = new request_data();
+    data->ev = events::KILL_COMPLETE;
+
+    // IORING_ASYNC_CANCEL_ANY cancels any request
+    io_uring_prep_cancel(sqe, data, IORING_ASYNC_CANCEL_ANY);
+    io_uring_sqe_set_data(sqe, data);
+
+    // now submit this final request, not using helper function since in DYING
+    // state
+    io_uring_submit(&ring);
+  }
+
+  if (manager_life_state == living_state::DEAD) {
     io_uring_queue_exit(&ring);
     close(pfd_to_data[kill_pfd].fd);
 
@@ -422,8 +491,11 @@ void event_manager::event_handler(int res, request_data *req_data) {
     break;
   }
   case events::KILL: {
-    killed = true;
+    manager_life_state = living_state::DYING;
     break;
   }
+  case events::KILL_COMPLETE:
+    manager_life_state = living_state::DEAD;
+    break;
   }
 }
