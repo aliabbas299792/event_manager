@@ -1,5 +1,6 @@
 #include "../event_manager.hpp"
 #include "../header/event_manager_metadata.hpp"
+#include <sys/socket.h>
 
 int event_manager::shared_ring_fd =
     -1; // static variable, so must initialise here or somewhere
@@ -140,6 +141,13 @@ int event_manager::submit_accept(int pfd) {
     return -2;
   }
   return submit_all_queued_sqes();
+}
+
+void event_manager::shutdown_and_close_normally(int pfd) {
+  auto fd = pfd_to_data[pfd].fd;
+
+  shutdown(fd, SHUT_RDWR);
+  close(fd);
 }
 
 int event_manager::submit_shutdown(int pfd, int how) {
@@ -425,8 +433,9 @@ int event_manager::queue_cancel_request_by_fd(int pfd) {
     return -1;
   }
 
-  // IORING_ASYNC_CANCEL_FD cancels any request matching that fd
-  io_uring_prep_cancel(sqe, nullptr, IORING_ASYNC_CANCEL_FD);
+  // IORING_ASYNC_CANCEL_FD cancels any request matching that fd,
+  // IORING_ASYNC_CANCEL_ALL means to get all that match this criteria
+  io_uring_prep_cancel(sqe, nullptr, IORING_ASYNC_CANCEL_FD | IORING_ASYNC_CANCEL_ALL );
   sqe->fd = pfd_to_data[pfd].fd; // use this fd to cancel request
 
   return 0;
@@ -470,8 +479,6 @@ void event_manager::await_single_message() {
     // submit any which haven't been submitted yet
     submit_all_queued_sqes_privately();
 
-    std::cout << "\t\t\t\t\t\t\tnum to cancel: " << end_stage_num_to_cancel << "\n";
-
     // not dead but not just dying
     if(end_stage_num_to_cancel != 0){
       manager_life_state = living_state::DYING_CANCELLING_REQS;
@@ -512,7 +519,7 @@ void event_manager::event_handler(int res, request_data *req_data) {
     // the pfd id is compared with the id stored in the fd_id_map, must be same
     // for this request to be valid
     if (callbacks.close_cb != nullptr) {
-      callbacks.close_cb(this, req_data->pfd);
+      callbacks.close_cb(this, req_data->pfd, res);
     }
 
     // clean up resources
@@ -537,7 +544,7 @@ void event_manager::event_handler(int res, request_data *req_data) {
     if (callbacks.write_cb != nullptr) {
       callbacks.write_cb(this,
                          processed_data(req_data->buffer, req_data->progress,
-                                        res, errno, req_data->length),
+                                        res, req_data->length),
                          req_data->pfd);
     }
     break;
@@ -546,29 +553,28 @@ void event_manager::event_handler(int res, request_data *req_data) {
     if (callbacks.read_cb != nullptr) {
       callbacks.read_cb(this,
                         processed_data(req_data->buffer, req_data->progress,
-                                       res, errno, req_data->length),
+                                       res, req_data->length),
                         req_data->pfd);
     }
     break;
   }
   case events::ACCEPT: {
     auto user_data = reinterpret_cast<sockaddr_storage *>(req_data->buffer);
+    uint64_t pfd_num{};
 
     if (res < 0) {
       std::cerr << "accept, event_handler, res < 0: (res is " << res << ")\n";
-      free(user_data); // free the sockaddr_storage
-      return;
+    } else {
+      auto id = max_current_id++;
+      pfd_num = pfd_make(res, fd_types::NETWORK);
+
+      fd_id_map.resize(res + 1);
+      fd_id_map[res] = id;
     }
-
-    auto id = max_current_id++;
-    auto pfd_num = pfd_make(res, fd_types::NETWORK);
-
-    fd_id_map.resize(res + 1);
-    fd_id_map[res] = id;
-
+    
     if (callbacks.accept_cb != nullptr) {
       callbacks.accept_cb(this, req_data->pfd, user_data,
-                          req_data->additional_info, pfd_num);
+                          req_data->additional_info, pfd_num, res);
     }
 
     free(user_data); // free the sockaddr_storage
@@ -577,14 +583,14 @@ void event_manager::event_handler(int res, request_data *req_data) {
   case events::SHUTDOWN: {
     if (callbacks.shutdown_cb != nullptr) {
       // additional_data stores the "how" parameter for the shutdown call
-      callbacks.shutdown_cb(this, req_data->additional_info, req_data->pfd);
+      callbacks.shutdown_cb(this, req_data->additional_info, req_data->pfd, res);
     }
 
     break;
   }
   case events::CLOSE: {
     if (callbacks.close_cb != nullptr) {
-      callbacks.close_cb(this, req_data->pfd);
+      callbacks.close_cb(this, req_data->pfd, res);
     }
 
     pfd_free(req_data->pfd);
@@ -593,7 +599,7 @@ void event_manager::event_handler(int res, request_data *req_data) {
   }
   case events::EVENT: {
     if (callbacks.event_cb != nullptr) {
-      callbacks.event_cb(this, req_data->additional_info, req_data->pfd);
+      callbacks.event_cb(this, req_data->additional_info, req_data->pfd, res);
     }
     free(req_data->buffer); // allocated in the queue_event_read function
     break;
