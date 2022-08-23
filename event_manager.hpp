@@ -58,12 +58,14 @@ struct processed_data {
 
 struct event_manager_callbacks {
   void (*accept_cb)(event_manager *ev, int listener_pfd,
-                    sockaddr_storage *user_data, socklen_t size, uint64_t pfd, int op_res_now);
+                    sockaddr_storage *user_data, socklen_t size, uint64_t pfd,
+                    int op_res_now);
   void (*read_cb)(event_manager *ev, processed_data read_metadata,
                   uint64_t pfd);
   void (*write_cb)(event_manager *ev, processed_data write_metadata,
                    uint64_t pfd);
-  void (*event_cb)(event_manager *ev, uint64_t additional_info, int pfd, int op_res_now);
+  void (*event_cb)(event_manager *ev, uint64_t additional_info, int pfd,
+                   int op_res_now);
   void (*shutdown_cb)(event_manager *ev, int how, uint64_t pfd, int op_res_now);
   void (*close_cb)(event_manager *ev, uint64_t pfd, int op_res_now);
 };
@@ -72,6 +74,9 @@ class event_manager {
 public:
   enum living_state { LIVING = 0, DYING, DYING_CANCELLING_REQS, DEAD };
   living_state get_living_state() { return manager_life_state; }
+
+  // any data that the user of this class can attach to it
+  void *custom_user_obj{};
 
 private:
   static int shared_ring_fd;
@@ -98,8 +103,11 @@ private:
 
   int submit_cancel_request_by_fd(int pfd);
   int queue_cancel_request_by_fd(int pfd); // used to cancel in flight requests
-  int end_stage_num_to_cancel{}; // only set when manager_life_state == living_state::DEAD, used to cancel all requests
-  int submit_all_queued_sqes_privately(); // submit_all_queued_sqes but for when shutting down
+  int end_stage_num_to_cancel{}; // only set when manager_life_state ==
+                                 // living_state::DEAD, used to cancel all
+                                 // requests
+  int submit_all_queued_sqes_privately(); // submit_all_queued_sqes but for when
+                                          // shutting down
 
 private:
   void await_single_message();
@@ -125,8 +133,10 @@ public:
   int queue_generic_event(int pfd, uint64_t additional_info);
   int create_event_fd_normally();
   int event_alert_normally(int pfd);
-  void shutdown_and_close_normally(int pfd); // avoid this unless you really need to use it
-  // i.e this is specifically dealing with when the event manager is DYING/DYING_DYING_CANCELLING_REQS/DEAD
+  void shutdown_and_close_normally(
+      int pfd); // avoid this unless you really need to use it
+  // i.e this is specifically dealing with when the event manager is
+  // DYING/DYING_DYING_CANCELLING_REQS/DEAD
 
   // file ops
   int open_get_pfd_normally(const char *pathname,
