@@ -34,7 +34,7 @@ int event_manager::pfd_make(int fd, fd_types type) {
 
 void event_manager::pfd_free(int pfd) { pfd_freed_pfds.insert(pfd); }
 
-void event_manager::set_callbacks(event_manager_callbacks callbacks) {
+void event_manager::set_server_methods(server_methods *callbacks) {
   this->callbacks = callbacks;
 }
 
@@ -419,14 +419,14 @@ void event_manager::start() {
   }
 }
 
-int event_manager::submit_cancel_request_by_fd(int pfd) {
-  if(queue_cancel_request_by_fd(pfd) == -1){
+int event_manager::submit_cancel_request_by_pfd(int pfd) {
+  if (queue_cancel_request_by_pfd(pfd) == -1) {
     return -2;
   }
   return submit_all_queued_sqes();
 }
 
-int event_manager::queue_cancel_request_by_fd(int pfd) {
+int event_manager::queue_cancel_request_by_pfd(int pfd) {
   auto sqe = io_uring_get_sqe(&ring);
 
   if (sqe == nullptr) {
@@ -435,7 +435,8 @@ int event_manager::queue_cancel_request_by_fd(int pfd) {
 
   // IORING_ASYNC_CANCEL_FD cancels any request matching that fd,
   // IORING_ASYNC_CANCEL_ALL means to get all that match this criteria
-  io_uring_prep_cancel(sqe, nullptr, IORING_ASYNC_CANCEL_FD | IORING_ASYNC_CANCEL_ALL );
+  io_uring_prep_cancel(sqe, nullptr,
+                       IORING_ASYNC_CANCEL_FD | IORING_ASYNC_CANCEL_ALL);
   sqe->fd = pfd_to_data[pfd].fd; // use this fd to cancel request
 
   return 0;
@@ -463,15 +464,15 @@ void event_manager::await_single_message() {
     // submit anything in the queue first, not using helper function since in
     // DYING state
 
-    for(size_t i = 0; i < pfd_to_data.size(); i++) {
-      if(!pfd_freed_pfds.contains(i)) {
-        queue_cancel_request_by_fd(i);
+    for (size_t i = 0; i < pfd_to_data.size(); i++) {
+      if (!pfd_freed_pfds.contains(i)) {
+        queue_cancel_request_by_pfd(i);
 
         end_stage_num_to_cancel += pfd_to_data[i].submitted_reqs;
       }
 
       // don't queue more than can be fit in the queue
-      if(current_num_of_queued_sqes >= QUEUE_DEPTH) {
+      if (current_num_of_queued_sqes >= QUEUE_DEPTH) {
         submit_all_queued_sqes_privately();
       }
     }
@@ -480,10 +481,11 @@ void event_manager::await_single_message() {
     submit_all_queued_sqes_privately();
 
     // not dead but not just dying
-    if(end_stage_num_to_cancel != 0){
+    if (end_stage_num_to_cancel != 0) {
       manager_life_state = living_state::DYING_CANCELLING_REQS;
     } else {
-      manager_life_state = living_state::DEAD; // nothing left to cancel, we're done
+      manager_life_state =
+          living_state::DEAD; // nothing left to cancel, we're done
     }
   }
 
@@ -500,16 +502,17 @@ int event_manager::get_num_queued_sqes() const {
 }
 
 void event_manager::event_handler(int res, request_data *req_data) {
-  if(req_data == nullptr) { // don't have anything to process for requests with no data
+  if (req_data ==
+      nullptr) { // don't have anything to process for requests with no data
     return;
   }
 
   auto &pfd_info = pfd_to_data[req_data->pfd];
 
-  if(manager_life_state == living_state::DYING_CANCELLING_REQS) {
+  if (manager_life_state == living_state::DYING_CANCELLING_REQS) {
     end_stage_num_to_cancel--;
 
-    if(end_stage_num_to_cancel == 0) {
+    if (end_stage_num_to_cancel == 0) {
       manager_life_state = living_state::DEAD;
     }
   }
@@ -518,8 +521,9 @@ void event_manager::event_handler(int res, request_data *req_data) {
       fd_id_map[pfd_info.fd] != pfd_info.id) {
     // the pfd id is compared with the id stored in the fd_id_map, must be same
     // for this request to be valid
-    if (callbacks.close_cb != nullptr) {
-      callbacks.close_cb(this, req_data->pfd, res);
+
+    if (callbacks != nullptr) {
+      callbacks->close_callback(this, req_data->pfd, res);
     }
 
     // clean up resources
@@ -541,20 +545,22 @@ void event_manager::event_handler(int res, request_data *req_data) {
 
   switch (req_data->ev) {
   case events::WRITE: {
-    if (callbacks.write_cb != nullptr) {
-      callbacks.write_cb(this,
-                         processed_data(req_data->buffer, req_data->progress,
-                                        res, req_data->length),
-                         req_data->pfd);
+    if (callbacks != nullptr) {
+      callbacks->write_callback(this,
+                                processed_data(req_data->buffer,
+                                               req_data->progress, res,
+                                               req_data->length),
+                                req_data->pfd);
     }
     break;
   }
   case events::READ: {
-    if (callbacks.read_cb != nullptr) {
-      callbacks.read_cb(this,
-                        processed_data(req_data->buffer, req_data->progress,
-                                       res, req_data->length),
-                        req_data->pfd);
+    if (callbacks != nullptr) {
+      callbacks->read_callback(this,
+                               processed_data(req_data->buffer,
+                                              req_data->progress, res,
+                                              req_data->length),
+                               req_data->pfd);
     }
     break;
   }
@@ -571,26 +577,27 @@ void event_manager::event_handler(int res, request_data *req_data) {
       fd_id_map.resize(res + 1);
       fd_id_map[res] = id;
     }
-    
-    if (callbacks.accept_cb != nullptr) {
-      callbacks.accept_cb(this, req_data->pfd, user_data,
-                          req_data->additional_info, pfd_num, res);
+
+    if (callbacks != nullptr) {
+      callbacks->accept_callback(this, req_data->pfd, user_data,
+                                 req_data->additional_info, pfd_num, res);
     }
 
     free(user_data); // free the sockaddr_storage
     break;
   }
   case events::SHUTDOWN: {
-    if (callbacks.shutdown_cb != nullptr) {
+    if (callbacks != nullptr) {
       // additional_data stores the "how" parameter for the shutdown call
-      callbacks.shutdown_cb(this, req_data->additional_info, req_data->pfd, res);
+      callbacks->shutdown_callback(this, req_data->additional_info,
+                                   req_data->pfd, res);
     }
 
     break;
   }
   case events::CLOSE: {
-    if (callbacks.close_cb != nullptr) {
-      callbacks.close_cb(this, req_data->pfd, res);
+    if (callbacks != nullptr) {
+      callbacks->close_callback(this, req_data->pfd, res);
     }
 
     pfd_free(req_data->pfd);
@@ -598,8 +605,9 @@ void event_manager::event_handler(int res, request_data *req_data) {
     break;
   }
   case events::EVENT: {
-    if (callbacks.event_cb != nullptr) {
-      callbacks.event_cb(this, req_data->additional_info, req_data->pfd, res);
+    if (callbacks != nullptr) {
+      callbacks->event_callback(this, req_data->additional_info, req_data->pfd,
+                                res);
     }
     free(req_data->buffer); // allocated in the queue_event_read function
     break;

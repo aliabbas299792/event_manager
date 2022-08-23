@@ -3,40 +3,40 @@
 #include <cstring>
 #include <thread>
 
-void example_write_callback(event_manager *ev, processed_data write_metadata,
-                            uint64_t pfd) {
-  auto length =
-      write_metadata.amount_processed_before + write_metadata.op_res_now;
-  std::cout << "Wrote " << length << " bytes of data, the data was: "
-            << std::string(reinterpret_cast<char *>(write_metadata.buff),
-                           length)
-            << "\n";
-}
-
-void example_read_callback(event_manager *ev, processed_data read_metadata,
-                           uint64_t pfd) {
-  if (read_metadata.op_res_now > 0) {
+class test_server : public server_methods {
+public:
+  void write_callback(event_manager *ev, processed_data write_metadata,
+                      uint64_t pfd) override {
     auto length =
-        read_metadata.amount_processed_before + read_metadata.op_res_now;
-
-    std::cout << "Read " << length << " bytes of data, the data was: "
-              << std::string(reinterpret_cast<char *>(read_metadata.buff),
+        write_metadata.amount_processed_before + write_metadata.op_res_now;
+    std::cout << "Wrote " << length << " bytes of data, the data was: "
+              << std::string(reinterpret_cast<char *>(write_metadata.buff),
                              length)
               << "\n";
   }
-}
+
+  void read_callback(event_manager *ev, processed_data read_metadata,
+                     uint64_t pfd) override {
+    if (read_metadata.op_res_now > 0) {
+      auto length =
+          read_metadata.amount_processed_before + read_metadata.op_res_now;
+
+      std::cout << "Read " << length << " bytes of data, the data was: "
+                << std::string(reinterpret_cast<char *>(read_metadata.buff),
+                               length)
+                << "\n";
+    }
+  }
+};
 
 int main() {
+  test_server t{};
   event_manager ev{};
 
   // setting the callbacks
-  event_manager_callbacks cbs{};
-  cbs.write_cb = example_write_callback;
-  cbs.read_cb = example_read_callback;
+  ev.set_server_methods(&t);
 
-  ev.set_callbacks(cbs);
-
-  std::thread t([&]() { ev.start(); });
+  std::thread t1([&]() { ev.start(); });
 
   std::string filename = "test.txt";
   std::string data =
@@ -76,5 +76,5 @@ int main() {
   ev.unlink_normally(filename.c_str()); // deletes the file
 
   ev.kill();
-  t.join();
+  t1.join();
 }

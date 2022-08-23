@@ -116,193 +116,6 @@ inline int test_setup_listener_get_pfd(int port, event_manager *ev) {
   return listener_pfd;
 }
 
-inline void test_accept_callback(event_manager *ev, int listener_fd,
-                                 sockaddr_storage *user_data, socklen_t size,
-                                 uint64_t pfd, int op_res_now) {
-  if(op_res_now < 0) {
-    std::cout << "accept errored with: " << op_res_now << "\n";
-    // if errored and also not LIVING then shutdown the socket properly just in case
-    if(ev->get_living_state() > event_manager::living_state::LIVING) {
-      ev->shutdown_and_close_normally(pfd);
-    }
-
-    return;
-  }
-
-  std::cout << "Got a pfd (" << pfd << ")\n";
-
-  ev->queue_accept(listener_fd); // want it to continue listening
-
-  uint8_t *buff = new uint8_t[READ_SIZE];
-  ev->queue_read(pfd, buff, READ_SIZE);
-
-  ev->submit_all_queued_sqes();
-}
-
-inline void test_read_callback(event_manager *ev, processed_data read_metadata,
-                               uint64_t pfd) {
-  if (read_metadata.op_res_now < 0) {
-    std::cout << "read callback got res " << read_metadata.op_res_now << "\n";
-    if (read_metadata.op_res_now == -ECONNREFUSED) {
-      std::cout << "\tconection refused...\n";
-      // deal with this
-    } else if (read_metadata.op_res_now == -ECANCELED) {
-      std::cout << "\trequest cancelled...\n";
-    }
-
-    // if errored and also not LIVING then shutdown the socket properly just in case
-    if(ev->get_living_state() > event_manager::living_state::LIVING) {
-      ev->shutdown_and_close_normally(pfd);
-    }
-
-    // etc, deal with errors as you please
-    return;
-  }
-
-  if (read_metadata.op_res_now == 0) {
-    // end of file reached, i.e no more data can be read from it
-    std::cout << ev->submit_shutdown(pfd, SHUT_WR) << " is shutdown code\n";
-    // try to close writing side of the connection, since we can't send anything
-    // anymore
-    return;
-  }
-
-  size_t amount_read =
-      read_metadata.amount_processed_before + read_metadata.op_res_now;
-
-  std::cout << "Received message: \""
-            << std::string(reinterpret_cast<char *>(read_metadata.buff),
-                           amount_read)
-            << "\", length was " << amount_read << ", with pfd: " << pfd
-            << "\n";
-
-  // these 5 requests aren't read in the main thread for one of the sockets, but they are still cancelled
-  std::memset(read_metadata.buff, 0, read_metadata.length);
-  ev->submit_read(pfd, read_metadata.buff, read_metadata.length);
-  ev->submit_read(pfd, read_metadata.buff, read_metadata.length);
-  ev->submit_read(pfd, read_metadata.buff, read_metadata.length);
-  ev->submit_read(pfd, read_metadata.buff, read_metadata.length);
-  ev->submit_read(pfd, read_metadata.buff, read_metadata.length);
-
-  char *write_buff = new char[long_message.size()];
-  std::memcpy(write_buff, text_message_2.c_str(), text_message_2.size());
-  ev->submit_write(pfd, reinterpret_cast<uint8_t *>(write_buff),
-                   text_message_2.size());
-}
-
-inline void test_write_callback(event_manager *ev,
-                                processed_data write_metadata, uint64_t pfd) {
-  if (write_metadata.op_res_now < 0) {
-    std::cout << "write callback got res " << write_metadata.op_res_now << "\n";
-    if (write_metadata.op_res_now == 111) {
-      // deal with this
-    }
-    // etc, deal with errors as you please
-
-    // if errored and also not LIVING then shutdown the socket properly just in case
-    if(ev->get_living_state() > event_manager::living_state::LIVING) {
-      ev->shutdown_and_close_normally(pfd);
-    }
-
-    return;
-  }
-
-  size_t amount_read =
-      write_metadata.amount_processed_before + write_metadata.op_res_now;
-  
-  std::cout << "Wrote message: \""
-            << std::string(reinterpret_cast<char *>(write_metadata.buff),
-                           amount_read)
-            << "\", length was " << amount_read << ", with pfd: " << pfd
-            << "\n";
-  free(write_metadata.buff);
-
-  ev->submit_shutdown(pfd, SHUT_RD);
-}
-
-inline void test_write_callback_without_shutdown(event_manager *ev,
-                                processed_data write_metadata, uint64_t pfd) {
-  if (write_metadata.op_res_now < 0) {
-    std::cout << "write callback got res " << write_metadata.op_res_now << "\n";
-    if (write_metadata.op_res_now == 111) {
-      // deal with this
-    }
-    // etc, deal with errors as you please
-
-    // if errored and also not LIVING then shutdown the socket properly just in case
-    if(ev->get_living_state() > event_manager::living_state::LIVING) {
-      ev->shutdown_and_close_normally(pfd);
-    }
-
-    return;
-  }
-
-  size_t amount_read =
-      write_metadata.amount_processed_before + write_metadata.op_res_now;
-  
-  std::cout << "Wrote message: \""
-            << std::string(reinterpret_cast<char *>(write_metadata.buff),
-                           amount_read)
-            << "\", length was " << amount_read << ", with pfd: " << pfd
-            << "\n";
-  free(write_metadata.buff);
-}
-
-inline void test_shutdown_callback(event_manager *ev, int how, uint64_t pfd, int op_res_now) {
-  if(op_res_now < 0) {
-    std::cout << "shutdown errored with: " << op_res_now << "\n";
-    // if errored and also not LIVING then shutdown the socket properly just in case
-    if(ev->get_living_state() > event_manager::living_state::LIVING) {
-      ev->shutdown_and_close_normally(pfd);
-    }
-
-    return;
-  }
-
-  switch (how) {
-  case SHUT_RD: {
-    std::cout << "shut down stage 1 done\n";
-    break;
-  }
-  case SHUT_WR: {
-    std::cout << "shut down stage 2 done\n";
-    std::cout << ev->submit_close(pfd) << " is close code\n";
-    ;
-    break;
-  };
-  }
-}
-
-inline void test_close_callback(event_manager *ev, uint64_t pfd, int op_res_now) {
-  if(op_res_now < 0) {
-    std::cout << "close errored with: " << op_res_now << "\n";
-    // if errored and also not LIVING then shutdown the socket properly just in case
-    if(ev->get_living_state() > event_manager::living_state::LIVING) {
-      ev->shutdown_and_close_normally(pfd);
-    }
-
-    return;
-  }
-
-  std::cout << "pfd closed: " << pfd << "\n";
-}
-
-inline void test_event_callback(event_manager *ev, uint64_t additional_info,
-                                int pfd, int op_res_now) {
-  if(op_res_now < 0) {
-    std::cout << "read event errored with: " << op_res_now << "\n";
-    // if errored and also not LIVING then shutdown the socket properly just in case
-    if(ev->get_living_state() > event_manager::living_state::LIVING) {
-      ev->shutdown_and_close_normally(pfd);
-    }
-
-    return;
-  }
-
-  std::cout << "received event signal for: " << pfd
-            << ", with additional info: " << additional_info << "\n";
-}
-
 inline int connect_to_local_test_server(const char *port) {
   struct addrinfo hints, *res;
   int sockfd;
@@ -323,5 +136,208 @@ inline int connect_to_local_test_server(const char *port) {
 
   return sockfd;
 }
+
+class test_server : public server_methods {
+public:
+  bool write_callback_no_shutdown = false;
+
+  void accept_callback(event_manager *ev, int listener_pfd,
+                       sockaddr_storage *user_data, socklen_t size,
+                       uint64_t pfd, int op_res_now) override {
+    if (op_res_now < 0) {
+      std::cout << "accept errored with: " << op_res_now << "\n";
+      // if errored and also not LIVING then shutdown the socket properly just
+      // in case
+      if (ev->get_living_state() > event_manager::living_state::LIVING) {
+        ev->shutdown_and_close_normally(pfd);
+      }
+
+      return;
+    }
+
+    std::cout << "Got a pfd (" << pfd << ")\n";
+
+    ev->queue_accept(listener_pfd); // want it to continue listening
+
+    uint8_t *buff = new uint8_t[READ_SIZE];
+    ev->queue_read(pfd, buff, READ_SIZE);
+
+    ev->submit_all_queued_sqes();
+  }
+
+  void read_callback(event_manager *ev, processed_data read_metadata,
+                     uint64_t pfd) override {
+    if (read_metadata.op_res_now < 0) {
+      std::cout << "read callback got res " << read_metadata.op_res_now << "\n";
+      if (read_metadata.op_res_now == -ECONNREFUSED) {
+        std::cout << "\tconection refused...\n";
+        // deal with this
+      } else if (read_metadata.op_res_now == -ECANCELED) {
+        std::cout << "\trequest cancelled...\n";
+      }
+
+      // if errored and also not LIVING then shutdown the socket properly just
+      // in case
+      if (ev->get_living_state() > event_manager::living_state::LIVING) {
+        ev->shutdown_and_close_normally(pfd);
+      }
+
+      // etc, deal with errors as you please
+      return;
+    }
+
+    if (read_metadata.op_res_now == 0) {
+      // end of file reached, i.e no more data can be read from it
+      std::cout << ev->submit_shutdown(pfd, SHUT_WR) << " is shutdown code\n";
+      // try to close writing side of the connection, since we can't send
+      // anything anymore
+      return;
+    }
+
+    size_t amount_read =
+        read_metadata.amount_processed_before + read_metadata.op_res_now;
+
+    std::cout << "Received message: \""
+              << std::string(reinterpret_cast<char *>(read_metadata.buff),
+                             amount_read)
+              << "\", length was " << amount_read << ", with pfd: " << pfd
+              << "\n";
+
+    // these 5 requests aren't read in the main thread for one of the sockets,
+    // but they are still cancelled
+    std::memset(read_metadata.buff, 0, read_metadata.length);
+    ev->submit_read(pfd, read_metadata.buff, read_metadata.length);
+    ev->submit_read(pfd, read_metadata.buff, read_metadata.length);
+    ev->submit_read(pfd, read_metadata.buff, read_metadata.length);
+    ev->submit_read(pfd, read_metadata.buff, read_metadata.length);
+    ev->submit_read(pfd, read_metadata.buff, read_metadata.length);
+
+    char *write_buff = new char[long_message.size()];
+    std::memcpy(write_buff, text_message_2.c_str(), text_message_2.size());
+    ev->submit_write(pfd, reinterpret_cast<uint8_t *>(write_buff),
+                     text_message_2.size());
+  }
+
+  void write_callback(event_manager *ev, processed_data write_metadata,
+                      uint64_t pfd) override {
+    if (write_callback_no_shutdown) {
+      if (write_metadata.op_res_now < 0) {
+        std::cout << "write callback got res " << write_metadata.op_res_now
+                  << "\n";
+        if (write_metadata.op_res_now == 111) {
+          // deal with this
+        }
+        // etc, deal with errors as you please
+
+        // if errored and also not LIVING then shutdown the socket properly just
+        // in case
+        if (ev->get_living_state() > event_manager::living_state::LIVING) {
+          ev->shutdown_and_close_normally(pfd);
+        }
+
+        return;
+      }
+
+      size_t amount_read =
+          write_metadata.amount_processed_before + write_metadata.op_res_now;
+
+      std::cout << "Wrote message: \""
+                << std::string(reinterpret_cast<char *>(write_metadata.buff),
+                               amount_read)
+                << "\", length was " << amount_read << ", with pfd: " << pfd
+                << "\n";
+      free(write_metadata.buff);
+    } else {
+      if (write_metadata.op_res_now < 0) {
+        std::cout << "write callback got res " << write_metadata.op_res_now
+                  << "\n";
+        if (write_metadata.op_res_now == 111) {
+          // deal with this
+        }
+        // etc, deal with errors as you please
+
+        // if errored and also not LIVING then shutdown the socket properly just
+        // in case
+        if (ev->get_living_state() > event_manager::living_state::LIVING) {
+          ev->shutdown_and_close_normally(pfd);
+        }
+
+        return;
+      }
+
+      size_t amount_read =
+          write_metadata.amount_processed_before + write_metadata.op_res_now;
+
+      std::cout << "Wrote message: \""
+                << std::string(reinterpret_cast<char *>(write_metadata.buff),
+                               amount_read)
+                << "\", length was " << amount_read << ", with pfd: " << pfd
+                << "\n";
+      free(write_metadata.buff);
+
+      ev->submit_shutdown(pfd, SHUT_RD);
+    }
+  }
+
+  void event_callback(event_manager *ev, uint64_t additional_info, int pfd,
+                      int op_res_now) override {
+    if (op_res_now < 0) {
+      std::cout << "read event errored with: " << op_res_now << "\n";
+      // if errored and also not LIVING then shutdown the socket properly just
+      // in case
+      if (ev->get_living_state() > event_manager::living_state::LIVING) {
+        ev->shutdown_and_close_normally(pfd);
+      }
+
+      return;
+    }
+
+    std::cout << "received event signal for: " << pfd
+              << ", with additional info: " << additional_info << "\n";
+  }
+
+  void shutdown_callback(event_manager *ev, int how, uint64_t pfd,
+                         int op_res_now) override {
+    if (op_res_now < 0) {
+      std::cout << "shutdown errored with: " << op_res_now << "\n";
+      // if errored and also not LIVING then shutdown the socket properly just
+      // in case
+      if (ev->get_living_state() > event_manager::living_state::LIVING) {
+        ev->shutdown_and_close_normally(pfd);
+      }
+
+      return;
+    }
+
+    switch (how) {
+    case SHUT_RD: {
+      std::cout << "shut down stage 1 done\n";
+      break;
+    }
+    case SHUT_WR: {
+      std::cout << "shut down stage 2 done\n";
+      std::cout << ev->submit_close(pfd) << " is close code\n";
+      ;
+      break;
+    };
+    }
+  }
+
+  void close_callback(event_manager *ev, uint64_t pfd,
+                      int op_res_now) override {
+    if (op_res_now < 0) {
+      std::cout << "close errored with: " << op_res_now << "\n";
+      // if errored and also not LIVING then shutdown the socket properly just
+      // in case
+      if (ev->get_living_state() > event_manager::living_state::LIVING) {
+        ev->shutdown_and_close_normally(pfd);
+      }
+
+      return;
+    }
+
+    std::cout << "pfd closed: " << pfd << "\n";
+  }
+};
 
 #endif

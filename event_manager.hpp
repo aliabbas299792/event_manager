@@ -56,27 +56,30 @@ struct processed_data {
   }
 };
 
-struct event_manager_callbacks {
-  void (*accept_cb)(event_manager *ev, int listener_pfd,
-                    sockaddr_storage *user_data, socklen_t size, uint64_t pfd,
-                    int op_res_now);
-  void (*read_cb)(event_manager *ev, processed_data read_metadata,
-                  uint64_t pfd);
-  void (*write_cb)(event_manager *ev, processed_data write_metadata,
-                   uint64_t pfd);
-  void (*event_cb)(event_manager *ev, uint64_t additional_info, int pfd,
-                   int op_res_now);
-  void (*shutdown_cb)(event_manager *ev, int how, uint64_t pfd, int op_res_now);
-  void (*close_cb)(event_manager *ev, uint64_t pfd, int op_res_now);
+// inherit from this for this interface
+class server_methods {
+public:
+  virtual void accept_callback(event_manager *ev, int listener_pfd,
+                               sockaddr_storage *user_data, socklen_t size,
+                               uint64_t pfd, int op_res_now) {}
+  virtual void read_callback(event_manager *ev, processed_data read_metadata,
+                             uint64_t pfd) {}
+  virtual void write_callback(event_manager *ev, processed_data write_metadata,
+                              uint64_t pfd) {}
+  virtual void event_callback(event_manager *ev, uint64_t additional_info,
+                              int pfd, int op_res_now) {}
+  virtual void shutdown_callback(event_manager *ev, int how, uint64_t pfd,
+                                 int op_res_now) {}
+  virtual void close_callback(event_manager *ev, uint64_t pfd, int op_res_now) {
+  }
+
+  virtual ~server_methods() = default;
 };
 
 class event_manager {
 public:
   enum living_state { LIVING = 0, DYING, DYING_CANCELLING_REQS, DEAD };
   living_state get_living_state() { return manager_life_state; }
-
-  // any data that the user of this class can attach to it
-  void *custom_user_obj{};
 
 private:
   static int shared_ring_fd;
@@ -90,7 +93,7 @@ private:
 
   uint16_t max_current_id{};
   std::vector<int> fd_id_map{}; // used to verify if an fd has been reassigned
-  event_manager_callbacks callbacks{};
+  server_methods *callbacks{};
 
   int kill_pfd = -1; // initialised later
 private:
@@ -101,8 +104,8 @@ private:
   int pfd_make(int fd, fd_types type);
   void pfd_free(int pfd);
 
-  int submit_cancel_request_by_fd(int pfd);
-  int queue_cancel_request_by_fd(int pfd); // used to cancel in flight requests
+  int submit_cancel_request_by_pfd(int pfd);
+  int queue_cancel_request_by_pfd(int pfd); // used to cancel in flight requests
   int end_stage_num_to_cancel{}; // only set when manager_life_state ==
                                  // living_state::DEAD, used to cancel all
                                  // requests
@@ -125,7 +128,7 @@ public:
   event_manager();
   void start();
   void kill();
-  void set_callbacks(event_manager_callbacks callbacks);
+  void set_server_methods(server_methods *callbacks);
   const pfd_data &get_pfd_data(int pfd) { return pfd_to_data[pfd]; }
 
   // eventfd methods
