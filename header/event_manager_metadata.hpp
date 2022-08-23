@@ -6,6 +6,7 @@
 
 #include "events_enum.hpp"
 
+// how many items can be in the submission queue at once
 constexpr int QUEUE_DEPTH = 256;
 
 enum fd_types : uint16_t { // 1 byte enum
@@ -34,6 +35,8 @@ struct pfd_data {
   // the ID number could be the same as well, but unlikely
   // if you just set it to previous max value + 1
   int fd;
+  // how many in flight requests there are
+  int submitted_reqs{};
 };
 
 #endif

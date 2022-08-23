@@ -106,7 +106,19 @@ int event_manager::submit_all_queued_sqes() {
     return -1;
   }
 
-  return io_uring_submit(&ring);
+  int res = io_uring_submit(&ring);
+
+  current_num_of_queued_sqes = 0; // all are submitted
+
+  return res;
+}
+
+int event_manager::submit_all_queued_sqes_privately() {
+  int res = io_uring_submit(&ring);
+
+  current_num_of_queued_sqes = 0; // all are submitted
+
+  return res;
 }
 
 int event_manager::submit_read(int pfd, uint8_t *buffer, size_t length) {
@@ -172,7 +184,10 @@ int event_manager::queue_event_read(int pfd, uint64_t additional_info,
     return -1;
   }
 
-  auto fd = pfd_to_data[pfd].fd;
+  auto &pfd_info = pfd_to_data[pfd];
+  auto fd = pfd_info.fd;
+
+  pfd_info.submitted_reqs++;
 
   io_uring_sqe *sqe =
       io_uring_get_sqe(&ring); // get a valid SQE (correct index and all)
@@ -191,6 +206,8 @@ int event_manager::queue_event_read(int pfd, uint64_t additional_info,
   io_uring_prep_read(sqe, fd, data->buffer, sizeof(uint64_t),
                      0); // don't read at an offset
   io_uring_sqe_set_data(sqe, data);
+
+  current_num_of_queued_sqes++;
 
   return 0;
 }
@@ -211,7 +228,10 @@ int event_manager::queue_read(int pfd, uint8_t *buffer, size_t length) {
     return -1;
   }
 
-  auto fd = pfd_to_data[pfd].fd;
+  auto &pfd_info = pfd_to_data[pfd];
+  auto fd = pfd_info.fd;
+
+  pfd_info.submitted_reqs++;
 
   auto data = new request_data();
   data->buffer = buffer;
@@ -228,6 +248,8 @@ int event_manager::queue_read(int pfd, uint8_t *buffer, size_t length) {
   io_uring_prep_read(sqe, fd, buffer, length, 0);
   io_uring_sqe_set_data(sqe, data);
 
+  current_num_of_queued_sqes++;
+
   return 0;
 }
 
@@ -238,7 +260,10 @@ int event_manager::queue_write(int pfd, uint8_t *buffer, size_t length) {
     return -1;
   }
 
-  auto fd = pfd_to_data[pfd].fd;
+  auto &pfd_info = pfd_to_data[pfd];
+  auto fd = pfd_info.fd;
+
+  pfd_info.submitted_reqs++;
 
   auto data = new request_data();
   data->buffer = buffer;
@@ -255,6 +280,8 @@ int event_manager::queue_write(int pfd, uint8_t *buffer, size_t length) {
   io_uring_prep_write(sqe, fd, buffer, length, 0);
   io_uring_sqe_set_data(sqe, data);
 
+  current_num_of_queued_sqes++;
+
   return 0;
 }
 
@@ -265,7 +292,10 @@ int event_manager::queue_accept(int pfd) {
     return -1;
   }
 
-  auto fd = pfd_to_data[pfd].fd;
+  auto &pfd_info = pfd_to_data[pfd];
+  auto fd = pfd_info.fd;
+
+  pfd_info.submitted_reqs++;
 
   auto data = new request_data();
   data->ev = events::ACCEPT;
@@ -285,6 +315,8 @@ int event_manager::queue_accept(int pfd) {
                        reinterpret_cast<uint32_t *>(&data->additional_info), 0);
   io_uring_sqe_set_data(sqe, data);
 
+  current_num_of_queued_sqes++;
+
   return 0;
 }
 
@@ -295,7 +327,10 @@ int event_manager::queue_shutdown(int pfd, int how) {
     return -1;
   }
 
-  auto fd = pfd_to_data[pfd].fd;
+  auto &pfd_info = pfd_to_data[pfd];
+  auto fd = pfd_info.fd;
+
+  pfd_info.submitted_reqs++;
 
   auto data = new request_data();
   data->ev = events::SHUTDOWN;
@@ -311,6 +346,8 @@ int event_manager::queue_shutdown(int pfd, int how) {
   io_uring_prep_shutdown(sqe, fd, how);
   io_uring_sqe_set_data(sqe, data);
 
+  current_num_of_queued_sqes++;
+
   return 0;
 }
 
@@ -321,7 +358,10 @@ int event_manager::queue_close(int pfd) {
     return -1;
   }
 
-  auto fd = pfd_to_data[pfd].fd;
+  auto &pfd_info = pfd_to_data[pfd];
+  auto fd = pfd_info.fd;
+
+  pfd_info.submitted_reqs++;
 
   auto data = new request_data();
   data->ev = events::CLOSE;
@@ -335,6 +375,8 @@ int event_manager::queue_close(int pfd) {
 
   io_uring_prep_close(sqe, fd);
   io_uring_sqe_set_data(sqe, data);
+
+  current_num_of_queued_sqes++;
 
   return 0;
 }
@@ -369,6 +411,27 @@ void event_manager::start() {
   }
 }
 
+int event_manager::submit_cancel_request_by_fd(int pfd) {
+  if(queue_cancel_request_by_fd(pfd) == -1){
+    return -2;
+  }
+  return submit_all_queued_sqes();
+}
+
+int event_manager::queue_cancel_request_by_fd(int pfd) {
+  auto sqe = io_uring_get_sqe(&ring);
+
+  if (sqe == nullptr) {
+    return -1;
+  }
+
+  // IORING_ASYNC_CANCEL_FD cancels any request matching that fd
+  io_uring_prep_cancel(sqe, nullptr, IORING_ASYNC_CANCEL_FD);
+  sqe->fd = pfd_to_data[pfd].fd; // use this fd to cancel request
+
+  return 0;
+}
+
 void event_manager::await_single_message() {
   io_uring_cqe *cqe;
   int ret = io_uring_wait_cqe(&ring, &cqe);
@@ -377,7 +440,7 @@ void event_manager::await_single_message() {
     perror("io_uring_wait_cqe");
   }
   if (cqe->res < 0) {
-    std::cerr << "\t(io_uring request failure)\n";
+    std::cerr << "\t(io_uring request failure with code: " << cqe->res << ")\n";
   }
 
   auto req_data = reinterpret_cast<request_data *>(io_uring_cqe_get_data(cqe));
@@ -390,19 +453,31 @@ void event_manager::await_single_message() {
       living_state::DYING) { // clean up all resources if killed
     // submit anything in the queue first, not using helper function since in
     // DYING state
-    io_uring_submit(&ring);
 
-    auto sqe = io_uring_get_sqe(&ring);
-    auto data = new request_data();
-    data->ev = events::KILL_COMPLETE;
+    for(size_t i = 0; i < pfd_to_data.size(); i++) {
+      if(!pfd_freed_pfds.contains(i)) {
+        queue_cancel_request_by_fd(i);
 
-    // IORING_ASYNC_CANCEL_ANY cancels any request
-    io_uring_prep_cancel(sqe, data, IORING_ASYNC_CANCEL_ANY);
-    io_uring_sqe_set_data(sqe, data);
+        end_stage_num_to_cancel += pfd_to_data[i].submitted_reqs;
+      }
 
-    // now submit this final request, not using helper function since in DYING
-    // state
-    io_uring_submit(&ring);
+      // don't queue more than can be fit in the queue
+      if(current_num_of_queued_sqes >= QUEUE_DEPTH) {
+        submit_all_queued_sqes_privately();
+      }
+    }
+
+    // submit any which haven't been submitted yet
+    submit_all_queued_sqes_privately();
+
+    std::cout << "\t\t\t\t\t\t\tnum to cancel: " << end_stage_num_to_cancel << "\n";
+
+    // not dead but not just dying
+    if(end_stage_num_to_cancel != 0){
+      manager_life_state = living_state::DYING_CANCELLING_REQS;
+    } else {
+      manager_life_state = living_state::DEAD; // nothing left to cancel, we're done
+    }
   }
 
   if (manager_life_state == living_state::DEAD) {
@@ -413,16 +488,49 @@ void event_manager::await_single_message() {
   }
 }
 
-void event_manager::event_handler(int res, request_data *req_data) {
-  auto pfd = pfd_to_data[req_data->pfd];
+int event_manager::get_num_queued_sqes() const {
+  return current_num_of_queued_sqes;
+}
 
-  if ((uint64_t)pfd.fd < fd_id_map.size() && fd_id_map[pfd.fd] != pfd.id) {
+void event_manager::event_handler(int res, request_data *req_data) {
+  if(req_data == nullptr) { // don't have anything to process for requests with no data
+    return;
+  }
+
+  auto &pfd_info = pfd_to_data[req_data->pfd];
+
+  if(manager_life_state == living_state::DYING_CANCELLING_REQS) {
+    end_stage_num_to_cancel--;
+
+    if(end_stage_num_to_cancel == 0) {
+      manager_life_state = living_state::DEAD;
+    }
+  }
+
+  if ((uint64_t)pfd_info.fd < fd_id_map.size() &&
+      fd_id_map[pfd_info.fd] != pfd_info.id) {
     // the pfd id is compared with the id stored in the fd_id_map, must be same
     // for this request to be valid
     if (callbacks.close_cb != nullptr) {
       callbacks.close_cb(this, req_data->pfd);
     }
+
+    // clean up resources
+    switch (req_data->ev) {
+    case events::ACCEPT:
+      free(req_data->buffer); // free the sockaddr_storage
+      break;
+    case events::EVENT:
+      free(req_data->buffer); // allocated in the queue_event_read function
+      break;
+    default:
+      break;
+    }
+
+    return;
   }
+
+  pfd_info.submitted_reqs--; // a request for this pfd is no longer active now
 
   switch (req_data->ev) {
   case events::WRITE: {
@@ -494,8 +602,5 @@ void event_manager::event_handler(int res, request_data *req_data) {
     manager_life_state = living_state::DYING;
     break;
   }
-  case events::KILL_COMPLETE:
-    manager_life_state = living_state::DEAD;
-    break;
   }
 }

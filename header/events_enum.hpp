@@ -8,8 +8,7 @@ enum class events {
   SHUTDOWN,
   CLOSE,
   EVENT,
-  KILL = 998,
-  KILL_COMPLETE
+  KILL = 998
 };
 
 #endif

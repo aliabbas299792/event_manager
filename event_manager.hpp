@@ -72,7 +72,7 @@ struct event_manager_callbacks {
 
 class event_manager {
 public:
-  enum living_state { LIVING, DYING, DEAD };
+  enum living_state { LIVING, DYING, DYING_CANCELLING_REQS, DEAD };
   living_state get_living_state() { return manager_life_state; }
 
 private:
@@ -82,6 +82,8 @@ private:
 
   io_uring ring{};
   living_state manager_life_state = LIVING;
+
+  int current_num_of_queued_sqes{};
 
   uint16_t max_current_id{};
   std::vector<int> fd_id_map{}; // used to verify if an fd has been reassigned
@@ -95,6 +97,11 @@ private:
   std::unordered_set<int> pfd_freed_pfds{};
   int pfd_make(int fd, fd_types type);
   void pfd_free(int pfd);
+
+  int submit_cancel_request_by_fd(int pfd);
+  int queue_cancel_request_by_fd(int pfd); // used to cancel in flight requests
+  int end_stage_num_to_cancel{}; // only set when manager_life_state == living_state::DEAD, used to cancel all requests
+  int submit_all_queued_sqes_privately(); // submit_all_queued_sqes but for when shutting down
 
 private:
   void await_single_message();
@@ -148,6 +155,8 @@ public:
   int queue_accept(int pfd);
   int queue_shutdown(int pfd, int how);
   int queue_close(int pfd);
+
+  int get_num_queued_sqes() const;
 };
 
 #endif
