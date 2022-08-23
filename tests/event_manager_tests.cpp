@@ -1,4 +1,5 @@
 #include "test_functions.hpp"
+#include <chrono>
 
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "../vendor/doctest/doctest/doctest.h"
@@ -11,8 +12,11 @@ TEST_CASE("event manager full tests") {
   //     queue_write, close_pfd (but not submit_close/queue_close)
   // as a result of this, start() should work since it is just
   // await_single_message in a loop
-  SUBCASE("writing a new file, stat/fstat contents, read contents and check "
-          "that too") {
+  // some stuff which is harder to test without adding debug code into the library is just printed to the console
+
+  SUBCASE("writing a new file, stat/fstat contents, read contents and check that too") {
+    std::cout << "\033[1;31mwriting a new file, stat/fstat contents, read contents and check that too\033[0m\n";
+
     event_manager ev{};
 
     std::thread t([&]() { ev.start(); });
@@ -56,9 +60,11 @@ TEST_CASE("event manager full tests") {
 
     ev.kill();
     t.join();
+    std::cout << "\033[1;32mwriting a new file, stat/fstat contents, read contents and check that too finished\033[0m\n\n\n";
   }
 
   SUBCASE("network operations") {
+    std::cout << "\033[1;31mnetwork operations\033[0m\n";
     event_manager ev{};
 
     event_manager_callbacks ev_cbs{};
@@ -78,7 +84,7 @@ TEST_CASE("event manager full tests") {
 
     std::cout << tmp_listener << " ## \n";
 
-    int sockfd = connect_to_local_test_server();
+    int sockfd = connect_to_local_test_server("4000");
     REQUIRE(sockfd >= 0);
 
     REQUIRE(write(sockfd, text_message.c_str(), text_message.size()) >= 0);
@@ -95,12 +101,53 @@ TEST_CASE("event manager full tests") {
     // end of file)
     REQUIRE(read(sockfd, read_buff, 1) == 0);
 
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+
     ev.kill(); // kill the server to exit
 
     t.join();
+    std::cout << "\033[1;32mnetwork operations finished\033[0m\n\n\n";
+  }
+
+  SUBCASE("network operations but don't shutdown the socket") {
+    std::cout << "\033[1;31mnetwork operations but don't shutdown the socket\033[0m\n";
+    event_manager ev{};
+
+    event_manager_callbacks ev_cbs{};
+    ev_cbs.accept_cb = test_accept_callback;
+    ev_cbs.read_cb = test_read_callback;
+    ev_cbs.write_cb = test_write_callback_without_shutdown;
+    ev_cbs.shutdown_cb = test_shutdown_callback;
+    ev_cbs.close_cb = test_close_callback;
+    ev_cbs.event_cb = test_event_callback;
+    ev.set_callbacks(ev_cbs);
+
+    std::thread t([&]() { ev.start(); });
+
+    int tmp_listener = test_setup_listener_get_pfd(4001, &ev);
+    REQUIRE(tmp_listener >= 0);
+    REQUIRE(ev.submit_accept(tmp_listener) == 1);
+
+    std::cout << tmp_listener << " ## \n";
+
+    int sockfd = connect_to_local_test_server("4001");
+    REQUIRE(sockfd >= 0);
+
+    if(sockfd >= 0) {
+
+    REQUIRE(write(sockfd, text_message.c_str(), text_message.size()) >= 0);
+
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+
+    ev.kill(); // kill the server to exit
+
+    t.join();
+    }
+    std::cout << "\033[1;32mnetwork operations but don't shutdown the socket finished\033[0m\n\n\n";
   }
 
   SUBCASE("event callbacks") {
+    std::cout << "\033[1;31mevent callbacks\033[0m\n";
     event_manager ev{};
 
     event_manager_callbacks ev_cbs{};
@@ -118,5 +165,6 @@ TEST_CASE("event manager full tests") {
     ev.kill();
 
     t.join();
+    std::cout << "\033[1;32mevent callbacks finished\033[0m\n\n\n";
   }
 }
