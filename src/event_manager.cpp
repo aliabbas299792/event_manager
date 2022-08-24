@@ -391,11 +391,6 @@ int event_manager::queue_close(int pfd) {
 }
 
 event_manager::event_manager(server_methods *callbacks) {
-  if(callbacks == nullptr) {
-    std::cerr << "Server methods callbacks must be set (" << __FUNCTION__ << ": " << __LINE__ << "\n";
-    std::exit(-1);
-  }
-
   this->callbacks = callbacks;
 
   kill_pfd = create_event_fd_normally(); // initialised
@@ -421,7 +416,16 @@ event_manager::event_manager(server_methods *callbacks) {
       events::KILL); // to ensure the system responds to the kill() command
 }
 
+void event_manager::set_server_methods(server_methods *callbacks) {
+  this->callbacks = callbacks;
+}
+
 void event_manager::start() {
+  if(callbacks == nullptr) {
+    std::cerr << "Server methods callbacks must be set (" << __FUNCTION__ << ": " << __LINE__ << "\n";
+    std::exit(-1);
+  }
+
   while (manager_life_state != living_state::DEAD) {
     await_single_message();
   }

@@ -21,8 +21,8 @@ TEST_CASE("event manager full tests") {
                  "contents and check that too\033[0m\n";
 
     server_methods sm{}; // no callbacks set
-
-    event_manager ev{&sm};
+    event_manager ev{};
+    ev.set_server_methods(&sm);
 
     std::thread t([&]() { ev.start(); });
 
