@@ -27,15 +27,11 @@ TEST_CASE("event manager full tests") {
     std::thread t([&]() { ev.start(); });
 
     std::string filename = "test.txt";
-    std::string data =
-        "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi et "
-        "ipsum pellentesque, vestibulum dolor sed, egestas nibh.\n";
+    std::string data = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi et "
+                       "ipsum pellentesque, vestibulum dolor sed, egestas nibh.\n";
 
-    auto new_file_pfd =
-        ev.open_get_pfd_normally(filename.c_str(), O_WRONLY | O_CREAT, 0666);
-    REQUIRE(ev.submit_write(new_file_pfd,
-                            reinterpret_cast<uint8_t *>(data.data()),
-                            data.length()) == 1);
+    auto new_file_pfd = ev.open_get_pfd_normally(filename.c_str(), O_WRONLY | O_CREAT, 0666);
+    REQUIRE(ev.submit_write(new_file_pfd, reinterpret_cast<uint8_t *>(data.data()), data.length()) == 1);
     // == 1 above since should have submitted 1 sqe
 
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -51,8 +47,7 @@ TEST_CASE("event manager full tests") {
 
     auto that_file_pfd = ev.open_get_pfd_normally(filename.c_str(), O_RDONLY);
     char buff[1024];
-    REQUIRE(ev.submit_read(that_file_pfd, reinterpret_cast<uint8_t *>(&buff[0]),
-                           sizeof(buff)) == 1);
+    REQUIRE(ev.submit_read(that_file_pfd, reinterpret_cast<uint8_t *>(&buff[0]), sizeof(buff)) == 1);
     // == 1 above since should have submitted 1 sqe
 
     std::this_thread::sleep_for(std::chrono::milliseconds(100));

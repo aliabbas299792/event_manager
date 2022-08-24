@@ -5,26 +5,18 @@
 
 class test_server : public server_methods {
 public:
-  void write_callback(event_manager *ev, processed_data write_metadata,
-                      uint64_t pfd) override {
-    auto length =
-        write_metadata.amount_processed_before + write_metadata.op_res_num;
+  void write_callback(event_manager *ev, processed_data write_metadata, uint64_t pfd) override {
+    auto length = write_metadata.amount_processed_before + write_metadata.op_res_num;
     std::cout << "Wrote " << length << " bytes of data, the data was: "
-              << std::string(reinterpret_cast<char *>(write_metadata.buff),
-                             length)
-              << "\n";
+              << std::string(reinterpret_cast<char *>(write_metadata.buff), length) << "\n";
   }
 
-  void read_callback(event_manager *ev, processed_data read_metadata,
-                     uint64_t pfd) override {
+  void read_callback(event_manager *ev, processed_data read_metadata, uint64_t pfd) override {
     if (read_metadata.op_res_num > 0) {
-      auto length =
-          read_metadata.amount_processed_before + read_metadata.op_res_num;
+      auto length = read_metadata.amount_processed_before + read_metadata.op_res_num;
 
       std::cout << "Read " << length << " bytes of data, the data was: "
-                << std::string(reinterpret_cast<char *>(read_metadata.buff),
-                               length)
-                << "\n";
+                << std::string(reinterpret_cast<char *>(read_metadata.buff), length) << "\n";
     }
   }
 };
@@ -36,18 +28,15 @@ int main() {
   std::thread t1([&]() { ev.start(); });
 
   std::string filename = "test.txt";
-  std::string data =
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi et ipsum "
-      "pellentesque, vestibulum dolor sed, egestas nibh.\n";
+  std::string data = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi et ipsum "
+                     "pellentesque, vestibulum dolor sed, egestas nibh.\n";
 
   char write_buff[data.size()];
   data.copy(write_buff, data.size());
 
-  auto new_file_pfd =
-      ev.open_get_pfd_normally(filename.c_str(), O_WRONLY | O_CREAT, 0666);
+  auto new_file_pfd = ev.open_get_pfd_normally(filename.c_str(), O_WRONLY | O_CREAT, 0666);
 
-  ev.submit_write(new_file_pfd, reinterpret_cast<uint8_t *>(write_buff),
-                  data.length());
+  ev.submit_write(new_file_pfd, reinterpret_cast<uint8_t *>(write_buff), data.length());
   // == 1 above since should have submitted 1 sqe
 
   std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -62,8 +51,7 @@ int main() {
   auto that_file_pfd = ev.open_get_pfd_normally(filename.c_str(), O_RDONLY);
   char buff[1024];
 
-  ev.submit_read(that_file_pfd, reinterpret_cast<uint8_t *>(&buff[0]),
-                 sizeof(buff));
+  ev.submit_read(that_file_pfd, reinterpret_cast<uint8_t *>(&buff[0]), sizeof(buff));
   // == 1 above since should have submitted 1 sqe
 
   std::this_thread::sleep_for(std::chrono::milliseconds(100));

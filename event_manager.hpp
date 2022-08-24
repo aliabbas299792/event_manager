@@ -47,8 +47,7 @@ struct processed_data {
 
   processed_data() {}
 
-  processed_data(uint8_t *buff, size_t amount_processed_before, int op_res_num,
-                 size_t length) {
+  processed_data(uint8_t *buff, size_t amount_processed_before, int op_res_num, size_t length) {
     this->buff = buff;
     this->amount_processed_before = amount_processed_before;
     this->op_res_num = op_res_num;
@@ -59,19 +58,13 @@ struct processed_data {
 // inherit from this for this interface
 class server_methods {
 public:
-  virtual void accept_callback(event_manager *ev, int listener_pfd,
-                               sockaddr_storage *user_data, socklen_t size,
-                               uint64_t pfd, int op_res_num) {}
-  virtual void read_callback(event_manager *ev, processed_data read_metadata,
-                             uint64_t pfd) {}
-  virtual void write_callback(event_manager *ev, processed_data write_metadata,
-                              uint64_t pfd) {}
-  virtual void event_callback(event_manager *ev, uint64_t additional_info,
-                              int pfd, int op_res_num) {}
-  virtual void shutdown_callback(event_manager *ev, int how, uint64_t pfd,
-                                 int op_res_num) {}
-  virtual void close_callback(event_manager *ev, uint64_t pfd, int op_res_num) {
-  }
+  virtual void accept_callback(event_manager *ev, int listener_pfd, sockaddr_storage *user_data,
+                               socklen_t size, uint64_t pfd, int op_res_num) {}
+  virtual void read_callback(event_manager *ev, processed_data read_metadata, uint64_t pfd) {}
+  virtual void write_callback(event_manager *ev, processed_data write_metadata, uint64_t pfd) {}
+  virtual void event_callback(event_manager *ev, uint64_t additional_info, int pfd, int op_res_num) {}
+  virtual void shutdown_callback(event_manager *ev, int how, uint64_t pfd, int op_res_num) {}
+  virtual void close_callback(event_manager *ev, uint64_t pfd, int op_res_num) {}
 
   virtual ~server_methods() = default;
 };
@@ -106,11 +99,11 @@ private:
 
   int submit_cancel_request_by_pfd(int pfd);
   int queue_cancel_request_by_pfd(int pfd); // used to cancel in flight requests
-  int end_stage_num_to_cancel{}; // only set when manager_life_state ==
-                                 // living_state::DEAD, used to cancel all
-                                 // requests
-  int submit_all_queued_sqes_privately(); // submit_all_queued_sqes but for when
-                                          // shutting down
+  int end_stage_num_to_cancel{};            // only set when manager_life_state ==
+                                            // living_state::DEAD, used to cancel all
+                                            // requests
+  int submit_all_queued_sqes_privately();   // submit_all_queued_sqes but for when
+                                            // shutting down
 
 private:
   void await_single_message();
@@ -125,7 +118,7 @@ public:
   // socket(...)), but gives back a pfd (pseudo fd) rather than an actual fd
 
   // methods for managing the class/class data
-  event_manager() : event_manager(nullptr) {};
+  event_manager() : event_manager(nullptr){};
   event_manager(server_methods *callbacks);
   void start();
   void kill();
@@ -137,8 +130,7 @@ public:
   int queue_generic_event(int pfd, uint64_t additional_info);
   int create_event_fd_normally();
   int event_alert_normally(int pfd);
-  void shutdown_and_close_normally(
-      int pfd); // avoid this unless you really need to use it
+  void shutdown_and_close_normally(int pfd); // avoid this unless you really need to use it
   // i.e this is specifically dealing with when the event manager is
   // DYING/DYING_DYING_CANCELLING_REQS/DEAD
 

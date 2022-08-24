@@ -10,10 +10,9 @@
 #include <netdb.h>
 #include <netinet/tcp.h>
 
-const std::string text_message =
-    "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus "
-    "iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget "
-    "neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis.";
+const std::string text_message = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus "
+                                 "iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget "
+                                 "neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis.";
 const std::string text_message_2 =
     "Cras lorem quam, interdum sit amet sem a, congue blandit urna. Lorem "
     "ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis "
@@ -21,40 +20,39 @@ const std::string text_message_2 =
     "quam. Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, "
     "ultrices sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget "
     "volutpat. Cras lorem quam, interdum sit amet sem a, congue blandit urna.";
-const std::string long_message =
-    "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus "
-    "iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget "
-    "neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis, sed "
-    "convallis ante rutrum. Nam facilisis massa leo, quis hendrerit nisi "
-    "accumsan et. Praesent id orci nec lorem varius elementum eu eget purus. "
-    "Nullam laoreet suscipit leo sit amet sodales. Mauris non nibh sit amet "
-    "est faucibus ullamcorper. Maecenas imperdiet velit ut blandit semper. "
-    "Proin ultrices luctus nulla eleifend pharetra. Vivamus ac feugiat quam. "
-    "Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices "
-    "sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. "
-    "Cras lorem quam, interdum sit amet sem a, congue blandit urna. Lorem "
-    "ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis "
-    "felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu "
-    "diam lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis "
-    "ante rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. "
-    "Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet "
-    "suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus "
-    "ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices "
-    "luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus "
-    "venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio "
-    "vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem "
-    "quam, interdum sit amet sem a, congue blandit urna. Lorem ipsum dolor sit "
-    "amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut "
-    "faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam "
-    "lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis ante "
-    "rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. "
-    "Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet "
-    "suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus "
-    "ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices "
-    "luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus "
-    "venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio "
-    "vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem "
-    "quam, interdum sit amet sem a, congue blandit urna.";
+const std::string long_message = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus "
+                                 "iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget "
+                                 "neque eu diam lobortis sodales. Nam gravida nisl in lacus convallis, sed "
+                                 "convallis ante rutrum. Nam facilisis massa leo, quis hendrerit nisi "
+                                 "accumsan et. Praesent id orci nec lorem varius elementum eu eget purus. "
+                                 "Nullam laoreet suscipit leo sit amet sodales. Mauris non nibh sit amet "
+                                 "est faucibus ullamcorper. Maecenas imperdiet velit ut blandit semper. "
+                                 "Proin ultrices luctus nulla eleifend pharetra. Vivamus ac feugiat quam. "
+                                 "Vivamus venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices "
+                                 "sed odio vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. "
+                                 "Cras lorem quam, interdum sit amet sem a, congue blandit urna. Lorem "
+                                 "ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus iaculis "
+                                 "felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu "
+                                 "diam lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis "
+                                 "ante rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. "
+                                 "Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet "
+                                 "suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus "
+                                 "ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices "
+                                 "luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus "
+                                 "venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio "
+                                 "vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem "
+                                 "quam, interdum sit amet sem a, congue blandit urna. Lorem ipsum dolor sit "
+                                 "amet, consectetur adipiscing elit. Quisque cursus iaculis felis ut "
+                                 "faucibus. Pellentesque sed eleifend ipsum. Aenean eget neque eu diam "
+                                 "lobortis sodales. Nam gravida nisl in lacus convallis, sed convallis ante "
+                                 "rutrum. Nam facilisis massa leo, quis hendrerit nisi accumsan et. "
+                                 "Praesent id orci nec lorem varius elementum eu eget purus. Nullam laoreet "
+                                 "suscipit leo sit amet sodales. Mauris non nibh sit amet est faucibus "
+                                 "ullamcorper. Maecenas imperdiet velit ut blandit semper. Proin ultrices "
+                                 "luctus nulla eleifend pharetra. Vivamus ac feugiat quam. Vivamus "
+                                 "venenatis auctor neque vel lacinia. Nulla lorem ipsum, ultrices sed odio "
+                                 "vel, mattis aliquet odio. Nam suscipit in lacus eget volutpat. Cras lorem "
+                                 "quam, interdum sit amet sem a, congue blandit urna.";
 
 constexpr int READ_SIZE = 4096;
 
@@ -69,41 +67,33 @@ inline int test_setup_listener_get_pfd(int port, event_manager *ev) {
   hints.ai_flags = AI_PASSIVE;     // use local IP
 
   int ret_addrinfo, ret_bind;
-  ret_addrinfo =
-      getaddrinfo(NULL, std::to_string(port).c_str(), &hints, &server_info);
+  ret_addrinfo = getaddrinfo(NULL, std::to_string(port).c_str(), &hints, &server_info);
 
-  for (traverser = server_info; traverser != NULL;
-       traverser = traverser->ai_next) {
+  for (traverser = server_info; traverser != NULL; traverser = traverser->ai_next) {
 
-    listener_pfd = ev->socket_create_normally(
-        traverser->ai_family, traverser->ai_socktype, traverser->ai_protocol);
+    listener_pfd =
+        ev->socket_create_normally(traverser->ai_family, traverser->ai_socktype, traverser->ai_protocol);
     listener_fd = ev->get_pfd_data(listener_pfd).fd;
     setsockopt(listener_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
     setsockopt(listener_fd, SOL_SOCKET, SO_REUSEPORT, &yes, sizeof(yes));
     setsockopt(listener_fd, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(yes));
-    int keep_idle =
-        100; // The time (in seconds) the connection needs to remain idle before
-             // TCP starts sending keepalive probes, if the socket option
-             // SO_KEEPALIVE has been set on this socket.  This option should
-             // not be used in code intended to be portable.
-    setsockopt(listener_fd, IPPROTO_TCP, TCP_KEEPIDLE, &keep_idle,
-               sizeof(keep_idle));
-    int keep_interval =
-        100; // The time (in seconds) between individual keepalive probes. This
-             // option should not be used in code intended to be portable.
-    setsockopt(listener_fd, IPPROTO_TCP, TCP_KEEPINTVL, &keep_interval,
-               sizeof(keep_interval));
+    int keep_idle = 100; // The time (in seconds) the connection needs to remain idle before
+                         // TCP starts sending keepalive probes, if the socket option
+                         // SO_KEEPALIVE has been set on this socket.  This option should
+                         // not be used in code intended to be portable.
+    setsockopt(listener_fd, IPPROTO_TCP, TCP_KEEPIDLE, &keep_idle, sizeof(keep_idle));
+    int keep_interval = 100; // The time (in seconds) between individual keepalive probes. This
+                             // option should not be used in code intended to be portable.
+    setsockopt(listener_fd, IPPROTO_TCP, TCP_KEEPINTVL, &keep_interval, sizeof(keep_interval));
     int keep_count = 5; // The maximum number of keepalive probes TCP should
                         // send before dropping the connection.  This option
                         // should not be used in code intended to be portable.
-    setsockopt(listener_fd, IPPROTO_TCP, TCP_KEEPCNT, &keep_count,
-               sizeof(keep_count));
+    setsockopt(listener_fd, IPPROTO_TCP, TCP_KEEPCNT, &keep_count, sizeof(keep_count));
     ret_bind = bind(listener_fd, traverser->ai_addr, traverser->ai_addrlen);
   }
 
   if (ret_addrinfo < 0 || ret_bind < 0) {
-    std::cerr << "addrinfo or bind failed: " << ret_addrinfo << " # "
-              << ret_bind << "\n";
+    std::cerr << "addrinfo or bind failed: " << ret_addrinfo << " # " << ret_bind << "\n";
     return -1;
   }
 
@@ -141,8 +131,7 @@ class test_server : public server_methods {
 public:
   bool write_callback_no_shutdown = false;
 
-  void accept_callback(event_manager *ev, int listener_pfd,
-                       sockaddr_storage *user_data, socklen_t size,
+  void accept_callback(event_manager *ev, int listener_pfd, sockaddr_storage *user_data, socklen_t size,
                        uint64_t pfd, int op_res_num) override {
     if (op_res_num < 0) {
       std::cout << "accept errored with: " << op_res_num << "\n";
@@ -165,8 +154,7 @@ public:
     ev->submit_all_queued_sqes();
   }
 
-  void read_callback(event_manager *ev, processed_data read_metadata,
-                     uint64_t pfd) override {
+  void read_callback(event_manager *ev, processed_data read_metadata, uint64_t pfd) override {
     if (read_metadata.op_res_num < 0) {
       std::cout << "read callback got res " << read_metadata.op_res_num << "\n";
       if (read_metadata.op_res_num == -ECONNREFUSED) {
@@ -194,14 +182,11 @@ public:
       return;
     }
 
-    size_t amount_read =
-        read_metadata.amount_processed_before + read_metadata.op_res_num;
+    size_t amount_read = read_metadata.amount_processed_before + read_metadata.op_res_num;
 
     std::cout << "Received message: \""
-              << std::string(reinterpret_cast<char *>(read_metadata.buff),
-                             amount_read)
-              << "\", length was " << amount_read << ", with pfd: " << pfd
-              << "\n";
+              << std::string(reinterpret_cast<char *>(read_metadata.buff), amount_read) << "\", length was "
+              << amount_read << ", with pfd: " << pfd << "\n";
 
     // these 5 requests aren't read in the main thread for one of the sockets,
     // but they are still cancelled
@@ -214,16 +199,13 @@ public:
 
     char *write_buff = new char[long_message.size()];
     std::memcpy(write_buff, text_message_2.c_str(), text_message_2.size());
-    ev->submit_write(pfd, reinterpret_cast<uint8_t *>(write_buff),
-                     text_message_2.size());
+    ev->submit_write(pfd, reinterpret_cast<uint8_t *>(write_buff), text_message_2.size());
   }
 
-  void write_callback(event_manager *ev, processed_data write_metadata,
-                      uint64_t pfd) override {
+  void write_callback(event_manager *ev, processed_data write_metadata, uint64_t pfd) override {
     if (write_callback_no_shutdown) {
       if (write_metadata.op_res_num < 0) {
-        std::cout << "write callback got res " << write_metadata.op_res_num
-                  << "\n";
+        std::cout << "write callback got res " << write_metadata.op_res_num << "\n";
         if (write_metadata.op_res_num == 111) {
           // deal with this
         }
@@ -238,19 +220,15 @@ public:
         return;
       }
 
-      size_t amount_read =
-          write_metadata.amount_processed_before + write_metadata.op_res_num;
+      size_t amount_read = write_metadata.amount_processed_before + write_metadata.op_res_num;
 
       std::cout << "Wrote message: \""
-                << std::string(reinterpret_cast<char *>(write_metadata.buff),
-                               amount_read)
-                << "\", length was " << amount_read << ", with pfd: " << pfd
-                << "\n";
+                << std::string(reinterpret_cast<char *>(write_metadata.buff), amount_read)
+                << "\", length was " << amount_read << ", with pfd: " << pfd << "\n";
       free(write_metadata.buff);
     } else {
       if (write_metadata.op_res_num < 0) {
-        std::cout << "write callback got res " << write_metadata.op_res_num
-                  << "\n";
+        std::cout << "write callback got res " << write_metadata.op_res_num << "\n";
         if (write_metadata.op_res_num == 111) {
           // deal with this
         }
@@ -265,22 +243,18 @@ public:
         return;
       }
 
-      size_t amount_read =
-          write_metadata.amount_processed_before + write_metadata.op_res_num;
+      size_t amount_read = write_metadata.amount_processed_before + write_metadata.op_res_num;
 
       std::cout << "Wrote message: \""
-                << std::string(reinterpret_cast<char *>(write_metadata.buff),
-                               amount_read)
-                << "\", length was " << amount_read << ", with pfd: " << pfd
-                << "\n";
+                << std::string(reinterpret_cast<char *>(write_metadata.buff), amount_read)
+                << "\", length was " << amount_read << ", with pfd: " << pfd << "\n";
       free(write_metadata.buff);
 
       ev->submit_shutdown(pfd, SHUT_RD);
     }
   }
 
-  void event_callback(event_manager *ev, uint64_t additional_info, int pfd,
-                      int op_res_num) override {
+  void event_callback(event_manager *ev, uint64_t additional_info, int pfd, int op_res_num) override {
     if (op_res_num < 0) {
       std::cout << "read event errored with: " << op_res_num << "\n";
       // if errored and also not LIVING then shutdown the socket properly just
@@ -292,12 +266,11 @@ public:
       return;
     }
 
-    std::cout << "received event signal for: " << pfd
-              << ", with additional info: " << additional_info << "\n";
+    std::cout << "received event signal for: " << pfd << ", with additional info: " << additional_info
+              << "\n";
   }
 
-  void shutdown_callback(event_manager *ev, int how, uint64_t pfd,
-                         int op_res_num) override {
+  void shutdown_callback(event_manager *ev, int how, uint64_t pfd, int op_res_num) override {
     if (op_res_num < 0) {
       std::cout << "shutdown errored with: " << op_res_num << "\n";
       // if errored and also not LIVING then shutdown the socket properly just
@@ -323,8 +296,7 @@ public:
     }
   }
 
-  void close_callback(event_manager *ev, uint64_t pfd,
-                      int op_res_num) override {
+  void close_callback(event_manager *ev, uint64_t pfd, int op_res_num) override {
     if (op_res_num < 0) {
       std::cout << "close errored with: " << op_res_num << "\n";
       // if errored and also not LIVING then shutdown the socket properly just
