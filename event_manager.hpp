@@ -42,16 +42,16 @@ struct request_data;
 struct processed_data {
   uint8_t *buff{};
   size_t amount_processed_before{};
-  int op_res_now{};
+  int op_res_num{};
   size_t length{}; // expected length
 
   processed_data() {}
 
-  processed_data(uint8_t *buff, size_t amount_processed_before, int op_res_now,
+  processed_data(uint8_t *buff, size_t amount_processed_before, int op_res_num,
                  size_t length) {
     this->buff = buff;
     this->amount_processed_before = amount_processed_before;
-    this->op_res_now = op_res_now;
+    this->op_res_num = op_res_num;
     this->length = length;
   }
 };
@@ -61,16 +61,16 @@ class server_methods {
 public:
   virtual void accept_callback(event_manager *ev, int listener_pfd,
                                sockaddr_storage *user_data, socklen_t size,
-                               uint64_t pfd, int op_res_now) {}
+                               uint64_t pfd, int op_res_num) {}
   virtual void read_callback(event_manager *ev, processed_data read_metadata,
                              uint64_t pfd) {}
   virtual void write_callback(event_manager *ev, processed_data write_metadata,
                               uint64_t pfd) {}
   virtual void event_callback(event_manager *ev, uint64_t additional_info,
-                              int pfd, int op_res_now) {}
+                              int pfd, int op_res_num) {}
   virtual void shutdown_callback(event_manager *ev, int how, uint64_t pfd,
-                                 int op_res_now) {}
-  virtual void close_callback(event_manager *ev, uint64_t pfd, int op_res_now) {
+                                 int op_res_num) {}
+  virtual void close_callback(event_manager *ev, uint64_t pfd, int op_res_num) {
   }
 
   virtual ~server_methods() = default;

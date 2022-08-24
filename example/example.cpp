@@ -8,7 +8,7 @@ public:
   void write_callback(event_manager *ev, processed_data write_metadata,
                       uint64_t pfd) override {
     auto length =
-        write_metadata.amount_processed_before + write_metadata.op_res_now;
+        write_metadata.amount_processed_before + write_metadata.op_res_num;
     std::cout << "Wrote " << length << " bytes of data, the data was: "
               << std::string(reinterpret_cast<char *>(write_metadata.buff),
                              length)
@@ -17,9 +17,9 @@ public:
 
   void read_callback(event_manager *ev, processed_data read_metadata,
                      uint64_t pfd) override {
-    if (read_metadata.op_res_now > 0) {
+    if (read_metadata.op_res_num > 0) {
       auto length =
-          read_metadata.amount_processed_before + read_metadata.op_res_now;
+          read_metadata.amount_processed_before + read_metadata.op_res_num;
 
       std::cout << "Read " << length << " bytes of data, the data was: "
                 << std::string(reinterpret_cast<char *>(read_metadata.buff),
