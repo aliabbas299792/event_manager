@@ -135,10 +135,8 @@ public:
   // DYING/DYING_DYING_CANCELLING_REQS/DEAD
 
   // file ops
-  int open_get_pfd_normally(const char *pathname,
-                            int flags); // flags are the same flags as open(2)
-  int open_get_pfd_normally(const char *pathname, int flags,
-                            int mode); // flags are the same flags as open(2)
+  int open_get_pfd_normally(const char *pathname, int flags);           // flags are the same flags as open(2)
+  int open_get_pfd_normally(const char *pathname, int flags, int mode); // flags are the same flags as open(2)
   int socket_create_normally(int domain, int type, int protocol);
   int unlink_normally(const char *name);
   int stat_normally(const char *path, struct stat *buf);
