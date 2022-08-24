@@ -152,8 +152,8 @@ public:
   int fstat_normally(int pfd, struct stat *buf);
 
   // generic fd submit ops (i.e calls submit_all_queues_sqes() immediately)
-  int submit_read(int pfd, uint8_t *buffer, size_t length);
-  int submit_write(int pfd, uint8_t *buffer, size_t length);
+  int submit_read(int pfd, uint8_t *buffer, size_t length, size_t offset_in_buffer = 0);
+  int submit_write(int pfd, uint8_t *buffer, size_t length, size_t offset_in_buffer = 0);
   int submit_accept(int pfd);
   int submit_shutdown(int pfd, int how);
   int submit_close(int pfd);
@@ -163,8 +163,8 @@ public:
 
   // generic fd queue ops (just queues data in the ring without submitting
   // anything)
-  int queue_read(int pfd, uint8_t *buffer, size_t length);
-  int queue_write(int pfd, uint8_t *buffer, size_t length);
+  int queue_read(int pfd, uint8_t *buffer, size_t length, size_t offset_in_buffer = 0);
+  int queue_write(int pfd, uint8_t *buffer, size_t length, size_t offset_in_buffer = 0);
   int queue_accept(int pfd);
   int queue_shutdown(int pfd, int how);
   int queue_close(int pfd);
