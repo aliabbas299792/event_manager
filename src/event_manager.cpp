@@ -1,5 +1,6 @@
 #include "../event_manager.hpp"
 #include "../header/event_manager_metadata.hpp"
+#include <cstdlib>
 #include <sys/socket.h>
 
 int event_manager::shared_ring_fd =
@@ -33,10 +34,6 @@ int event_manager::pfd_make(int fd, fd_types type) {
 }
 
 void event_manager::pfd_free(int pfd) { pfd_freed_pfds.insert(pfd); }
-
-void event_manager::set_server_methods(server_methods *callbacks) {
-  this->callbacks = callbacks;
-}
 
 void event_manager::kill() {
   uint64_t data = 1;
@@ -393,7 +390,14 @@ int event_manager::queue_close(int pfd) {
   return 0;
 }
 
-event_manager::event_manager() {
+event_manager::event_manager(server_methods *callbacks) {
+  if(callbacks == nullptr) {
+    std::cerr << "Server methods callbacks must be set (" << __FUNCTION__ << ": " << __LINE__ << "\n";
+    std::exit(-1);
+  }
+
+  this->callbacks = callbacks;
+
   kill_pfd = create_event_fd_normally(); // initialised
 
   std::unique_lock<std::mutex> init_lock(init_mutex);
@@ -526,9 +530,7 @@ void event_manager::event_handler(int res, request_data *req_data) {
     // the pfd id is compared with the id stored in the fd_id_map, must be same
     // for this request to be valid
 
-    if (callbacks != nullptr) {
-      callbacks->close_callback(this, req_data->pfd, res);
-    }
+    callbacks->close_callback(this, req_data->pfd, res);
 
     // clean up resources
     switch (req_data->ev) {
@@ -549,23 +551,19 @@ void event_manager::event_handler(int res, request_data *req_data) {
 
   switch (req_data->ev) {
   case events::WRITE: {
-    if (callbacks != nullptr) {
-      callbacks->write_callback(this,
-                                processed_data(req_data->buffer,
-                                               req_data->progress, res,
-                                               req_data->length),
-                                req_data->pfd);
-    }
+    callbacks->write_callback(this,
+                              processed_data(req_data->buffer,
+                                              req_data->progress, res,
+                                              req_data->length),
+                              req_data->pfd);
     break;
   }
   case events::READ: {
-    if (callbacks != nullptr) {
-      callbacks->read_callback(this,
-                               processed_data(req_data->buffer,
-                                              req_data->progress, res,
-                                              req_data->length),
-                               req_data->pfd);
-    }
+    callbacks->read_callback(this,
+                              processed_data(req_data->buffer,
+                                            req_data->progress, res,
+                                            req_data->length),
+                              req_data->pfd);
     break;
   }
   case events::ACCEPT: {
@@ -582,37 +580,30 @@ void event_manager::event_handler(int res, request_data *req_data) {
       fd_id_map[res] = id;
     }
 
-    if (callbacks != nullptr) {
-      callbacks->accept_callback(this, req_data->pfd, user_data,
-                                 req_data->additional_info, pfd_num, res);
-    }
+    callbacks->accept_callback(this, req_data->pfd, user_data,
+                                req_data->additional_info, pfd_num, res);
 
     free(user_data); // free the sockaddr_storage
     break;
   }
   case events::SHUTDOWN: {
-    if (callbacks != nullptr) {
-      // additional_data stores the "how" parameter for the shutdown call
-      callbacks->shutdown_callback(this, req_data->additional_info,
-                                   req_data->pfd, res);
-    }
+    // additional_data stores the "how" parameter for the shutdown call
+    callbacks->shutdown_callback(this, req_data->additional_info,
+                                  req_data->pfd, res);
 
     break;
   }
   case events::CLOSE: {
-    if (callbacks != nullptr) {
-      callbacks->close_callback(this, req_data->pfd, res);
-    }
+    callbacks->close_callback(this, req_data->pfd, res);
 
     pfd_free(req_data->pfd);
 
     break;
   }
   case events::EVENT: {
-    if (callbacks != nullptr) {
-      callbacks->event_callback(this, req_data->additional_info, req_data->pfd,
-                                res);
-    }
+    callbacks->event_callback(this, req_data->additional_info, req_data->pfd,
+                              res);
+
     free(req_data->buffer); // allocated in the queue_event_read function
     break;
   }

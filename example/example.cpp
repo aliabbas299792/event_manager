@@ -31,10 +31,7 @@ public:
 
 int main() {
   test_server t{};
-  event_manager ev{};
-
-  // setting the callbacks
-  ev.set_server_methods(&t);
+  event_manager ev{&t};
 
   std::thread t1([&]() { ev.start(); });
 

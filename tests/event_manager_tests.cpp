@@ -20,7 +20,9 @@ TEST_CASE("event manager full tests") {
     std::cout << "\033[1;31mwriting a new file, stat/fstat contents, read "
                  "contents and check that too\033[0m\n";
 
-    event_manager ev{};
+    server_methods sm{}; // no callbacks set
+
+    event_manager ev{&sm};
 
     std::thread t([&]() { ev.start(); });
 
@@ -71,9 +73,7 @@ TEST_CASE("event manager full tests") {
     std::cout << "\033[1;31mnetwork operations\033[0m\n";
 
     test_server t{};
-
-    event_manager ev{};
-    ev.set_server_methods(&t);
+    event_manager ev{&t};
 
     std::thread t1([&]() { ev.start(); });
 
@@ -114,9 +114,7 @@ TEST_CASE("event manager full tests") {
 
     test_server t{};
     t.write_callback_no_shutdown = true;
-
-    event_manager ev{};
-    ev.set_server_methods(&t);
+    event_manager ev{&t};
 
     std::thread t1([&]() { ev.start(); });
 
@@ -147,9 +145,7 @@ TEST_CASE("event manager full tests") {
     std::cout << "\033[1;31mevent callbacks\033[0m\n";
 
     test_server t{};
-
-    event_manager ev{};
-    ev.set_server_methods(&t);
+    event_manager ev{&t};
 
     std::thread t1([&]() { ev.start(); });
 

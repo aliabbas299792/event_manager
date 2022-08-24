@@ -125,10 +125,9 @@ public:
   // socket(...)), but gives back a pfd (pseudo fd) rather than an actual fd
 
   // methods for managing the class/class data
-  event_manager();
+  event_manager(server_methods *callbacks);
   void start();
   void kill();
-  void set_server_methods(server_methods *callbacks);
   const pfd_data &get_pfd_data(int pfd) { return pfd_to_data[pfd]; }
 
   // eventfd methods
