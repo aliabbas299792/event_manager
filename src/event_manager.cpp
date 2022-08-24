@@ -505,7 +505,10 @@ void event_manager::event_handler(int res, request_data *req_data) {
     // the pfd id is compared with the id stored in the fd_id_map, must be same
     // for this request to be valid
 
-    callbacks->close_callback(this, req_data->pfd, res);
+    // the close callback needn't be called here, since when this FD was replaced
+    // by a newer one, then the close callback must've already been called, and
+    // new resources unrelated to this iteration of the FD would be cleaned if it
+    // were called now
 
     // clean up resources
     switch (req_data->ev) {
