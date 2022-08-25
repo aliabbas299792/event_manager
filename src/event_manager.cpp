@@ -207,7 +207,8 @@ int event_manager::queue_event_read(int pfd, uint64_t additional_info, events ev
 
 int event_manager::close_pfd(int pfd) {
   auto pfd_stuff = pfd_to_data[pfd];
-  if (pfd_stuff.type == fd_types::LOCAL) {
+  // close normal fds normally
+  if (pfd_stuff.type == fd_types::LOCAL || pfd_stuff.type == fd_types::EVENT) {
     return close(pfd_stuff.fd);
   } else {
     return submit_close(pfd);
