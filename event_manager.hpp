@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
-#include <unordered_set>
+#include <set>
 
 #include <fcntl.h>
 #include <liburing.h>
@@ -93,7 +93,7 @@ private:
   // just for freeing/storing fd related data at a low index
   // so it is assumed, fd values are centered around 0
   std::vector<pfd_data> pfd_to_data{};
-  std::unordered_set<int> pfd_freed_pfds{};
+  std::set<int> pfd_freed_pfds{}; // sets are ordered so smallest element at start, which we want
   int pfd_make(int fd, fd_types type);
   void pfd_free(int pfd);
 
