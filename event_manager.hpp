@@ -57,12 +57,12 @@ struct processed_data {
 class server_methods {
 public:
   virtual void accept_callback(int listener_pfd, sockaddr_storage *user_data,
-                               socklen_t size, uint64_t pfd, int op_res_num) {}
-  virtual void read_callback(processed_data read_metadata, uint64_t pfd) {}
-  virtual void write_callback(processed_data write_metadata, uint64_t pfd) {}
-  virtual void event_callback(uint64_t additional_info, int pfd, int op_res_num) {}
-  virtual void shutdown_callback(int how, uint64_t pfd, int op_res_num) {}
-  virtual void close_callback(uint64_t pfd, int op_res_num) {}
+                               socklen_t size, uint64_t pfd, int op_res_num, uint64_t additional_info) {}
+  virtual void read_callback(processed_data read_metadata, uint64_t pfd, uint64_t additional_info) {}
+  virtual void write_callback(processed_data write_metadata, uint64_t pfd, uint64_t additional_info) {}
+  virtual void event_callback(int pfd, int op_res_num, uint64_t additional_info) {}
+  virtual void shutdown_callback(int how, uint64_t pfd, int op_res_num, uint64_t additional_info) {}
+  virtual void close_callback(uint64_t pfd, int op_res_num, uint64_t additional_info) {}
 
   virtual ~server_methods() = default;
 
@@ -143,22 +143,22 @@ public:
   int fstat_normally(int pfd, struct stat *buf);
 
   // generic fd submit ops (i.e calls submit_all_queues_sqes() immediately)
-  int submit_read(int pfd, uint8_t *buffer, size_t length);
-  int submit_write(int pfd, uint8_t *buffer, size_t length);
-  int submit_accept(int pfd);
-  int submit_shutdown(int pfd, int how);
-  int submit_close(int pfd);
+  int submit_read(int pfd, uint8_t *buffer, size_t length, int additional_info = 0);
+  int submit_write(int pfd, uint8_t *buffer, size_t length, int additional_info = 0);
+  int submit_accept(int pfd, int additional_info = 0);
+  int submit_shutdown(int pfd, int how, int additional_info = 0);
+  int submit_close(int pfd, int additional_info = 0);
   int submit_all_queued_sqes();
 
-  int close_pfd(int pfd);
+  int close_pfd(int pfd, int additional_info = 0);
 
   // generic fd queue ops (just queues data in the ring without submitting
   // anything)
-  int queue_read(int pfd, uint8_t *buffer, size_t length);
-  int queue_write(int pfd, uint8_t *buffer, size_t length);
-  int queue_accept(int pfd);
-  int queue_shutdown(int pfd, int how);
-  int queue_close(int pfd);
+  int queue_read(int pfd, uint8_t *buffer, size_t length, int additional_info = 0);
+  int queue_write(int pfd, uint8_t *buffer, size_t length, int additional_info = 0);
+  int queue_accept(int pfd, int additional_info = 0);
+  int queue_shutdown(int pfd, int how, int additional_info = 0);
+  int queue_close(int pfd, int additional_info = 0);
 
   int get_num_queued_sqes() const;
 };

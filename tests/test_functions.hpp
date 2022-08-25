@@ -132,7 +132,7 @@ public:
   bool write_callback_no_shutdown = false;
 
   void accept_callback(int listener_pfd, sockaddr_storage *user_data, socklen_t size,
-                       uint64_t pfd, int op_res_num) override {
+                       uint64_t pfd, int op_res_num, uint64_t additional_info) override {
     if (op_res_num < 0) {
       std::cout << "accept errored with: " << op_res_num << "\n";
       // if errored and also not LIVING then shutdown the socket properly just
@@ -154,7 +154,7 @@ public:
     ev->submit_all_queued_sqes();
   }
 
-  void read_callback(processed_data read_metadata, uint64_t pfd) override {
+  void read_callback(processed_data read_metadata, uint64_t pfd, uint64_t additional_info) override {
     if (read_metadata.op_res_num < 0) {
       std::cout << "read callback got res " << read_metadata.op_res_num << "\n";
       if (read_metadata.op_res_num == -ECONNREFUSED) {
@@ -202,7 +202,7 @@ public:
     ev->submit_write(pfd, reinterpret_cast<uint8_t *>(write_buff), text_message_2.size());
   }
 
-  void write_callback(processed_data write_metadata, uint64_t pfd) override {
+  void write_callback(processed_data write_metadata, uint64_t pfd, uint64_t additional_info) override {
     if (write_callback_no_shutdown) {
       if (write_metadata.op_res_num < 0) {
         std::cout << "write callback got res " << write_metadata.op_res_num << "\n";
@@ -254,7 +254,7 @@ public:
     }
   }
 
-  void event_callback(uint64_t additional_info, int pfd, int op_res_num) override {
+  void event_callback(int pfd, int op_res_num, uint64_t additional_info) override {
     if (op_res_num < 0) {
       std::cout << "read event errored with: " << op_res_num << "\n";
       // if errored and also not LIVING then shutdown the socket properly just
@@ -270,7 +270,7 @@ public:
               << "\n";
   }
 
-  void shutdown_callback(int how, uint64_t pfd, int op_res_num) override {
+  void shutdown_callback(int how, uint64_t pfd, int op_res_num, uint64_t additional_info) override {
     if (op_res_num < 0) {
       std::cout << "shutdown errored with: " << op_res_num << "\n";
       // if errored and also not LIVING then shutdown the socket properly just
@@ -296,7 +296,7 @@ public:
     }
   }
 
-  void close_callback(uint64_t pfd, int op_res_num) override {
+  void close_callback(uint64_t pfd, int op_res_num, uint64_t additional_info) override {
     if (op_res_num < 0) {
       std::cout << "close errored with: " << op_res_num << "\n";
       // if errored and also not LIVING then shutdown the socket properly just

@@ -5,13 +5,13 @@
 
 class test_server : public server_methods {
 public:
-  void write_callback(processed_data write_metadata, uint64_t pfd) override {
+  void write_callback(processed_data write_metadata, uint64_t pfd, uint64_t additional_info) override {
     size_t length = write_metadata.op_res_num;
     std::cout << "Wrote " << length << " bytes of data, the data was: "
               << std::string(reinterpret_cast<char *>(write_metadata.buff), length) << "\n";
   }
 
-  void read_callback(processed_data read_metadata, uint64_t pfd) override {
+  void read_callback(processed_data read_metadata, uint64_t pfd, uint64_t additional_info) override {
     if (read_metadata.op_res_num > 0) {
       size_t length = read_metadata.op_res_num;
 

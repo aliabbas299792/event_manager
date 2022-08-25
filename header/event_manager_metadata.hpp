@@ -22,6 +22,7 @@ struct request_data {
 
   uint8_t *buffer{};
   size_t length{};
+  uint64_t info{};
   uint64_t additional_info{};
 };
 

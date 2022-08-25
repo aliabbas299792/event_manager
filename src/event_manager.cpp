@@ -113,22 +113,22 @@ int event_manager::submit_all_queued_sqes_privately() {
   return res;
 }
 
-int event_manager::submit_read(int pfd, uint8_t *buffer, size_t length) {
-  if (queue_read(pfd, buffer, length) == -1) {
+int event_manager::submit_read(int pfd, uint8_t *buffer, size_t length, int additional_info) {
+  if (queue_read(pfd, buffer, length, additional_info) == -1) {
     return -2;
   }
   return submit_all_queued_sqes();
 }
 
-int event_manager::submit_write(int pfd, uint8_t *buffer, size_t length) {
-  if (queue_write(pfd, buffer, length) == -1) {
+int event_manager::submit_write(int pfd, uint8_t *buffer, size_t length, int additional_info) {
+  if (queue_write(pfd, buffer, length, additional_info) == -1) {
     return -2;
   }
   return submit_all_queued_sqes();
 }
 
-int event_manager::submit_accept(int pfd) {
-  if (queue_accept(pfd) == -1) {
+int event_manager::submit_accept(int pfd, int additional_info) {
+  if (queue_accept(pfd, additional_info) == -1) {
     return -2;
   }
   return submit_all_queued_sqes();
@@ -141,15 +141,15 @@ void event_manager::shutdown_and_close_normally(int pfd) {
   close(fd);
 }
 
-int event_manager::submit_shutdown(int pfd, int how) {
-  if (queue_shutdown(pfd, how) == -1) {
+int event_manager::submit_shutdown(int pfd, int how, int additional_info) {
+  if (queue_shutdown(pfd, how, additional_info) == -1) {
     return -2;
   }
   return submit_all_queued_sqes();
 }
 
-int event_manager::submit_close(int pfd) {
-  if (queue_close(pfd) == -1) {
+int event_manager::submit_close(int pfd, int additional_info) {
+  if (queue_close(pfd, additional_info) == -1) {
     return -2;
   }
   return submit_all_queued_sqes();
@@ -205,17 +205,20 @@ int event_manager::queue_event_read(int pfd, uint64_t additional_info, events ev
   return 0;
 }
 
-int event_manager::close_pfd(int pfd) {
+// close pfd will always eventually lead to the close callback being called
+int event_manager::close_pfd(int pfd, int additional_info) {
   auto pfd_stuff = pfd_to_data[pfd];
   // close normal fds normally
   if (pfd_stuff.type == fd_types::LOCAL || pfd_stuff.type == fd_types::EVENT) {
-    return close(pfd_stuff.fd);
+    auto ret_code = close(pfd_stuff.fd);
+    callbacks->close_callback(pfd, ret_code, additional_info);
+    return ret_code;
   } else {
-    return submit_close(pfd);
+    return submit_close(pfd, additional_info);
   }
 }
 
-int event_manager::queue_read(int pfd, uint8_t *buffer, size_t length) {
+int event_manager::queue_read(int pfd, uint8_t *buffer, size_t length, int additional_info) {
   if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
@@ -231,6 +234,7 @@ int event_manager::queue_read(int pfd, uint8_t *buffer, size_t length) {
   data->length = length;
   data->ev = events::READ;
   data->pfd = pfd;
+  data->additional_info = additional_info;
 
   auto sqe = io_uring_get_sqe(&ring);
 
@@ -247,7 +251,7 @@ int event_manager::queue_read(int pfd, uint8_t *buffer, size_t length) {
   return 0;
 }
 
-int event_manager::queue_write(int pfd, uint8_t *buffer, size_t length) {
+int event_manager::queue_write(int pfd, uint8_t *buffer, size_t length, int additional_info) {
   if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
@@ -263,6 +267,7 @@ int event_manager::queue_write(int pfd, uint8_t *buffer, size_t length) {
   data->length = length;
   data->ev = events::WRITE;
   data->pfd = pfd;
+  data->additional_info = additional_info;
 
   auto sqe = io_uring_get_sqe(&ring);
 
@@ -279,7 +284,7 @@ int event_manager::queue_write(int pfd, uint8_t *buffer, size_t length) {
   return 0;
 }
 
-int event_manager::queue_accept(int pfd) {
+int event_manager::queue_accept(int pfd, int additional_info) {
   if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
@@ -296,7 +301,8 @@ int event_manager::queue_accept(int pfd) {
   auto client_address = new sockaddr_storage;
   data->pfd = pfd;
   data->buffer = reinterpret_cast<uint8_t *>(client_address);
-  data->additional_info = sizeof(*client_address);
+  data->info = sizeof(*client_address);
+  data->additional_info = additional_info;
 
   auto sqe = io_uring_get_sqe(&ring);
 
@@ -313,7 +319,7 @@ int event_manager::queue_accept(int pfd) {
   return 0;
 }
 
-int event_manager::queue_shutdown(int pfd, int how) {
+int event_manager::queue_shutdown(int pfd, int how, int additional_info) {
   if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
@@ -327,7 +333,8 @@ int event_manager::queue_shutdown(int pfd, int how) {
   auto data = new request_data();
   data->ev = events::SHUTDOWN;
   data->pfd = pfd;
-  data->additional_info = how;
+  data->info = how;
+  data->additional_info = additional_info;
 
   auto sqe = io_uring_get_sqe(&ring);
 
@@ -343,7 +350,7 @@ int event_manager::queue_shutdown(int pfd, int how) {
   return 0;
 }
 
-int event_manager::queue_close(int pfd) {
+int event_manager::queue_close(int pfd, int additional_info) {
   if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
@@ -357,6 +364,7 @@ int event_manager::queue_close(int pfd) {
   auto data = new request_data();
   data->ev = events::CLOSE;
   data->pfd = pfd;
+  data->additional_info = additional_info;
 
   auto sqe = io_uring_get_sqe(&ring);
 
@@ -528,11 +536,11 @@ void event_manager::event_handler(int res, request_data *req_data) {
 
   switch (req_data->ev) {
   case events::WRITE: {
-    callbacks->write_callback(processed_data(req_data->buffer, res, req_data->length), req_data->pfd);
+    callbacks->write_callback(processed_data(req_data->buffer, res, req_data->length), req_data->pfd, req_data->additional_info);
     break;
   }
   case events::READ: {
-    callbacks->read_callback(processed_data(req_data->buffer, res, req_data->length), req_data->pfd);
+    callbacks->read_callback(processed_data(req_data->buffer, res, req_data->length), req_data->pfd, req_data->additional_info);
     break;
   }
   case events::ACCEPT: {
@@ -549,26 +557,26 @@ void event_manager::event_handler(int res, request_data *req_data) {
       fd_id_map[res] = id;
     }
 
-    callbacks->accept_callback(req_data->pfd, user_data, req_data->additional_info, pfd_num, res);
+    callbacks->accept_callback(req_data->pfd, user_data, req_data->info, pfd_num, res, req_data->additional_info);
 
     free(user_data); // free the sockaddr_storage
     break;
   }
   case events::SHUTDOWN: {
     // additional_data stores the "how" parameter for the shutdown call
-    callbacks->shutdown_callback(req_data->additional_info, req_data->pfd, res);
+    callbacks->shutdown_callback(req_data->info, req_data->pfd, res, req_data->additional_info);
 
     break;
   }
   case events::CLOSE: {
-    callbacks->close_callback(req_data->pfd, res);
+    callbacks->close_callback(req_data->pfd, res, req_data->additional_info);
 
     pfd_free(req_data->pfd);
 
     break;
   }
   case events::EVENT: {
-    callbacks->event_callback(req_data->additional_info, req_data->pfd, res);
+    callbacks->event_callback(req_data->pfd, res, req_data->additional_info);
 
     free(req_data->buffer); // allocated in the queue_event_read function
     break;
