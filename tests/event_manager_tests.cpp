@@ -24,6 +24,8 @@ TEST_CASE("event manager full tests") {
     event_manager ev{};
     ev.set_server_methods(&sm);
 
+    sm.ev = &ev;
+
     std::thread t([&]() { ev.start(); });
 
     std::string filename = "test.txt";
@@ -70,6 +72,8 @@ TEST_CASE("event manager full tests") {
     test_server t{};
     event_manager ev{&t};
 
+    t.ev = &ev;
+
     std::thread t1([&]() { ev.start(); });
 
     int tmp_listener = test_setup_listener_get_pfd(4000, &ev);
@@ -111,6 +115,8 @@ TEST_CASE("event manager full tests") {
     t.write_callback_no_shutdown = true;
     event_manager ev{&t};
 
+    t.ev = &ev;
+
     std::thread t1([&]() { ev.start(); });
 
     int tmp_listener = test_setup_listener_get_pfd(4001, &ev);
@@ -141,6 +147,8 @@ TEST_CASE("event manager full tests") {
 
     test_server t{};
     event_manager ev{&t};
+
+    t.ev = &ev;
 
     std::thread t1([&]() { ev.start(); });
 

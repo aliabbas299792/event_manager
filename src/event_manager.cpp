@@ -113,15 +113,15 @@ int event_manager::submit_all_queued_sqes_privately() {
   return res;
 }
 
-int event_manager::submit_read(int pfd, uint8_t *buffer, size_t length, size_t offset_in_buffer) {
-  if (queue_read(pfd, buffer, length, offset_in_buffer) == -1) {
+int event_manager::submit_read(int pfd, uint8_t *buffer, size_t length) {
+  if (queue_read(pfd, buffer, length) == -1) {
     return -2;
   }
   return submit_all_queued_sqes();
 }
 
-int event_manager::submit_write(int pfd, uint8_t *buffer, size_t length, size_t offset_in_buffer) {
-  if (queue_write(pfd, buffer, length, offset_in_buffer) == -1) {
+int event_manager::submit_write(int pfd, uint8_t *buffer, size_t length) {
+  if (queue_write(pfd, buffer, length) == -1) {
     return -2;
   }
   return submit_all_queued_sqes();
@@ -214,7 +214,7 @@ int event_manager::close_pfd(int pfd) {
   }
 }
 
-int event_manager::queue_read(int pfd, uint8_t *buffer, size_t length, size_t offset_in_buffer) {
+int event_manager::queue_read(int pfd, uint8_t *buffer, size_t length) {
   if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
@@ -230,7 +230,6 @@ int event_manager::queue_read(int pfd, uint8_t *buffer, size_t length, size_t of
   data->length = length;
   data->ev = events::READ;
   data->pfd = pfd;
-  data->progress = offset_in_buffer;
 
   auto sqe = io_uring_get_sqe(&ring);
 
@@ -239,7 +238,7 @@ int event_manager::queue_read(int pfd, uint8_t *buffer, size_t length, size_t of
   }
 
   // read into buffer at offset
-  io_uring_prep_read(sqe, fd, &buffer[offset_in_buffer], length, 0);
+  io_uring_prep_read(sqe, fd, buffer, length, 0);
   io_uring_sqe_set_data(sqe, data);
 
   current_num_of_queued_sqes++;
@@ -247,7 +246,7 @@ int event_manager::queue_read(int pfd, uint8_t *buffer, size_t length, size_t of
   return 0;
 }
 
-int event_manager::queue_write(int pfd, uint8_t *buffer, size_t length, size_t offset_in_buffer) {
+int event_manager::queue_write(int pfd, uint8_t *buffer, size_t length) {
   if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
@@ -263,7 +262,6 @@ int event_manager::queue_write(int pfd, uint8_t *buffer, size_t length, size_t o
   data->length = length;
   data->ev = events::WRITE;
   data->pfd = pfd;
-  data->progress = offset_in_buffer;
 
   auto sqe = io_uring_get_sqe(&ring);
 
@@ -272,7 +270,7 @@ int event_manager::queue_write(int pfd, uint8_t *buffer, size_t length, size_t o
   }
 
   // write into buffer at offset
-  io_uring_prep_write(sqe, fd, &buffer[offset_in_buffer], length, 0);
+  io_uring_prep_write(sqe, fd, buffer, length, 0);
   io_uring_sqe_set_data(sqe, data);
 
   current_num_of_queued_sqes++;
@@ -529,13 +527,11 @@ void event_manager::event_handler(int res, request_data *req_data) {
 
   switch (req_data->ev) {
   case events::WRITE: {
-    callbacks->write_callback(
-        this, processed_data(req_data->buffer, req_data->progress, res, req_data->length), req_data->pfd);
+    callbacks->write_callback(processed_data(req_data->buffer, res, req_data->length), req_data->pfd);
     break;
   }
   case events::READ: {
-    callbacks->read_callback(
-        this, processed_data(req_data->buffer, req_data->progress, res, req_data->length), req_data->pfd);
+    callbacks->read_callback(processed_data(req_data->buffer, res, req_data->length), req_data->pfd);
     break;
   }
   case events::ACCEPT: {
@@ -552,26 +548,26 @@ void event_manager::event_handler(int res, request_data *req_data) {
       fd_id_map[res] = id;
     }
 
-    callbacks->accept_callback(this, req_data->pfd, user_data, req_data->additional_info, pfd_num, res);
+    callbacks->accept_callback(req_data->pfd, user_data, req_data->additional_info, pfd_num, res);
 
     free(user_data); // free the sockaddr_storage
     break;
   }
   case events::SHUTDOWN: {
     // additional_data stores the "how" parameter for the shutdown call
-    callbacks->shutdown_callback(this, req_data->additional_info, req_data->pfd, res);
+    callbacks->shutdown_callback(req_data->additional_info, req_data->pfd, res);
 
     break;
   }
   case events::CLOSE: {
-    callbacks->close_callback(this, req_data->pfd, res);
+    callbacks->close_callback(req_data->pfd, res);
 
     pfd_free(req_data->pfd);
 
     break;
   }
   case events::EVENT: {
-    callbacks->event_callback(this, req_data->additional_info, req_data->pfd, res);
+    callbacks->event_callback(req_data->additional_info, req_data->pfd, res);
 
     free(req_data->buffer); // allocated in the queue_event_read function
     break;

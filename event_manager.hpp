@@ -41,15 +41,13 @@ struct request_data;
 
 struct processed_data {
   uint8_t *buff{};
-  size_t amount_processed_before{};
   int op_res_num{};
   size_t length{}; // expected length
 
   processed_data() {}
 
-  processed_data(uint8_t *buff, size_t amount_processed_before, int op_res_num, size_t length) {
+  processed_data(uint8_t *buff, int op_res_num, size_t length) {
     this->buff = buff;
-    this->amount_processed_before = amount_processed_before;
     this->op_res_num = op_res_num;
     this->length = length;
   }
@@ -58,15 +56,17 @@ struct processed_data {
 // inherit from this for this interface
 class server_methods {
 public:
-  virtual void accept_callback(event_manager *ev, int listener_pfd, sockaddr_storage *user_data,
+  virtual void accept_callback(int listener_pfd, sockaddr_storage *user_data,
                                socklen_t size, uint64_t pfd, int op_res_num) {}
-  virtual void read_callback(event_manager *ev, processed_data read_metadata, uint64_t pfd) {}
-  virtual void write_callback(event_manager *ev, processed_data write_metadata, uint64_t pfd) {}
-  virtual void event_callback(event_manager *ev, uint64_t additional_info, int pfd, int op_res_num) {}
-  virtual void shutdown_callback(event_manager *ev, int how, uint64_t pfd, int op_res_num) {}
-  virtual void close_callback(event_manager *ev, uint64_t pfd, int op_res_num) {}
+  virtual void read_callback(processed_data read_metadata, uint64_t pfd) {}
+  virtual void write_callback(processed_data write_metadata, uint64_t pfd) {}
+  virtual void event_callback(uint64_t additional_info, int pfd, int op_res_num) {}
+  virtual void shutdown_callback(int how, uint64_t pfd, int op_res_num) {}
+  virtual void close_callback(uint64_t pfd, int op_res_num) {}
 
   virtual ~server_methods() = default;
+
+  event_manager *ev{}; // server_methods must have access to event_manager for it to work
 };
 
 class event_manager {
@@ -143,8 +143,8 @@ public:
   int fstat_normally(int pfd, struct stat *buf);
 
   // generic fd submit ops (i.e calls submit_all_queues_sqes() immediately)
-  int submit_read(int pfd, uint8_t *buffer, size_t length, size_t offset_in_buffer = 0);
-  int submit_write(int pfd, uint8_t *buffer, size_t length, size_t offset_in_buffer = 0);
+  int submit_read(int pfd, uint8_t *buffer, size_t length);
+  int submit_write(int pfd, uint8_t *buffer, size_t length);
   int submit_accept(int pfd);
   int submit_shutdown(int pfd, int how);
   int submit_close(int pfd);
@@ -154,8 +154,8 @@ public:
 
   // generic fd queue ops (just queues data in the ring without submitting
   // anything)
-  int queue_read(int pfd, uint8_t *buffer, size_t length, size_t offset_in_buffer = 0);
-  int queue_write(int pfd, uint8_t *buffer, size_t length, size_t offset_in_buffer = 0);
+  int queue_read(int pfd, uint8_t *buffer, size_t length);
+  int queue_write(int pfd, uint8_t *buffer, size_t length);
   int queue_accept(int pfd);
   int queue_shutdown(int pfd, int how);
   int queue_close(int pfd);

@@ -5,15 +5,15 @@
 
 class test_server : public server_methods {
 public:
-  void write_callback(event_manager *ev, processed_data write_metadata, uint64_t pfd) override {
-    auto length = write_metadata.amount_processed_before + write_metadata.op_res_num;
+  void write_callback(processed_data write_metadata, uint64_t pfd) override {
+    size_t length = write_metadata.op_res_num;
     std::cout << "Wrote " << length << " bytes of data, the data was: "
               << std::string(reinterpret_cast<char *>(write_metadata.buff), length) << "\n";
   }
 
-  void read_callback(event_manager *ev, processed_data read_metadata, uint64_t pfd) override {
+  void read_callback(processed_data read_metadata, uint64_t pfd) override {
     if (read_metadata.op_res_num > 0) {
-      auto length = read_metadata.amount_processed_before + read_metadata.op_res_num;
+      size_t length = read_metadata.op_res_num;
 
       std::cout << "Read " << length << " bytes of data, the data was: "
                 << std::string(reinterpret_cast<char *>(read_metadata.buff), length) << "\n";

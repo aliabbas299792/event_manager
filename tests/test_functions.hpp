@@ -131,7 +131,7 @@ class test_server : public server_methods {
 public:
   bool write_callback_no_shutdown = false;
 
-  void accept_callback(event_manager *ev, int listener_pfd, sockaddr_storage *user_data, socklen_t size,
+  void accept_callback(int listener_pfd, sockaddr_storage *user_data, socklen_t size,
                        uint64_t pfd, int op_res_num) override {
     if (op_res_num < 0) {
       std::cout << "accept errored with: " << op_res_num << "\n";
@@ -154,7 +154,7 @@ public:
     ev->submit_all_queued_sqes();
   }
 
-  void read_callback(event_manager *ev, processed_data read_metadata, uint64_t pfd) override {
+  void read_callback(processed_data read_metadata, uint64_t pfd) override {
     if (read_metadata.op_res_num < 0) {
       std::cout << "read callback got res " << read_metadata.op_res_num << "\n";
       if (read_metadata.op_res_num == -ECONNREFUSED) {
@@ -182,7 +182,7 @@ public:
       return;
     }
 
-    size_t amount_read = read_metadata.amount_processed_before + read_metadata.op_res_num;
+    size_t amount_read = read_metadata.op_res_num;
 
     std::cout << "Received message: \""
               << std::string(reinterpret_cast<char *>(read_metadata.buff), amount_read) << "\", length was "
@@ -202,7 +202,7 @@ public:
     ev->submit_write(pfd, reinterpret_cast<uint8_t *>(write_buff), text_message_2.size());
   }
 
-  void write_callback(event_manager *ev, processed_data write_metadata, uint64_t pfd) override {
+  void write_callback(processed_data write_metadata, uint64_t pfd) override {
     if (write_callback_no_shutdown) {
       if (write_metadata.op_res_num < 0) {
         std::cout << "write callback got res " << write_metadata.op_res_num << "\n";
@@ -220,7 +220,7 @@ public:
         return;
       }
 
-      size_t amount_read = write_metadata.amount_processed_before + write_metadata.op_res_num;
+      size_t amount_read = write_metadata.op_res_num;
 
       std::cout << "Wrote message: \""
                 << std::string(reinterpret_cast<char *>(write_metadata.buff), amount_read)
@@ -243,7 +243,7 @@ public:
         return;
       }
 
-      size_t amount_read = write_metadata.amount_processed_before + write_metadata.op_res_num;
+      size_t amount_read = write_metadata.op_res_num;
 
       std::cout << "Wrote message: \""
                 << std::string(reinterpret_cast<char *>(write_metadata.buff), amount_read)
@@ -254,7 +254,7 @@ public:
     }
   }
 
-  void event_callback(event_manager *ev, uint64_t additional_info, int pfd, int op_res_num) override {
+  void event_callback(uint64_t additional_info, int pfd, int op_res_num) override {
     if (op_res_num < 0) {
       std::cout << "read event errored with: " << op_res_num << "\n";
       // if errored and also not LIVING then shutdown the socket properly just
@@ -270,7 +270,7 @@ public:
               << "\n";
   }
 
-  void shutdown_callback(event_manager *ev, int how, uint64_t pfd, int op_res_num) override {
+  void shutdown_callback(int how, uint64_t pfd, int op_res_num) override {
     if (op_res_num < 0) {
       std::cout << "shutdown errored with: " << op_res_num << "\n";
       // if errored and also not LIVING then shutdown the socket properly just
@@ -296,7 +296,7 @@ public:
     }
   }
 
-  void close_callback(event_manager *ev, uint64_t pfd, int op_res_num) override {
+  void close_callback(uint64_t pfd, int op_res_num) override {
     if (op_res_num < 0) {
       std::cout << "close errored with: " << op_res_num << "\n";
       // if errored and also not LIVING then shutdown the socket properly just
