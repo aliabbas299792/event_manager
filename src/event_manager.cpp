@@ -484,10 +484,13 @@ void event_manager::await_single_message() {
   }
 
   if (manager_life_state == living_state::DEAD) {
+    // if it is dead, then this is the final iteration, kill the ring
     io_uring_queue_exit(&ring);
     close(pfd_to_data[kill_pfd].fd);
 
     ring_instances--; // this instance of the ring is now dead
+    
+    callbacks->killed_callback(); // event_manager has been killed, call the last callback
   }
 }
 

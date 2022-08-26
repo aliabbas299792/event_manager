@@ -312,4 +312,11 @@ public:
   }
 };
 
+class test_server_with_killed_callback : public test_server {
+public:
+  void killed_callback() override {
+    std::cout << "\n\n\tthe server has been killed\n\n";
+  }
+};
+
 #endif

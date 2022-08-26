@@ -64,6 +64,8 @@ public:
   virtual void shutdown_callback(int how, uint64_t pfd, int op_res_num, uint64_t additional_info) {}
   virtual void close_callback(uint64_t pfd, int op_res_num, uint64_t additional_info) {}
 
+  virtual void killed_callback() {}; // once the event_manager has been killed, this will be called
+
   virtual ~server_methods() = default;
 
   event_manager *ev{}; // server_methods must have access to event_manager for it to work

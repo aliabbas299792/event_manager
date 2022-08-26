@@ -111,7 +111,7 @@ TEST_CASE("event manager full tests") {
     std::cout << "\033[1;31mnetwork operations but don't shutdown the "
                  "socket\033[0m\n";
 
-    test_server t{};
+    test_server_with_killed_callback t{};
     t.write_callback_no_shutdown = true;
     event_manager ev{&t};
 
