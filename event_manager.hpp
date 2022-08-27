@@ -55,20 +55,24 @@ struct processed_data {
 
 // inherit from this for this interface
 class server_methods {
+protected:
+  // server_methods must have access to event_manager for it to work, but it shouldn't be public
+  event_manager *ev{};
+
 public:
-  virtual void accept_callback(int listener_pfd, sockaddr_storage *user_data,
-                               socklen_t size, uint64_t pfd, int op_res_num, uint64_t additional_info) {}
+  virtual void accept_callback(int listener_pfd, sockaddr_storage *user_data, socklen_t size, uint64_t pfd,
+                               int op_res_num, uint64_t additional_info) {}
   virtual void read_callback(processed_data read_metadata, uint64_t pfd, uint64_t additional_info) {}
   virtual void write_callback(processed_data write_metadata, uint64_t pfd, uint64_t additional_info) {}
   virtual void event_callback(int pfd, int op_res_num, uint64_t additional_info) {}
   virtual void shutdown_callback(int how, uint64_t pfd, int op_res_num, uint64_t additional_info) {}
   virtual void close_callback(uint64_t pfd, int op_res_num, uint64_t additional_info) {}
 
-  virtual void killed_callback() {}; // once the event_manager has been killed, this will be called
+  virtual void killed_callback(){}; // once the event_manager has been killed, this will be called
+
+  void set_event_manager(event_manager *ev) { this->ev = ev; }
 
   virtual ~server_methods() = default;
-
-  event_manager *ev{}; // server_methods must have access to event_manager for it to work
 };
 
 class event_manager {

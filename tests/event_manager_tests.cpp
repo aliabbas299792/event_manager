@@ -24,7 +24,7 @@ TEST_CASE("event manager full tests") {
     event_manager ev{};
     ev.set_server_methods(&sm);
 
-    sm.ev = &ev;
+    sm.set_event_manager(&ev);
 
     std::thread t([&]() { ev.start(); });
 
@@ -72,7 +72,7 @@ TEST_CASE("event manager full tests") {
     test_server t{};
     event_manager ev{&t};
 
-    t.ev = &ev;
+    t.set_event_manager(&ev);
 
     std::thread t1([&]() { ev.start(); });
 
@@ -115,7 +115,7 @@ TEST_CASE("event manager full tests") {
     t.write_callback_no_shutdown = true;
     event_manager ev{&t};
 
-    t.ev = &ev;
+    t.set_event_manager(&ev);
 
     std::thread t1([&]() { ev.start(); });
 
@@ -148,7 +148,7 @@ TEST_CASE("event manager full tests") {
     test_server t{};
     event_manager ev{&t};
 
-    t.ev = &ev;
+    t.set_event_manager(&ev);
 
     std::thread t1([&]() { ev.start(); });
 
