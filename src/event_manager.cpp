@@ -139,6 +139,8 @@ void event_manager::shutdown_and_close_normally(int pfd) {
 
   shutdown(fd, SHUT_RDWR);
   close(fd);
+
+  pfd_free(pfd);
 }
 
 int event_manager::submit_shutdown(int pfd, int how, int additional_info) {
@@ -489,7 +491,7 @@ void event_manager::await_single_message() {
     close(pfd_to_data[kill_pfd].fd);
 
     ring_instances--; // this instance of the ring is now dead
-    
+
     callbacks->killed_callback(); // event_manager has been killed, call the last callback
   }
 }
@@ -539,11 +541,13 @@ void event_manager::event_handler(int res, request_data *req_data) {
 
   switch (req_data->ev) {
   case events::WRITE: {
-    callbacks->write_callback(processed_data(req_data->buffer, res, req_data->length), req_data->pfd, req_data->additional_info);
+    callbacks->write_callback(processed_data(req_data->buffer, res, req_data->length), req_data->pfd,
+                              req_data->additional_info);
     break;
   }
   case events::READ: {
-    callbacks->read_callback(processed_data(req_data->buffer, res, req_data->length), req_data->pfd, req_data->additional_info);
+    callbacks->read_callback(processed_data(req_data->buffer, res, req_data->length), req_data->pfd,
+                             req_data->additional_info);
     break;
   }
   case events::ACCEPT: {
@@ -560,7 +564,8 @@ void event_manager::event_handler(int res, request_data *req_data) {
       fd_id_map[res] = id;
     }
 
-    callbacks->accept_callback(req_data->pfd, user_data, req_data->info, pfd_num, res, req_data->additional_info);
+    callbacks->accept_callback(req_data->pfd, user_data, req_data->info, pfd_num, res,
+                               req_data->additional_info);
 
     free(user_data); // free the sockaddr_storage
     break;
