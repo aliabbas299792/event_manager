@@ -1,5 +1,8 @@
 #include "test_functions.hpp"
+#include <bits/types/struct_iovec.h>
 #include <chrono>
+#include <fcntl.h>
+#include <thread>
 
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "../vendor/doctest/doctest/doctest.h"
@@ -147,7 +150,6 @@ TEST_CASE("event manager full tests") {
 
     test_server t{};
     event_manager ev{&t};
-
     t.set_event_manager(&ev);
 
     std::thread t1([&]() { ev.start(); });
@@ -162,5 +164,56 @@ TEST_CASE("event manager full tests") {
 
     t1.join();
     std::cout << "\033[1;32mevent callbacks finished\033[0m\n\n\n";
+  }
+
+  SUBCASE("readv/writev") {
+    std::cout << "\033[1;31mreadv/writev callbacks\033[0m\n";
+
+    test_server t{};
+    event_manager ev{&t};
+    t.set_event_manager(&ev);
+
+    std::thread t1([&]() { ev.start(); });
+
+    std::string filename = "test.txt";
+    std::string data = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi et "
+                       "ipsum pellentesque, vestibulum dolor sed, egestas nibh.\n";
+
+    struct iovec iovs[1024];
+    for (int i = 0; i < 1024; i++) {
+      iovs[i].iov_base = new char[data.size()];
+      std::memcpy(iovs[i].iov_base, data.c_str(), data.size());
+      iovs[i].iov_len = data.size();
+    }
+
+    auto new_file_pfd = ev.open_get_pfd_normally(filename.c_str(), O_RDWR | O_CREAT, 0666);
+
+    std::cout << ev.submit_writev(new_file_pfd, iovs, 1024) << " is writev response code\n";
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    struct iovec iovs2[1024];
+    for (int i = 0; i < 1024; i++) {
+      iovs2[i].iov_base = new char[data.size()];
+      iovs2[i].iov_len = data.size();
+    }
+
+    std::cout << ev.submit_readv(new_file_pfd, iovs2, 1024) << " is readv response code\n";
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    for (int i = 0; i < 1024; i++) {
+      // require what was written to be identical to what was read
+      REQUIRE(strcmp((const char *)iovs[i].iov_base, (const char *)iovs2[i].iov_base) == 0);
+      delete[](char *) iovs[i].iov_base;
+      delete[](char *) iovs2[i].iov_base;
+    }
+
+    REQUIRE(ev.unlink_normally(filename.c_str()) == 0);
+
+    ev.kill();
+    t1.join();
+
+    std::cout << "\033[1;32mreadv/writev callbacks\033[0m\n";
   }
 }

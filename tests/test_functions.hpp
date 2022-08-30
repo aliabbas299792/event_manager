@@ -131,8 +131,8 @@ class test_server : public server_methods {
 public:
   bool write_callback_no_shutdown = false;
 
-  void accept_callback(int listener_pfd, sockaddr_storage *user_data, socklen_t size,
-                       uint64_t pfd, int op_res_num, uint64_t additional_info) override {
+  void accept_callback(int listener_pfd, sockaddr_storage *user_data, socklen_t size, uint64_t pfd,
+                       int op_res_num, uint64_t additional_info) override {
     if (op_res_num < 0) {
       std::cout << "accept errored with: " << op_res_num << "\n";
       // if errored and also not LIVING then shutdown the socket properly just
@@ -314,9 +314,7 @@ public:
 
 class test_server_with_killed_callback : public test_server {
 public:
-  void killed_callback() override {
-    std::cout << "\n\n\tthe server has been killed\n\n";
-  }
+  void killed_callback() override { std::cout << "\n\n\tthe server has been killed\n\n"; }
 };
 
 #endif

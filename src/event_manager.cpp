@@ -290,7 +290,6 @@ int event_manager::queue_write(int pfd, uint8_t *buffer, size_t length, int addi
     return -1;
   }
 
-  // write into buffer at offset
   io_uring_prep_write(sqe, fd, buffer, length, 0);
   io_uring_sqe_set_data(sqe, data);
 
@@ -345,7 +344,7 @@ int event_manager::queue_writev(int pfd, struct iovec *iovs, size_t num, int add
   auto data = new request_data();
   data->buffer = reinterpret_cast<uint8_t *>(iovs);
   data->length = num;
-  data->ev = events::WRITE;
+  data->ev = events::WRITEV;
   data->pfd = pfd;
   data->additional_info = additional_info;
 
@@ -355,7 +354,6 @@ int event_manager::queue_writev(int pfd, struct iovec *iovs, size_t num, int add
     return -1;
   }
 
-  // write into buffer at offset
   io_uring_prep_writev(sqe, fd, iovs, num, 0);
   io_uring_sqe_set_data(sqe, data);
 
