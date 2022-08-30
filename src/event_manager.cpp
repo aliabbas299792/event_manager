@@ -127,6 +127,20 @@ int event_manager::submit_write(int pfd, uint8_t *buffer, size_t length, int add
   return submit_all_queued_sqes();
 }
 
+int event_manager::submit_readv(int pfd, struct iovec *iovs, size_t num, int additional_info) {
+  if (queue_readv(pfd, iovs, num, additional_info) == -1) {
+    return -2;
+  }
+  return submit_all_queued_sqes();
+}
+
+int event_manager::submit_writev(int pfd, struct iovec *iovs, size_t num, int additional_info) {
+  if (queue_writev(pfd, iovs, num, additional_info) == -1) {
+    return -2;
+  }
+  return submit_all_queued_sqes();
+}
+
 int event_manager::submit_accept(int pfd, int additional_info) {
   if (queue_accept(pfd, additional_info) == -1) {
     return -2;
@@ -244,7 +258,6 @@ int event_manager::queue_read(int pfd, uint8_t *buffer, size_t length, int addit
     return -1;
   }
 
-  // read into buffer at offset
   io_uring_prep_read(sqe, fd, buffer, length, 0);
   io_uring_sqe_set_data(sqe, data);
 
@@ -279,6 +292,71 @@ int event_manager::queue_write(int pfd, uint8_t *buffer, size_t length, int addi
 
   // write into buffer at offset
   io_uring_prep_write(sqe, fd, buffer, length, 0);
+  io_uring_sqe_set_data(sqe, data);
+
+  current_num_of_queued_sqes++;
+
+  return 0;
+}
+
+int event_manager::queue_readv(int pfd, struct iovec *iovs, size_t num, int additional_info) {
+  if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
+    std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
+    return -1;
+  }
+
+  auto &pfd_info = pfd_to_data[pfd];
+  auto fd = pfd_info.fd;
+
+  pfd_info.submitted_reqs++;
+
+  auto data = new request_data();
+  data->buffer = reinterpret_cast<uint8_t *>(iovs);
+  data->length = num;
+  data->ev = events::READV;
+  data->pfd = pfd;
+  data->additional_info = additional_info;
+
+  auto sqe = io_uring_get_sqe(&ring);
+
+  if (sqe == nullptr) {
+    return -1;
+  }
+
+  io_uring_prep_readv(sqe, fd, iovs, num, 0);
+  io_uring_sqe_set_data(sqe, data);
+
+  current_num_of_queued_sqes++;
+
+  return 0;
+}
+
+int event_manager::queue_writev(int pfd, struct iovec *iovs, size_t num, int additional_info) {
+  if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
+    std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
+    return -1;
+  }
+
+  auto &pfd_info = pfd_to_data[pfd];
+  auto fd = pfd_info.fd;
+
+  pfd_info.submitted_reqs++;
+
+  auto data = new request_data();
+  data->buffer = reinterpret_cast<uint8_t *>(iovs);
+  data->length = num;
+  data->ev = events::WRITE;
+  data->pfd = pfd;
+  data->additional_info = additional_info;
+
+  auto sqe = io_uring_get_sqe(&ring);
+
+  if (sqe == nullptr) {
+    return -1;
+  }
+
+  // write into buffer at offset
+  io_uring_prep_writev(sqe, fd, iovs, num, 0);
   io_uring_sqe_set_data(sqe, data);
 
   current_num_of_queued_sqes++;
@@ -548,6 +626,18 @@ void event_manager::event_handler(int res, request_data *req_data) {
   case events::READ: {
     callbacks->read_callback(processed_data(req_data->buffer, res, req_data->length), req_data->pfd,
                              req_data->additional_info);
+    break;
+  }
+  case events::WRITEV: {
+    callbacks->writev_callback(
+        processed_data_vecs(reinterpret_cast<struct iovec *>(req_data->buffer), res, req_data->length),
+        req_data->pfd, req_data->additional_info);
+    break;
+  }
+  case events::READV: {
+    callbacks->readv_callback(
+        processed_data_vecs(reinterpret_cast<struct iovec *>(req_data->buffer), res, req_data->length),
+        req_data->pfd, req_data->additional_info);
     break;
   }
   case events::ACCEPT: {

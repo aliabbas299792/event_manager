@@ -1,6 +1,7 @@
 #ifndef EVENT_MANAGER
 #define EVENT_MANAGER
 
+#include <bits/types/struct_iovec.h>
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
@@ -53,6 +54,20 @@ struct processed_data {
   }
 };
 
+struct processed_data_vecs {
+  struct iovec *iovs{};
+  size_t num_vecs{};
+  int op_res_num{};
+
+  processed_data_vecs() {}
+
+  processed_data_vecs(struct iovec *iovs, int op_res_num, size_t num_vecs) {
+    this->iovs = iovs;
+    this->op_res_num = op_res_num;
+    this->num_vecs = num_vecs;
+  }
+};
+
 // inherit from this for this interface
 class server_methods {
 protected:
@@ -64,6 +79,8 @@ public:
                                int op_res_num, uint64_t additional_info) {}
   virtual void read_callback(processed_data read_metadata, uint64_t pfd, uint64_t additional_info) {}
   virtual void write_callback(processed_data write_metadata, uint64_t pfd, uint64_t additional_info) {}
+  virtual void readv_callback(processed_data_vecs read_metadata, uint64_t pfd, uint64_t additional_info) {}
+  virtual void writev_callback(processed_data_vecs write_metadata, uint64_t pfd, uint64_t additional_info) {}
   virtual void event_callback(int pfd, int op_res_num, uint64_t additional_info) {}
   virtual void shutdown_callback(int how, uint64_t pfd, int op_res_num, uint64_t additional_info) {}
   virtual void close_callback(uint64_t pfd, int op_res_num, uint64_t additional_info) {}
@@ -150,7 +167,9 @@ public:
 
   // generic fd submit ops (i.e calls submit_all_queues_sqes() immediately)
   int submit_read(int pfd, uint8_t *buffer, size_t length, int additional_info = 0);
+  int submit_readv(int pfd, struct iovec *iovs, size_t num, int additional_info = 0);
   int submit_write(int pfd, uint8_t *buffer, size_t length, int additional_info = 0);
+  int submit_writev(int pfd, struct iovec *iovs, size_t num, int additional_info = 0);
   int submit_accept(int pfd, int additional_info = 0);
   int submit_shutdown(int pfd, int how, int additional_info = 0);
   int submit_close(int pfd, int additional_info = 0);
@@ -161,7 +180,9 @@ public:
   // generic fd queue ops (just queues data in the ring without submitting
   // anything)
   int queue_read(int pfd, uint8_t *buffer, size_t length, int additional_info = 0);
+  int queue_readv(int pfd, struct iovec *iovs, size_t num, int additional_info = 0);
   int queue_write(int pfd, uint8_t *buffer, size_t length, int additional_info = 0);
+  int queue_writev(int pfd, struct iovec *iovs, size_t num, int additional_info = 0);
   int queue_accept(int pfd, int additional_info = 0);
   int queue_shutdown(int pfd, int how, int additional_info = 0);
   int queue_close(int pfd, int additional_info = 0);
