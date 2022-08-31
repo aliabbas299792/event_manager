@@ -1,0 +1,1 @@
+./compile.sh && cd build && ./example/event_manager_example

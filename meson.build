@@ -5,3 +5,6 @@ thread_dep = dependency('threads')
 
 libevent_manager = library('event_manager', ['src/event_manager.cpp'], dependencies: [io_uring_dep, thread_dep])
 libevent_manager_dep = declare_dependency(link_with: libevent_manager)
+
+subdir('tests')
+subdir('example')

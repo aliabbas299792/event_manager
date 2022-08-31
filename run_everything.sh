@@ -1,3 +1,3 @@
 ./compile.sh
-cd example && ./compile.sh && ./example && cd ..
-cd tests && ./run_tests.sh && cd ..
+./run_example.sh
+./run_tests.sh

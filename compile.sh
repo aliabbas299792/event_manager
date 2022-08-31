@@ -1,3 +1,1 @@
-meson build
-cd build
-ninja
+meson build && cd build && ninja && cd ..

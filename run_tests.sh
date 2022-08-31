@@ -1,0 +1,1 @@
+./compile.sh && cd build && ./tests/event_manager_tests
