@@ -523,11 +523,13 @@ void event_manager::await_single_message() {
   if (ret < 0) {
     perror("io_uring_wait_cqe");
   }
-  if (cqe->res < 0) {
-    std::cerr << "\t(io_uring request failure with code: " << cqe->res << ")\n";
-  }
 
   auto req_data = reinterpret_cast<request_data *>(io_uring_cqe_get_data(cqe));
+  if (cqe->res < 0) {
+    std::cerr << "\tio_uring request failure with (code, pfd, fd, id): (" << cqe->res << ", " << req_data->pfd
+              << ", " << pfd_to_data[req_data->pfd].fd << ", " << pfd_to_data[req_data->pfd].id << ")\n";
+  }
+
   event_handler(cqe->res, req_data);
 
   io_uring_cqe_seen(&ring, cqe);
