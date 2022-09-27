@@ -209,6 +209,7 @@ int event_manager::queue_event_read(int pfd, uint64_t additional_info, events ev
   data->buffer = reinterpret_cast<uint8_t *>(new char[sizeof(uint64_t)]);
   data->length = sizeof(uint64_t);
   data->ev = event;
+  data->id = pfd_info.id;
   data->pfd = pfd;
   data->additional_info = additional_info;
 
@@ -249,6 +250,7 @@ int event_manager::queue_read(int pfd, uint8_t *buffer, size_t length, int addit
   data->buffer = buffer;
   data->length = length;
   data->ev = events::READ;
+  data->id = pfd_info.id;
   data->pfd = pfd;
   data->additional_info = additional_info;
 
@@ -281,6 +283,7 @@ int event_manager::queue_write(int pfd, uint8_t *buffer, size_t length, int addi
   data->buffer = buffer;
   data->length = length;
   data->ev = events::WRITE;
+  data->id = pfd_info.id;
   data->pfd = pfd;
   data->additional_info = additional_info;
 
@@ -313,6 +316,7 @@ int event_manager::queue_readv(int pfd, struct iovec *iovs, size_t num, int addi
   data->buffer = reinterpret_cast<uint8_t *>(iovs);
   data->length = num;
   data->ev = events::READV;
+  data->id = pfd_info.id;
   data->pfd = pfd;
   data->additional_info = additional_info;
 
@@ -345,6 +349,7 @@ int event_manager::queue_writev(int pfd, struct iovec *iovs, size_t num, int add
   data->buffer = reinterpret_cast<uint8_t *>(iovs);
   data->length = num;
   data->ev = events::WRITEV;
+  data->id = pfd_info.id;
   data->pfd = pfd;
   data->additional_info = additional_info;
 
@@ -377,6 +382,7 @@ int event_manager::queue_accept(int pfd, int additional_info) {
   data->ev = events::ACCEPT;
 
   auto client_address = new sockaddr_storage;
+  data->id = pfd_info.id;
   data->pfd = pfd;
   data->buffer = reinterpret_cast<uint8_t *>(client_address);
   data->info = sizeof(*client_address);
@@ -410,6 +416,7 @@ int event_manager::queue_shutdown(int pfd, int how, int additional_info) {
 
   auto data = new request_data();
   data->ev = events::SHUTDOWN;
+  data->id = pfd_info.id;
   data->pfd = pfd;
   data->info = how;
   data->additional_info = additional_info;
@@ -441,6 +448,7 @@ int event_manager::queue_close(int pfd, int additional_info) {
 
   auto data = new request_data();
   data->ev = events::CLOSE;
+  data->id = pfd_info.id;
   data->pfd = pfd;
   data->additional_info = additional_info;
 
@@ -591,13 +599,13 @@ void event_manager::event_handler(int res, request_data *req_data) {
     }
   }
 
-  if ((uint64_t)pfd_info.fd < fd_id_map.size() && fd_id_map[pfd_info.fd] != pfd_info.id) {
-    // the pfd id is compared with the id stored in the fd_id_map, must be same
+  if (req_data->id != pfd_info.id) {
+    // the pfd id is compared with the id stored in the request data
     // for this request to be valid
 
-    // the close callback needn't be called here, since when this FD was replaced
+    // the close callback needn't be called here, since when this fd was replaced
     // by a newer one, then the close callback must've already been called, and
-    // new resources unrelated to this iteration of the FD would be cleaned if it
+    // new resources unrelated to this iteration of the fd would be cleaned if it
     // were called now
 
     // clean up resources
@@ -647,11 +655,7 @@ void event_manager::event_handler(int res, request_data *req_data) {
     if (res < 0) {
       std::cerr << "accept, event_handler, res < 0: (res is " << res << ")\n";
     } else {
-      auto id = max_current_id++;
       pfd_num = pfd_make(res, fd_types::NETWORK);
-
-      fd_id_map.resize(res + 1);
-      fd_id_map[res] = id;
     }
 
     callbacks->accept_callback(req_data->pfd, user_data, req_data->info, pfd_num, res,

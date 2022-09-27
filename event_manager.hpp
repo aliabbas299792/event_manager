@@ -107,8 +107,6 @@ private:
 
   int current_num_of_queued_sqes{};
 
-  uint16_t max_current_id{};
-  std::vector<int> fd_id_map{}; // used to verify if an fd has been reassigned
   server_methods *callbacks{};
 
   int kill_pfd = -1; // initialised later
