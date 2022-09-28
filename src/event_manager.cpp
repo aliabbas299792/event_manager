@@ -228,6 +228,7 @@ int event_manager::close_pfd(int pfd, int additional_info) {
   // close normal fds normally
   if (pfd_stuff.type == fd_types::LOCAL || pfd_stuff.type == fd_types::EVENT) {
     auto ret_code = close(pfd_stuff.fd);
+    pfd_free(pfd); // free local/event pfd
     callbacks->close_callback(pfd, ret_code, additional_info);
     return ret_code;
   } else {
@@ -541,7 +542,7 @@ void event_manager::await_single_message() {
   event_handler(cqe->res, req_data);
 
   io_uring_cqe_seen(&ring, cqe);
-  free(req_data);
+  delete req_data;
 
   if (manager_life_state == living_state::DYING) { // clean up all resources if killed
     // submit anything in the queue first, not using helper function since in
@@ -661,7 +662,7 @@ void event_manager::event_handler(int res, request_data *req_data) {
     callbacks->accept_callback(req_data->pfd, user_data, req_data->info, pfd_num, res,
                                req_data->additional_info);
 
-    free(user_data); // free the sockaddr_storage
+    delete user_data; // free the sockaddr_storage
     break;
   }
   case events::SHUTDOWN: {
