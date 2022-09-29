@@ -113,35 +113,35 @@ int event_manager::submit_all_queued_sqes_privately() {
   return res;
 }
 
-int event_manager::submit_read(int pfd, uint8_t *buffer, size_t length, int additional_info) {
+int event_manager::submit_read(int pfd, uint8_t *buffer, size_t length, uint64_t additional_info) {
   if (queue_read(pfd, buffer, length, additional_info) == -1) {
     return -2;
   }
   return submit_all_queued_sqes();
 }
 
-int event_manager::submit_write(int pfd, uint8_t *buffer, size_t length, int additional_info) {
+int event_manager::submit_write(int pfd, uint8_t *buffer, size_t length, uint64_t additional_info) {
   if (queue_write(pfd, buffer, length, additional_info) == -1) {
     return -2;
   }
   return submit_all_queued_sqes();
 }
 
-int event_manager::submit_readv(int pfd, struct iovec *iovs, size_t num, int additional_info) {
+int event_manager::submit_readv(int pfd, struct iovec *iovs, size_t num, uint64_t additional_info) {
   if (queue_readv(pfd, iovs, num, additional_info) == -1) {
     return -2;
   }
   return submit_all_queued_sqes();
 }
 
-int event_manager::submit_writev(int pfd, struct iovec *iovs, size_t num, int additional_info) {
+int event_manager::submit_writev(int pfd, struct iovec *iovs, size_t num, uint64_t additional_info) {
   if (queue_writev(pfd, iovs, num, additional_info) == -1) {
     return -2;
   }
   return submit_all_queued_sqes();
 }
 
-int event_manager::submit_accept(int pfd, int additional_info) {
+int event_manager::submit_accept(int pfd, uint64_t additional_info) {
   if (queue_accept(pfd, additional_info) == -1) {
     return -2;
   }
@@ -157,14 +157,14 @@ void event_manager::shutdown_and_close_normally(int pfd) {
   pfd_free(pfd);
 }
 
-int event_manager::submit_shutdown(int pfd, int how, int additional_info) {
+int event_manager::submit_shutdown(int pfd, int how, uint64_t additional_info) {
   if (queue_shutdown(pfd, how, additional_info) == -1) {
     return -2;
   }
   return submit_all_queued_sqes();
 }
 
-int event_manager::submit_close(int pfd, int additional_info) {
+int event_manager::submit_close(int pfd, uint64_t additional_info) {
   if (queue_close(pfd, additional_info) == -1) {
     return -2;
   }
@@ -223,7 +223,7 @@ int event_manager::queue_event_read(int pfd, uint64_t additional_info, events ev
 }
 
 // close pfd will always eventually lead to the close callback being called
-int event_manager::close_pfd(int pfd, int additional_info) {
+int event_manager::close_pfd(int pfd, uint64_t additional_info) {
   auto pfd_stuff = pfd_to_data[pfd];
   // close normal fds normally
   if (pfd_stuff.type == fd_types::LOCAL || pfd_stuff.type == fd_types::EVENT) {
@@ -236,7 +236,7 @@ int event_manager::close_pfd(int pfd, int additional_info) {
   }
 }
 
-int event_manager::queue_read(int pfd, uint8_t *buffer, size_t length, int additional_info) {
+int event_manager::queue_read(int pfd, uint8_t *buffer, size_t length, uint64_t additional_info) {
   if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
@@ -269,7 +269,7 @@ int event_manager::queue_read(int pfd, uint8_t *buffer, size_t length, int addit
   return 0;
 }
 
-int event_manager::queue_write(int pfd, uint8_t *buffer, size_t length, int additional_info) {
+int event_manager::queue_write(int pfd, uint8_t *buffer, size_t length, uint64_t additional_info) {
   if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
@@ -302,7 +302,7 @@ int event_manager::queue_write(int pfd, uint8_t *buffer, size_t length, int addi
   return 0;
 }
 
-int event_manager::queue_readv(int pfd, struct iovec *iovs, size_t num, int additional_info) {
+int event_manager::queue_readv(int pfd, struct iovec *iovs, size_t num, uint64_t additional_info) {
   if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
@@ -335,7 +335,7 @@ int event_manager::queue_readv(int pfd, struct iovec *iovs, size_t num, int addi
   return 0;
 }
 
-int event_manager::queue_writev(int pfd, struct iovec *iovs, size_t num, int additional_info) {
+int event_manager::queue_writev(int pfd, struct iovec *iovs, size_t num, uint64_t additional_info) {
   if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
@@ -368,7 +368,7 @@ int event_manager::queue_writev(int pfd, struct iovec *iovs, size_t num, int add
   return 0;
 }
 
-int event_manager::queue_accept(int pfd, int additional_info) {
+int event_manager::queue_accept(int pfd, uint64_t additional_info) {
   if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
@@ -395,8 +395,7 @@ int event_manager::queue_accept(int pfd, int additional_info) {
     return -1;
   }
 
-  io_uring_prep_accept(sqe, fd, (sockaddr *)client_address,
-                       reinterpret_cast<uint32_t *>(&data->additional_info), 0);
+  io_uring_prep_accept(sqe, fd, (sockaddr *)client_address, reinterpret_cast<uint32_t *>(&data->info), 0);
   io_uring_sqe_set_data(sqe, data);
 
   current_num_of_queued_sqes++;
@@ -404,7 +403,7 @@ int event_manager::queue_accept(int pfd, int additional_info) {
   return 0;
 }
 
-int event_manager::queue_shutdown(int pfd, int how, int additional_info) {
+int event_manager::queue_shutdown(int pfd, int how, uint64_t additional_info) {
   if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
@@ -436,7 +435,7 @@ int event_manager::queue_shutdown(int pfd, int how, int additional_info) {
   return 0;
 }
 
-int event_manager::queue_close(int pfd, int additional_info) {
+int event_manager::queue_close(int pfd, uint64_t additional_info) {
   if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
@@ -659,7 +658,7 @@ void event_manager::event_handler(int res, request_data *req_data) {
       pfd_num = pfd_make(res, fd_types::NETWORK);
     }
 
-    callbacks->accept_callback(req_data->pfd, user_data, req_data->info, pfd_num, res,
+    callbacks->accept_callback(req_data->pfd, user_data, sizeof(*user_data), pfd_num, res,
                                req_data->additional_info);
 
     delete user_data; // free the sockaddr_storage

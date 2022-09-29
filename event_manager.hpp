@@ -164,26 +164,26 @@ public:
   int fstat_normally(int pfd, struct stat *buf);
 
   // generic fd submit ops (i.e calls submit_all_queues_sqes() immediately)
-  int submit_read(int pfd, uint8_t *buffer, size_t length, int additional_info = 0);
-  int submit_readv(int pfd, struct iovec *iovs, size_t num, int additional_info = 0);
-  int submit_write(int pfd, uint8_t *buffer, size_t length, int additional_info = 0);
-  int submit_writev(int pfd, struct iovec *iovs, size_t num, int additional_info = 0);
-  int submit_accept(int pfd, int additional_info = 0);
-  int submit_shutdown(int pfd, int how, int additional_info = 0);
-  int submit_close(int pfd, int additional_info = 0);
+  int submit_read(int pfd, uint8_t *buffer, size_t length, uint64_t additional_info = -1);
+  int submit_readv(int pfd, struct iovec *iovs, size_t num, uint64_t additional_info = -1);
+  int submit_write(int pfd, uint8_t *buffer, size_t length, uint64_t additional_info = -1);
+  int submit_writev(int pfd, struct iovec *iovs, size_t num, uint64_t additional_info = -1);
+  int submit_accept(int pfd, uint64_t additional_info = -1);
+  int submit_shutdown(int pfd, int how, uint64_t additional_info = -1);
+  int submit_close(int pfd, uint64_t additional_info = -1);
   int submit_all_queued_sqes();
 
-  int close_pfd(int pfd, int additional_info = 0);
+  int close_pfd(int pfd, uint64_t additional_info = -1);
 
   // generic fd queue ops (just queues data in the ring without submitting
   // anything)
-  int queue_read(int pfd, uint8_t *buffer, size_t length, int additional_info = 0);
-  int queue_readv(int pfd, struct iovec *iovs, size_t num, int additional_info = 0);
-  int queue_write(int pfd, uint8_t *buffer, size_t length, int additional_info = 0);
-  int queue_writev(int pfd, struct iovec *iovs, size_t num, int additional_info = 0);
-  int queue_accept(int pfd, int additional_info = 0);
-  int queue_shutdown(int pfd, int how, int additional_info = 0);
-  int queue_close(int pfd, int additional_info = 0);
+  int queue_read(int pfd, uint8_t *buffer, size_t length, uint64_t additional_info = -1);
+  int queue_readv(int pfd, struct iovec *iovs, size_t num, uint64_t additional_info = -1);
+  int queue_write(int pfd, uint8_t *buffer, size_t length, uint64_t additional_info = -1);
+  int queue_writev(int pfd, struct iovec *iovs, size_t num, uint64_t additional_info = -1);
+  int queue_accept(int pfd, uint64_t additional_info = -1);
+  int queue_shutdown(int pfd, int how, uint64_t additional_info = -1);
+  int queue_close(int pfd, uint64_t additional_info = -1);
 
   int get_num_queued_sqes() const;
 };
