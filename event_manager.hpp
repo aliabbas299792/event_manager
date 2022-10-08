@@ -155,13 +155,8 @@ public:
   // i.e this is specifically dealing with when the event manager is
   // DYING/DYING_DYING_CANCELLING_REQS/DEAD
 
-  // file ops
-  int open_get_pfd_normally(const char *pathname, int flags);           // flags are the same flags as open(2)
-  int open_get_pfd_normally(const char *pathname, int flags, int mode); // flags are the same flags as open(2)
-  int socket_create_normally(int domain, int type, int protocol);
-  int unlink_normally(const char *name);
-  int stat_normally(const char *path, struct stat *buf);
-  int fstat_normally(int pfd, struct stat *buf);
+  // returns pfd for use with other event manager methods - assumes this isn't an eventfd
+  int pass_fd_to_event_manager(int fd, bool is_network_fd);
 
   // generic fd submit ops (i.e calls submit_all_queues_sqes() immediately)
   int submit_read(int pfd, uint8_t *buffer, size_t length, uint64_t additional_info = -1);

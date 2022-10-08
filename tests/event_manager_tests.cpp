@@ -35,22 +35,24 @@ TEST_CASE("event manager full tests") {
     std::string data = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi et "
                        "ipsum pellentesque, vestibulum dolor sed, egestas nibh.\n";
 
-    auto new_file_pfd = ev.open_get_pfd_normally(filename.c_str(), O_WRONLY | O_CREAT, 0666);
+    auto new_file_fd = open(filename.c_str(), O_WRONLY | O_CREAT, 0666);
+    auto new_file_pfd = ev.pass_fd_to_event_manager(new_file_fd, false);
     REQUIRE(ev.submit_write(new_file_pfd, reinterpret_cast<uint8_t *>(data.data()), data.length()) == 1);
     // == 1 above since should have submitted 1 sqe
 
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     struct stat statbuf {};
-    REQUIRE(ev.fstat_normally(new_file_pfd, &statbuf) == 0);
+    REQUIRE(fstat(new_file_fd, &statbuf) == 0);
     REQUIRE(statbuf.st_size == data.length());
     ev.close_pfd(new_file_pfd);
 
     std::memset(&statbuf, 0, sizeof(statbuf));
-    REQUIRE(ev.stat_normally(filename.c_str(), &statbuf) == 0);
+    REQUIRE(stat(filename.c_str(), &statbuf) == 0);
     REQUIRE(statbuf.st_size == data.length());
 
-    auto that_file_pfd = ev.open_get_pfd_normally(filename.c_str(), O_RDONLY);
+    auto that_file_fd = open(filename.c_str(), O_RDONLY);
+    auto that_file_pfd = ev.pass_fd_to_event_manager(that_file_fd, false);
     char buff[1024];
     REQUIRE(ev.submit_read(that_file_pfd, reinterpret_cast<uint8_t *>(&buff[0]), sizeof(buff)) == 1);
     // == 1 above since should have submitted 1 sqe
@@ -59,7 +61,7 @@ TEST_CASE("event manager full tests") {
 
     REQUIRE(ev.close_pfd(that_file_pfd) == 0);
 
-    REQUIRE(ev.unlink_normally(filename.c_str()) == 0);
+    REQUIRE(unlink(filename.c_str()) == 0);
 
     REQUIRE(strcmp(data.c_str(), buff) == 0);
 
@@ -186,7 +188,8 @@ TEST_CASE("event manager full tests") {
       iovs[i].iov_len = data.size();
     }
 
-    auto new_file_pfd = ev.open_get_pfd_normally(filename.c_str(), O_RDWR | O_CREAT, 0666);
+    auto new_file_fd = open(filename.c_str(), O_RDWR | O_CREAT, 0666);
+    auto new_file_pfd = ev.pass_fd_to_event_manager(new_file_fd, false);
 
     std::cout << ev.submit_writev(new_file_pfd, iovs, 1024) << " is writev response code\n";
 
@@ -209,7 +212,7 @@ TEST_CASE("event manager full tests") {
       delete[](char *) iovs2[i].iov_base;
     }
 
-    REQUIRE(ev.unlink_normally(filename.c_str()) == 0);
+    REQUIRE(unlink(filename.c_str()) == 0);
 
     ev.kill();
     t1.join();

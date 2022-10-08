@@ -57,7 +57,7 @@ const std::string long_message = "Lorem ipsum dolor sit amet, consectetur adipis
 constexpr int READ_SIZE = 4096;
 
 inline int test_setup_listener_get_pfd(int port, event_manager *ev) {
-  int listener_fd, listener_pfd;
+  int listener_fd{};
   int yes = 1;
   addrinfo hints, *server_info, *traverser;
 
@@ -71,9 +71,7 @@ inline int test_setup_listener_get_pfd(int port, event_manager *ev) {
 
   for (traverser = server_info; traverser != NULL; traverser = traverser->ai_next) {
 
-    listener_pfd =
-        ev->socket_create_normally(traverser->ai_family, traverser->ai_socktype, traverser->ai_protocol);
-    listener_fd = ev->get_pfd_data(listener_pfd).fd;
+    listener_fd = socket(traverser->ai_family, traverser->ai_socktype, traverser->ai_protocol);
     setsockopt(listener_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
     setsockopt(listener_fd, SOL_SOCKET, SO_REUSEPORT, &yes, sizeof(yes));
     setsockopt(listener_fd, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(yes));
@@ -103,7 +101,7 @@ inline int test_setup_listener_get_pfd(int port, event_manager *ev) {
     return -1;
   }
 
-  return listener_pfd;
+  return ev->pass_fd_to_event_manager(listener_fd, true);
 }
 
 inline int connect_to_local_test_server(const char *port) {

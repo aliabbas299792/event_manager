@@ -34,7 +34,8 @@ int main() {
   char write_buff[data.size()];
   data.copy(write_buff, data.size());
 
-  auto new_file_pfd = ev.open_get_pfd_normally(filename.c_str(), O_WRONLY | O_CREAT, 0666);
+  auto new_file_fd = open(filename.c_str(), O_WRONLY | O_CREAT, 0666);
+  auto new_file_pfd = ev.pass_fd_to_event_manager(new_file_fd, false);
 
   ev.submit_write(new_file_pfd, reinterpret_cast<uint8_t *>(write_buff), data.length());
   // == 1 above since should have submitted 1 sqe
@@ -42,13 +43,14 @@ int main() {
   std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
   struct stat statbuf {};
-  ev.fstat_normally(new_file_pfd, &statbuf);
+  fstat(new_file_fd, &statbuf);
   ev.close_pfd(new_file_pfd);
 
   std::memset(&statbuf, 0, sizeof(statbuf));
-  ev.stat_normally(filename.c_str(), &statbuf);
+  stat(filename.c_str(), &statbuf);
 
-  auto that_file_pfd = ev.open_get_pfd_normally(filename.c_str(), O_RDONLY);
+  auto that_file_fd = open(filename.c_str(), O_RDONLY);
+  auto that_file_pfd = ev.pass_fd_to_event_manager(that_file_fd, false);
   char buff[1024];
 
   ev.submit_read(that_file_pfd, reinterpret_cast<uint8_t *>(&buff[0]), sizeof(buff));
@@ -58,7 +60,7 @@ int main() {
 
   ev.close_pfd(that_file_pfd);
 
-  ev.unlink_normally(filename.c_str()); // deletes the file
+  unlink(filename.c_str()); // deletes the file
 
   ev.kill();
   t1.join();

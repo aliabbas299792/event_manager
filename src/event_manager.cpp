@@ -33,6 +33,10 @@ int event_manager::pfd_make(int fd, fd_types type) {
 
 void event_manager::pfd_free(int pfd) { pfd_freed_pfds.insert(pfd); }
 
+int event_manager::pass_fd_to_event_manager(int fd, bool is_network_fd) {
+  return pfd_make(fd, is_network_fd ? fd_types::NETWORK : fd_types::LOCAL);
+}
+
 void event_manager::kill() {
   uint64_t data = 1;
   write(pfd_to_data[kill_pfd].fd, &data, sizeof(uint64_t));
@@ -46,50 +50,6 @@ int event_manager::create_event_fd_normally() {
   }
 
   return pfd_make(efd, fd_types::EVENT);
-}
-
-// flags are the same flags as open(2)
-int event_manager::open_get_pfd_normally(const char *pathname, int flags) {
-  auto potential_fd = open(pathname, flags);
-
-  if (potential_fd < 0) {
-    std::cerr << "Error in opening file: " << errno << "\n";
-    return potential_fd;
-  }
-
-  return pfd_make(potential_fd, fd_types::LOCAL);
-}
-
-// flags are the same flags as open(2)
-int event_manager::open_get_pfd_normally(const char *pathname, int flags, int mode) {
-  auto potential_fd = open(pathname, flags, mode);
-
-  if (potential_fd < 0) {
-    std::cerr << "Error in opening file: " << errno << "\n";
-    return potential_fd;
-  }
-
-  return pfd_make(potential_fd, fd_types::LOCAL);
-}
-
-int event_manager::socket_create_normally(int domain, int type, int protocol) {
-  auto potential_sock = socket(domain, type, protocol);
-
-  if (potential_sock < 0) {
-    std::cerr << "Error in opening socket: " << errno << "\n";
-    return potential_sock;
-  }
-
-  return pfd_make(potential_sock, fd_types::NETWORK);
-}
-
-int event_manager::unlink_normally(const char *name) { return unlink(name); }
-
-int event_manager::stat_normally(const char *path, struct stat *buf) { return stat(path, buf); }
-
-int event_manager::fstat_normally(int pfd, struct stat *buf) {
-  auto fd = pfd_to_data[pfd].fd;
-  return fstat(fd, buf);
 }
 
 int event_manager::submit_all_queued_sqes() {
