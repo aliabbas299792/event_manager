@@ -571,10 +571,10 @@ void event_manager::event_handler(int res, request_data *req_data) {
     // clean up resources
     switch (req_data->ev) {
     case events::ACCEPT:
-      free(req_data->buffer); // free the sockaddr_storage
+      delete[] req_data->buffer; // free the sockaddr_storage
       break;
     case events::EVENT:
-      free(req_data->buffer); // allocated in the queue_event_read function
+      delete[] req_data->buffer; // allocated in the queue_event_read function
       break;
     default:
       break;
@@ -640,11 +640,13 @@ void event_manager::event_handler(int res, request_data *req_data) {
   case events::EVENT: {
     callbacks->event_callback(req_data->pfd, res, req_data->additional_info);
 
-    free(req_data->buffer); // allocated in the queue_event_read function
+    delete[] req_data->buffer; // allocated in the queue_event_read function
     break;
   }
   case events::KILL: {
     manager_life_state = living_state::DYING;
+
+    delete[] req_data->buffer; // allocated in the queue_event_read function
     break;
   }
   }

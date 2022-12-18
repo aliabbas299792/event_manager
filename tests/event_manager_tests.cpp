@@ -183,7 +183,7 @@ TEST_CASE("event manager full tests") {
 
     struct iovec iovs[1024];
     for (int i = 0; i < 1024; i++) {
-      iovs[i].iov_base = new char[data.size()];
+      iovs[i].iov_base = new char[data.size()+1]{};
       std::memcpy(iovs[i].iov_base, data.c_str(), data.size());
       iovs[i].iov_len = data.size();
     }
@@ -197,7 +197,7 @@ TEST_CASE("event manager full tests") {
 
     struct iovec iovs2[1024];
     for (int i = 0; i < 1024; i++) {
-      iovs2[i].iov_base = new char[data.size()];
+      iovs2[i].iov_base = new char[data.size()+1]{};
       iovs2[i].iov_len = data.size();
     }
 

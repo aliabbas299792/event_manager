@@ -113,21 +113,67 @@ inline int connect_to_local_test_server(const char *port) {
   hints.ai_socktype = SOCK_STREAM;
 
   if (getaddrinfo("127.0.0.1", port, &hints, &res) < 0) {
+    freeaddrinfo(res);
     return -1;
   }
 
   sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
 
   if (connect(sockfd, res->ai_addr, res->ai_addrlen) < 0) {
+    freeaddrinfo(res);
     return -2;
   }
 
+  freeaddrinfo(res);
   return sockfd;
 }
+
+struct ref_count_buff {
+  int uses{};
+  uint8_t *buff{};
+};
 
 class test_server : public server_methods {
 public:
   bool write_callback_no_shutdown = false;
+
+  int transaction_id = 0;
+  std::vector<ref_count_buff> ref_counted_data{};
+
+  void ref_counted_data_delete(int id) {
+    if((size_t)id < ref_counted_data.size()) {
+      --ref_counted_data[id].uses;
+      if(ref_counted_data[id].uses == 0) {
+        delete[] ref_counted_data[id].buff;
+        ref_counted_data[id] = {};
+      }
+    }
+  }
+
+  int ref_counted_data_insert(size_t buff_size, int uses) {
+    int id = transaction_id++;
+    uint8_t *buff = new uint8_t[buff_size];
+    if(ref_counted_data.size() <= (size_t)id) {
+      ref_counted_data.resize(id+1);
+    }
+    ref_counted_data[id].buff = buff;
+    ref_counted_data[id].uses = uses;
+
+    return id;
+  }
+
+  void ref_counted_data_update_uses(int id, int new_uses) {
+    if((size_t)id < ref_counted_data.size()) {
+      ref_counted_data[id].uses = new_uses;
+    }
+  }
+
+  uint8_t *ref_counted_data_get_buffer(int id) {
+    if((size_t)id < ref_counted_data.size()) {
+      return ref_counted_data[id].buff;
+    }
+    return nullptr;
+  }
 
   void accept_callback(int listener_pfd, sockaddr_storage *user_data, socklen_t size, uint64_t pfd,
                        int op_res_num, uint64_t additional_info) override {
@@ -138,7 +184,6 @@ public:
       if (ev->get_living_state() > event_manager::living_state::LIVING) {
         ev->shutdown_and_close_normally(pfd);
       }
-
       return;
     }
 
@@ -146,13 +191,15 @@ public:
 
     ev->queue_accept(listener_pfd); // want it to continue listening
 
-    uint8_t *buff = new uint8_t[READ_SIZE];
-    ev->queue_read(pfd, buff, READ_SIZE);
+    // id for this transaction
+    int id = ref_counted_data_insert(READ_SIZE, 1);
+    ev->queue_read(pfd, ref_counted_data_get_buffer(id), READ_SIZE, id);
 
     ev->submit_all_queued_sqes();
   }
 
   void read_callback(processed_data read_metadata, uint64_t pfd, uint64_t additional_info) override {
+    int id = additional_info;
     if (read_metadata.op_res_num < 0) {
       std::cout << "read callback got res " << read_metadata.op_res_num << "\n";
       if (read_metadata.op_res_num == -ECONNREFUSED) {
@@ -168,6 +215,9 @@ public:
         ev->shutdown_and_close_normally(pfd);
       }
 
+      // clean up allocated data
+      ref_counted_data_delete(id);
+
       // etc, deal with errors as you please
       return;
     }
@@ -177,6 +227,9 @@ public:
       std::cout << ev->submit_shutdown(pfd, SHUT_WR) << " is shutdown code\n";
       // try to close writing side of the connection, since we can't send
       // anything anymore
+
+      // clean up allocated data
+      ref_counted_data_delete(id);
       return;
     }
 
@@ -189,11 +242,14 @@ public:
     // these 5 requests aren't read in the main thread for one of the sockets,
     // but they are still cancelled
     std::memset(read_metadata.buff, 0, read_metadata.length);
-    ev->submit_read(pfd, read_metadata.buff, read_metadata.length);
-    ev->submit_read(pfd, read_metadata.buff, read_metadata.length);
-    ev->submit_read(pfd, read_metadata.buff, read_metadata.length);
-    ev->submit_read(pfd, read_metadata.buff, read_metadata.length);
-    ev->submit_read(pfd, read_metadata.buff, read_metadata.length);
+
+    ref_counted_data_update_uses(id, 5);
+
+    ev->submit_read(pfd, read_metadata.buff, read_metadata.length, id);
+    ev->submit_read(pfd, read_metadata.buff, read_metadata.length, id);
+    ev->submit_read(pfd, read_metadata.buff, read_metadata.length, id);
+    ev->submit_read(pfd, read_metadata.buff, read_metadata.length, id);
+    ev->submit_read(pfd, read_metadata.buff, read_metadata.length, id);
 
     char *write_buff = new char[long_message.size()];
     std::memcpy(write_buff, text_message_2.c_str(), text_message_2.size());
@@ -223,7 +279,7 @@ public:
       std::cout << "Wrote message: \""
                 << std::string(reinterpret_cast<char *>(write_metadata.buff), amount_read)
                 << "\", length was " << amount_read << ", with pfd: " << pfd << "\n";
-      free(write_metadata.buff);
+      delete[] write_metadata.buff;
     } else {
       if (write_metadata.op_res_num < 0) {
         std::cout << "write callback got res " << write_metadata.op_res_num << "\n";
@@ -246,7 +302,7 @@ public:
       std::cout << "Wrote message: \""
                 << std::string(reinterpret_cast<char *>(write_metadata.buff), amount_read)
                 << "\", length was " << amount_read << ", with pfd: " << pfd << "\n";
-      free(write_metadata.buff);
+      delete[] write_metadata.buff;
 
       ev->submit_shutdown(pfd, SHUT_RD);
     }
