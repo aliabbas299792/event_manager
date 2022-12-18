@@ -1,1 +1,1 @@
-meson build && cd build && ninja && cd ..
+meson build -Db_coverage=true && cd build && ninja && cd ..
