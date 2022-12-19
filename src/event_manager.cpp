@@ -8,7 +8,7 @@ std::mutex event_manager::init_mutex{};
 int event_manager::ring_instances = 0;
 
 int event_manager::pfd_make(int fd, fd_types type) {
-  if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
+  if (is_dying_or_dead()) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
   }
@@ -53,7 +53,7 @@ int event_manager::create_event_fd_normally() {
 }
 
 int event_manager::submit_all_queued_sqes() {
-  if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
+  if (is_dying_or_dead()) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
   }
@@ -149,7 +149,7 @@ int event_manager::submit_event_read(int pfd, uint64_t additional_info, events e
 }
 
 int event_manager::queue_event_read(int pfd, uint64_t additional_info, events event) {
-  if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
+  if (is_dying_or_dead()) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
   }
@@ -197,7 +197,7 @@ int event_manager::close_pfd(int pfd, uint64_t additional_info) {
 }
 
 int event_manager::queue_read(int pfd, uint8_t *buffer, size_t length, uint64_t additional_info) {
-  if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
+  if (is_dying_or_dead()) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
   }
@@ -230,7 +230,7 @@ int event_manager::queue_read(int pfd, uint8_t *buffer, size_t length, uint64_t 
 }
 
 int event_manager::queue_write(int pfd, uint8_t *buffer, size_t length, uint64_t additional_info) {
-  if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
+  if (is_dying_or_dead()) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
   }
@@ -263,7 +263,7 @@ int event_manager::queue_write(int pfd, uint8_t *buffer, size_t length, uint64_t
 }
 
 int event_manager::queue_readv(int pfd, struct iovec *iovs, size_t num, uint64_t additional_info) {
-  if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
+  if (is_dying_or_dead()) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
   }
@@ -296,7 +296,7 @@ int event_manager::queue_readv(int pfd, struct iovec *iovs, size_t num, uint64_t
 }
 
 int event_manager::queue_writev(int pfd, struct iovec *iovs, size_t num, uint64_t additional_info) {
-  if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
+  if (is_dying_or_dead()) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
   }
@@ -329,7 +329,7 @@ int event_manager::queue_writev(int pfd, struct iovec *iovs, size_t num, uint64_
 }
 
 int event_manager::queue_accept(int pfd, uint64_t additional_info) {
-  if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
+  if (is_dying_or_dead()) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
   }
@@ -364,7 +364,7 @@ int event_manager::queue_accept(int pfd, uint64_t additional_info) {
 }
 
 int event_manager::queue_shutdown(int pfd, int how, uint64_t additional_info) {
-  if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
+  if (is_dying_or_dead()) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
   }
@@ -396,7 +396,7 @@ int event_manager::queue_shutdown(int pfd, int how, uint64_t additional_info) {
 }
 
 int event_manager::queue_close(int pfd, uint64_t additional_info) {
-  if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
+  if (is_dying_or_dead()) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
   }
@@ -503,7 +503,7 @@ void event_manager::await_single_message() {
   io_uring_cqe_seen(&ring, cqe);
   delete req_data;
 
-  if (manager_life_state == living_state::DYING) { // clean up all resources if killed
+  if (manager_life_state == living_state::DYING_STAGE_1) { // clean up all resources if killed
     // submit anything in the queue first, not using helper function since in
     // DYING state
 
@@ -525,7 +525,7 @@ void event_manager::await_single_message() {
 
     // not dead but not just dying
     if (end_stage_num_to_cancel != 0) {
-      manager_life_state = living_state::DYING_CANCELLING_REQS;
+      manager_life_state = living_state::DYING_STAGE_2_CANCELLING_REQS;
     } else {
       manager_life_state = living_state::DEAD; // nothing left to cancel, we're done
     }
@@ -551,7 +551,7 @@ void event_manager::event_handler(int res, request_data *req_data) {
 
   auto &pfd_info = pfd_to_data[req_data->pfd];
 
-  if (manager_life_state == living_state::DYING_CANCELLING_REQS) {
+  if (manager_life_state == living_state::DYING_STAGE_2_CANCELLING_REQS) {
     end_stage_num_to_cancel--;
 
     if (end_stage_num_to_cancel == 0) {
@@ -644,7 +644,7 @@ void event_manager::event_handler(int res, request_data *req_data) {
     break;
   }
   case events::KILL: {
-    manager_life_state = living_state::DYING;
+    manager_life_state = living_state::DYING_STAGE_1;
 
     delete[] req_data->buffer; // allocated in the queue_event_read function
     break;
