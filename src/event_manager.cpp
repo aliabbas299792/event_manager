@@ -20,11 +20,12 @@ int event_manager::pfd_make(int fd, fd_types type) {
     pfd_freed_pfds.erase(idx);
 
     auto &freed_client = pfd_to_data[idx];
+    freed_client.is_being_freed = false;
+    freed_client.submitted_reqs = 0;
     freed_client.fd = fd;
     freed_client.type = type;
-    freed_client.id += 1; // will have signed overflow eventually
   } else {
-    pfd_to_data.emplace_back(type, 0, fd);
+    pfd_to_data.emplace_back(type, fd);
     idx = pfd_to_data.size() - 1;
   }
 
@@ -169,7 +170,6 @@ int event_manager::queue_event_read(int pfd, uint64_t additional_info, events ev
   data->buffer = reinterpret_cast<uint8_t *>(new char[sizeof(uint64_t)]);
   data->length = sizeof(uint64_t);
   data->ev = event;
-  data->id = pfd_info.id;
   data->pfd = pfd;
   data->additional_info = additional_info;
 
@@ -211,7 +211,6 @@ int event_manager::queue_read(int pfd, uint8_t *buffer, size_t length, uint64_t 
   data->buffer = buffer;
   data->length = length;
   data->ev = events::READ;
-  data->id = pfd_info.id;
   data->pfd = pfd;
   data->additional_info = additional_info;
 
@@ -244,7 +243,6 @@ int event_manager::queue_write(int pfd, uint8_t *buffer, size_t length, uint64_t
   data->buffer = buffer;
   data->length = length;
   data->ev = events::WRITE;
-  data->id = pfd_info.id;
   data->pfd = pfd;
   data->additional_info = additional_info;
 
@@ -277,7 +275,6 @@ int event_manager::queue_readv(int pfd, struct iovec *iovs, size_t num, uint64_t
   data->buffer = reinterpret_cast<uint8_t *>(iovs);
   data->length = num;
   data->ev = events::READV;
-  data->id = pfd_info.id;
   data->pfd = pfd;
   data->additional_info = additional_info;
 
@@ -310,7 +307,6 @@ int event_manager::queue_writev(int pfd, struct iovec *iovs, size_t num, uint64_
   data->buffer = reinterpret_cast<uint8_t *>(iovs);
   data->length = num;
   data->ev = events::WRITEV;
-  data->id = pfd_info.id;
   data->pfd = pfd;
   data->additional_info = additional_info;
 
@@ -343,7 +339,6 @@ int event_manager::queue_accept(int pfd, uint64_t additional_info) {
   data->ev = events::ACCEPT;
 
   auto client_address = new sockaddr_storage;
-  data->id = pfd_info.id;
   data->pfd = pfd;
   data->buffer = reinterpret_cast<uint8_t *>(client_address);
   data->info = sizeof(*client_address);
@@ -376,7 +371,6 @@ int event_manager::queue_shutdown(int pfd, int how, uint64_t additional_info) {
 
   auto data = new request_data();
   data->ev = events::SHUTDOWN;
-  data->id = pfd_info.id;
   data->pfd = pfd;
   data->info = how;
   data->additional_info = additional_info;
@@ -408,7 +402,6 @@ int event_manager::queue_close(int pfd, uint64_t additional_info) {
 
   auto data = new request_data();
   data->ev = events::CLOSE;
-  data->id = pfd_info.id;
   data->pfd = pfd;
   data->additional_info = additional_info;
 
@@ -494,8 +487,8 @@ void event_manager::await_single_message() {
 
   auto req_data = reinterpret_cast<request_data *>(io_uring_cqe_get_data(cqe));
   if (cqe->res < 0) {
-    std::cerr << "\tio_uring request failure with (code, pfd, fd, id): (" << cqe->res << ", " << req_data->pfd
-              << ", " << pfd_to_data[req_data->pfd].fd << ", " << pfd_to_data[req_data->pfd].id << ")\n";
+    std::cerr << "\tio_uring request failure with (code, pfd, fd): (" << cqe->res << ", " << req_data->pfd
+              << ", " << pfd_to_data[req_data->pfd].fd << ")\n";
   }
 
   event_handler(cqe->res, req_data);
@@ -549,7 +542,8 @@ void event_manager::event_handler(int res, request_data *req_data) {
     return;
   }
 
-  auto &pfd_info = pfd_to_data[req_data->pfd];
+  int pfd = req_data->pfd;
+  auto &pfd_info = pfd_to_data[pfd];
 
   if (manager_life_state == living_state::DYING_STAGE_2_CANCELLING_REQS) {
     end_stage_num_to_cancel--;
@@ -559,53 +553,30 @@ void event_manager::event_handler(int res, request_data *req_data) {
     }
   }
 
-  if (req_data->id != pfd_info.id) {
-    // the pfd id is compared with the id stored in the request data
-    // for this request to be valid
-
-    // the close callback needn't be called here, since when this fd was replaced
-    // by a newer one, then the close callback must've already been called, and
-    // new resources unrelated to this iteration of the fd would be cleaned if it
-    // were called now
-
-    // clean up resources
-    switch (req_data->ev) {
-    case events::ACCEPT:
-      delete[] req_data->buffer; // free the sockaddr_storage
-      break;
-    case events::EVENT:
-      delete[] req_data->buffer; // allocated in the queue_event_read function
-      break;
-    default:
-      break;
-    }
-
-    return;
-  }
 
   pfd_info.submitted_reqs--; // a request for this pfd is no longer active now
 
   switch (req_data->ev) {
   case events::WRITE: {
-    callbacks->write_callback(processed_data(req_data->buffer, res, req_data->length), req_data->pfd,
+    callbacks->write_callback(processed_data(req_data->buffer, res, req_data->length), pfd,
                               req_data->additional_info);
     break;
   }
   case events::READ: {
-    callbacks->read_callback(processed_data(req_data->buffer, res, req_data->length), req_data->pfd,
+    callbacks->read_callback(processed_data(req_data->buffer, res, req_data->length), pfd,
                              req_data->additional_info);
     break;
   }
   case events::WRITEV: {
     callbacks->writev_callback(
         processed_data_vecs(reinterpret_cast<struct iovec *>(req_data->buffer), res, req_data->length),
-        req_data->pfd, req_data->additional_info);
+        pfd, req_data->additional_info);
     break;
   }
   case events::READV: {
     callbacks->readv_callback(
         processed_data_vecs(reinterpret_cast<struct iovec *>(req_data->buffer), res, req_data->length),
-        req_data->pfd, req_data->additional_info);
+        pfd, req_data->additional_info);
     break;
   }
   case events::ACCEPT: {
@@ -618,7 +589,7 @@ void event_manager::event_handler(int res, request_data *req_data) {
       pfd_num = pfd_make(res, fd_types::NETWORK);
     }
 
-    callbacks->accept_callback(req_data->pfd, user_data, sizeof(*user_data), pfd_num, res,
+    callbacks->accept_callback(pfd, user_data, sizeof(*user_data), pfd_num, res,
                                req_data->additional_info);
 
     delete user_data; // free the sockaddr_storage
@@ -626,19 +597,18 @@ void event_manager::event_handler(int res, request_data *req_data) {
   }
   case events::SHUTDOWN: {
     // additional_data stores the "how" parameter for the shutdown call
-    callbacks->shutdown_callback(req_data->info, req_data->pfd, res, req_data->additional_info);
+    callbacks->shutdown_callback(req_data->info, pfd, res, req_data->additional_info);
 
     break;
   }
   case events::CLOSE: {
-    callbacks->close_callback(req_data->pfd, res, req_data->additional_info);
-
-    pfd_free(req_data->pfd);
-
+    callbacks->close_callback(pfd, res, req_data->additional_info);
+    pfd_info.is_being_freed = true;
+    
     break;
   }
   case events::EVENT: {
-    callbacks->event_callback(req_data->pfd, res, req_data->additional_info);
+    callbacks->event_callback(pfd, res, req_data->additional_info);
 
     delete[] req_data->buffer; // allocated in the queue_event_read function
     break;
@@ -649,5 +619,12 @@ void event_manager::event_handler(int res, request_data *req_data) {
     delete[] req_data->buffer; // allocated in the queue_event_read function
     break;
   }
+  }
+
+  // only free if there are no other in flight requests for this pfd
+  // have to use a new pfd_info reference since previous one may have been invalidated
+  auto &pfd_info_after = pfd_to_data[pfd];
+  if(pfd_info_after.submitted_reqs == 0 && pfd_info.is_being_freed) {
+    pfd_free(pfd);
   }
 }
