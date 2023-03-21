@@ -4,7 +4,7 @@
 #include "event_manager.hpp"
 
 int event_manager::pfd_make(int fd, fd_types type) {
-  if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
+  if (is_dying_or_dead()) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
   }
@@ -16,11 +16,12 @@ int event_manager::pfd_make(int fd, fd_types type) {
     pfd_freed_pfds.erase(idx);
 
     auto &freed_client = pfd_to_data[idx];
+    freed_client.is_being_freed = false;
+    freed_client.submitted_reqs = 0;
     freed_client.fd = fd;
     freed_client.type = type;
-    freed_client.id += 1; // will have signed overflow eventually
   } else {
-    pfd_to_data.emplace_back(type, 0, fd);
+    pfd_to_data.emplace_back(type, fd);
     idx = pfd_to_data.size() - 1;
   }
 

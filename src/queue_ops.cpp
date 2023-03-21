@@ -3,7 +3,7 @@
 #include "event_manager.hpp"
 
 int event_manager::queue_event_read(int pfd, uint64_t additional_info, events event) {
-  if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
+  if (is_dying_or_dead()) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
   }
@@ -23,7 +23,6 @@ int event_manager::queue_event_read(int pfd, uint64_t additional_info, events ev
   data->buffer = reinterpret_cast<uint8_t *>(new char[sizeof(uint64_t)]);
   data->length = sizeof(uint64_t);
   data->ev = event;
-  data->id = pfd_info.id;
   data->pfd = pfd;
   data->additional_info = additional_info;
 
@@ -36,22 +35,8 @@ int event_manager::queue_event_read(int pfd, uint64_t additional_info, events ev
   return 0;
 }
 
-// close pfd will always eventually lead to the close callback being called
-int event_manager::close_pfd(int pfd, uint64_t additional_info) {
-  auto pfd_stuff = pfd_to_data[pfd];
-  // close normal fds normally
-  if (pfd_stuff.type == fd_types::LOCAL || pfd_stuff.type == fd_types::EVENT) {
-    auto ret_code = close(pfd_stuff.fd);
-    pfd_free(pfd); // free local/event pfd
-    callbacks->close_callback(pfd, ret_code, additional_info);
-    return ret_code;
-  } else {
-    return submit_close(pfd, additional_info);
-  }
-}
-
 int event_manager::queue_read(int pfd, uint8_t *buffer, size_t length, uint64_t additional_info) {
-  if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
+  if (is_dying_or_dead()) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
   }
@@ -65,7 +50,6 @@ int event_manager::queue_read(int pfd, uint8_t *buffer, size_t length, uint64_t 
   data->buffer = buffer;
   data->length = length;
   data->ev = events::READ;
-  data->id = pfd_info.id;
   data->pfd = pfd;
   data->additional_info = additional_info;
 
@@ -84,7 +68,7 @@ int event_manager::queue_read(int pfd, uint8_t *buffer, size_t length, uint64_t 
 }
 
 int event_manager::queue_write(int pfd, uint8_t *buffer, size_t length, uint64_t additional_info) {
-  if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
+  if (is_dying_or_dead()) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
   }
@@ -98,7 +82,6 @@ int event_manager::queue_write(int pfd, uint8_t *buffer, size_t length, uint64_t
   data->buffer = buffer;
   data->length = length;
   data->ev = events::WRITE;
-  data->id = pfd_info.id;
   data->pfd = pfd;
   data->additional_info = additional_info;
 
@@ -117,7 +100,7 @@ int event_manager::queue_write(int pfd, uint8_t *buffer, size_t length, uint64_t
 }
 
 int event_manager::queue_readv(int pfd, struct iovec *iovs, size_t num, uint64_t additional_info) {
-  if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
+  if (is_dying_or_dead()) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
   }
@@ -131,7 +114,6 @@ int event_manager::queue_readv(int pfd, struct iovec *iovs, size_t num, uint64_t
   data->buffer = reinterpret_cast<uint8_t *>(iovs);
   data->length = num;
   data->ev = events::READV;
-  data->id = pfd_info.id;
   data->pfd = pfd;
   data->additional_info = additional_info;
 
@@ -150,7 +132,7 @@ int event_manager::queue_readv(int pfd, struct iovec *iovs, size_t num, uint64_t
 }
 
 int event_manager::queue_writev(int pfd, struct iovec *iovs, size_t num, uint64_t additional_info) {
-  if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
+  if (is_dying_or_dead()) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
   }
@@ -164,7 +146,6 @@ int event_manager::queue_writev(int pfd, struct iovec *iovs, size_t num, uint64_
   data->buffer = reinterpret_cast<uint8_t *>(iovs);
   data->length = num;
   data->ev = events::WRITEV;
-  data->id = pfd_info.id;
   data->pfd = pfd;
   data->additional_info = additional_info;
 
@@ -183,7 +164,7 @@ int event_manager::queue_writev(int pfd, struct iovec *iovs, size_t num, uint64_
 }
 
 int event_manager::queue_accept(int pfd, uint64_t additional_info) {
-  if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
+  if (is_dying_or_dead()) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
   }
@@ -197,7 +178,6 @@ int event_manager::queue_accept(int pfd, uint64_t additional_info) {
   data->ev = events::ACCEPT;
 
   auto client_address = new sockaddr_storage;
-  data->id = pfd_info.id;
   data->pfd = pfd;
   data->buffer = reinterpret_cast<uint8_t *>(client_address);
   data->info = sizeof(*client_address);
@@ -218,7 +198,7 @@ int event_manager::queue_accept(int pfd, uint64_t additional_info) {
 }
 
 int event_manager::queue_shutdown(int pfd, int how, uint64_t additional_info) {
-  if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
+  if (is_dying_or_dead()) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
   }
@@ -230,7 +210,6 @@ int event_manager::queue_shutdown(int pfd, int how, uint64_t additional_info) {
 
   auto data = new request_data();
   data->ev = events::SHUTDOWN;
-  data->id = pfd_info.id;
   data->pfd = pfd;
   data->info = how;
   data->additional_info = additional_info;
@@ -250,7 +229,7 @@ int event_manager::queue_shutdown(int pfd, int how, uint64_t additional_info) {
 }
 
 int event_manager::queue_close(int pfd, uint64_t additional_info) {
-  if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
+  if (is_dying_or_dead()) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
   }
@@ -262,7 +241,6 @@ int event_manager::queue_close(int pfd, uint64_t additional_info) {
 
   auto data = new request_data();
   data->ev = events::CLOSE;
-  data->id = pfd_info.id;
   data->pfd = pfd;
   data->additional_info = additional_info;
 

@@ -6,7 +6,7 @@
 int event_manager::event_alert_normally(int pfd) { return eventfd_write(pfd_to_data[pfd].fd, 1); }
 
 int event_manager::submit_all_queued_sqes() {
-  if (manager_life_state == living_state::DYING || manager_life_state == living_state::DEAD) {
+  if (is_dying_or_dead()) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
     return -1;
   }
@@ -93,4 +93,18 @@ int event_manager::submit_event_read(int pfd, uint64_t additional_info, events e
     return -2;
   }
   return submit_all_queued_sqes();
+}
+
+// close pfd will always eventually lead to the close callback being called
+int event_manager::close_pfd(int pfd, uint64_t additional_info) {
+  auto pfd_stuff = pfd_to_data[pfd];
+  // close normal fds normally
+  if (pfd_stuff.type == fd_types::LOCAL || pfd_stuff.type == fd_types::EVENT) {
+    auto ret_code = close(pfd_stuff.fd);
+    pfd_free(pfd); // free local/event pfd
+    callbacks->close_callback(pfd, ret_code, additional_info);
+    return ret_code;
+  } else {
+    return submit_close(pfd, additional_info);
+  }
 }
