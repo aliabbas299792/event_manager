@@ -1,14 +1,15 @@
 #ifndef TEST_FUNCTIONS
 #define TEST_FUNCTIONS
 
-#include "../event_manager.hpp"
-
-#include <asm-generic/errno.h>
-#include <cstring>
+#include <iostream>
 #include <thread>
+#include <cstring>
 
 #include <netdb.h>
 #include <netinet/tcp.h>
+#include <asm-generic/errno.h>
+
+#include "../event_manager.hpp"
 
 const std::string text_message = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque cursus "
                                  "iaculis felis ut faucibus. Pellentesque sed eleifend ipsum. Aenean eget "

@@ -1,23 +1,12 @@
 #ifndef EVENT_MANAGER
 #define EVENT_MANAGER
 
-#include <bits/types/struct_iovec.h>
-#include <cstddef>
-#include <cstdint>
-#include <iostream>
 #include <set>
-
-#include <fcntl.h>
-#include <liburing.h>
-#include <mutex>
-#include <netinet/in.h>
-#include <sys/eventfd.h>
-#include <sys/socket.h>
-#include <sys/types.h>
 #include <vector>
 
+#include <liburing.h>
+
 #include "header/event_manager_metadata.hpp"
-#include "header/events_enum.hpp"
 
 /*
 pfd = pseudo fd, they are indexes to 64 bit structs in pfd_to_data and contain:
