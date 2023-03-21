@@ -63,7 +63,7 @@ TEST_CASE("writing a new file, stat/fstat contents, read contents and check "
 
   auto that_file_fd = open(filename.c_str(), O_RDONLY);
   auto that_file_pfd = ev.pass_fd_to_event_manager(that_file_fd, false);
-  char buff[1024];
+  char buff[1024] {};
   REQUIRE(ev.submit_read(that_file_pfd, reinterpret_cast<uint8_t *>(&buff[0]), sizeof(buff)) == 1);
   // == 1 above since should have submitted 1 sqe
 
