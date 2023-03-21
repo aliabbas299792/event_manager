@@ -32,15 +32,15 @@ event_manager::event_manager(server_methods *callbacks) {
   }
 
   ring_instances++;
-
-  submit_event_read(kill_pfd, 0,
-                    events::KILL); // to ensure the system responds to the kill() command
 }
 
 void event_manager::start() {
   if (callbacks == nullptr) {
     throw std::runtime_error("Server methods callbacks must be set");
   }
+
+  submit_event_read(kill_pfd, 0,
+                    events::KILL); // to ensure the system responds to the kill() command
 
   while (manager_life_state != living_state::DEAD) {
     await_single_message();
