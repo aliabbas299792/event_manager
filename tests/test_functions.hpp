@@ -183,7 +183,7 @@ public:
       // if errored and also not LIVING then shutdown the socket properly just
       // in case
       if (ev->get_living_state() > event_manager::living_state::LIVING) {
-        ev->shutdown_and_close_normally(pfd);
+        ev->close_pfd(pfd, additional_info);
       }
       return;
     }
@@ -213,7 +213,7 @@ public:
       // if errored and also not LIVING then shutdown the socket properly just
       // in case
       if (ev->get_living_state() > event_manager::living_state::LIVING) {
-        ev->shutdown_and_close_normally(pfd);
+        ev->close_pfd(pfd, additional_info);
       }
 
       // clean up allocated data
@@ -225,7 +225,7 @@ public:
 
     if (read_metadata.op_res_num == 0) {
       // end of file reached, i.e no more data can be read from it
-      std::cout << ev->submit_shutdown(pfd, SHUT_WR) << " is shutdown code\n";
+      ev->close_pfd(pfd, additional_info);
       // try to close writing side of the connection, since we can't send
       // anything anymore
 
@@ -269,7 +269,7 @@ public:
         // if errored and also not LIVING then shutdown the socket properly just
         // in case
         if (ev->get_living_state() > event_manager::living_state::LIVING) {
-          ev->shutdown_and_close_normally(pfd);
+          ev->close_pfd(pfd, additional_info);
         }
 
         return;
@@ -292,7 +292,7 @@ public:
         // if errored and also not LIVING then shutdown the socket properly just
         // in case
         if (ev->get_living_state() > event_manager::living_state::LIVING) {
-          ev->shutdown_and_close_normally(pfd);
+          ev->close_pfd(pfd, additional_info);
         }
 
         return;
@@ -305,7 +305,7 @@ public:
                 << "\", length was " << amount_read << ", with pfd: " << pfd << "\n";
       delete[] write_metadata.buff;
 
-      ev->submit_shutdown(pfd, SHUT_RD);
+      ev->close_pfd(pfd, additional_info);
     }
   }
 
@@ -315,7 +315,7 @@ public:
       // if errored and also not LIVING then shutdown the socket properly just
       // in case
       if (ev->get_living_state() > event_manager::living_state::LIVING) {
-        ev->shutdown_and_close_normally(pfd);
+        ev->close_pfd(pfd, additional_info);
       }
 
       return;
@@ -325,39 +325,13 @@ public:
               << "\n";
   }
 
-  void shutdown_callback(int how, uint64_t pfd, int op_res_num, uint64_t additional_info) override {
-    if (op_res_num < 0) {
-      std::cout << "shutdown errored with: " << op_res_num << "\n";
-      // if errored and also not LIVING then shutdown the socket properly just
-      // in case
-      if (ev->get_living_state() > event_manager::living_state::LIVING) {
-        ev->shutdown_and_close_normally(pfd);
-      }
-
-      return;
-    }
-
-    switch (how) {
-    case SHUT_RD: {
-      std::cout << "shut down stage 1 done\n";
-      break;
-    }
-    case SHUT_WR: {
-      std::cout << "shut down stage 2 done\n";
-      std::cout << ev->submit_close(pfd) << " is close code\n";
-      ;
-      break;
-    };
-    }
-  }
-
   void close_callback(uint64_t pfd, int op_res_num, uint64_t additional_info) override {
     if (op_res_num < 0) {
       std::cout << "close errored with: " << op_res_num << "\n";
       // if errored and also not LIVING then shutdown the socket properly just
       // in case
       if (ev->get_living_state() > event_manager::living_state::LIVING) {
-        ev->shutdown_and_close_normally(pfd);
+        ev->close_pfd(pfd, additional_info);
       }
 
       return;
