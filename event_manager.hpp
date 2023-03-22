@@ -71,7 +71,6 @@ public:
   virtual void readv_callback(processed_data_vecs read_metadata, uint64_t pfd, uint64_t additional_info) {}
   virtual void writev_callback(processed_data_vecs write_metadata, uint64_t pfd, uint64_t additional_info) {}
   virtual void event_callback(int pfd, int op_res_num, uint64_t additional_info) {}
-  virtual void shutdown_callback(int how, uint64_t pfd, int op_res_num, uint64_t additional_info) {}
   virtual void close_callback(uint64_t pfd, int op_res_num, uint64_t additional_info) {}
 
   virtual void killed_callback(){}; // once the event_manager has been killed, this will be called
@@ -120,8 +119,17 @@ private:
   void await_single_message();
   void event_handler(int res, request_data *req_data);
 
+  // used for doing read ops which shouldn't reach the user
+  int submit_read_internal(int pfd, uint8_t *buffer, size_t length, events e, uint64_t additional_info = -1);
+  int queue_read_internal(int pfd, uint8_t *buffer, size_t length, events e, uint64_t additional_info = -1);
+
   int submit_event_read(int pfd, uint64_t additional_info, events event);
   int queue_event_read(int pfd, uint64_t additional_info, events event);
+
+  int submit_shutdown(int pfd, int how, uint64_t additional_info = -1);
+  int queue_shutdown(int pfd, int how, uint64_t additional_info = -1);
+  int shutdown_and_close_normally(int pfd, int additional_info);
+  uint8_t post_shutdown_read_byte{}; // used as a 1 byte buffer to read into during shutdown
 
 public:
   // the *_normally functions all are just wrappers for
@@ -141,9 +149,6 @@ public:
   int queue_generic_event(int pfd, uint64_t additional_info);
   int create_event_fd_normally();
   int event_alert_normally(int pfd);
-  void shutdown_and_close_normally(int pfd); // avoid this unless you really need to use it
-  // i.e this is specifically dealing with when the event manager is
-  // DYING/DYING_DYING_CANCELLING_REQS/DEAD
 
   // returns pfd for use with other event manager methods - assumes this isn't an eventfd
   int pass_fd_to_event_manager(int fd, bool is_network_fd);
@@ -154,7 +159,6 @@ public:
   int submit_write(int pfd, uint8_t *buffer, size_t length, uint64_t additional_info = -1);
   int submit_writev(int pfd, struct iovec *iovs, size_t num, uint64_t additional_info = -1);
   int submit_accept(int pfd, uint64_t additional_info = -1);
-  int submit_shutdown(int pfd, int how, uint64_t additional_info = -1);
   int submit_close(int pfd, uint64_t additional_info = -1);
   int submit_all_queued_sqes();
 
@@ -167,7 +171,6 @@ public:
   int queue_write(int pfd, uint8_t *buffer, size_t length, uint64_t additional_info = -1);
   int queue_writev(int pfd, struct iovec *iovs, size_t num, uint64_t additional_info = -1);
   int queue_accept(int pfd, uint64_t additional_info = -1);
-  int queue_shutdown(int pfd, int how, uint64_t additional_info = -1);
   int queue_close(int pfd, uint64_t additional_info = -1);
 
   int get_num_queued_sqes() const;

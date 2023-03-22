@@ -32,7 +32,11 @@ struct pfd_data {
   // how many in flight requests there are
   int submitted_reqs{};
   // is this pfd in the process of being freed?
-  bool is_being_freed{};
+  bool is_being_closed{};
+  // if the last read is zero we can shutdown and close
+  bool last_read_zero{};
+  // if it is already shutdown, can close
+  bool shutdown_done{};
 };
 
 #endif

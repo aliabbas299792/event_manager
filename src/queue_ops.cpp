@@ -36,8 +36,17 @@ int event_manager::queue_event_read(int pfd, uint64_t additional_info, events ev
 }
 
 int event_manager::queue_read(int pfd, uint8_t *buffer, size_t length, uint64_t additional_info) {
+  return queue_read_internal(pfd, buffer, length, events::READ, additional_info);
+}
+
+int event_manager::queue_read_internal(int pfd, uint8_t *buffer, size_t length, events e, uint64_t additional_info) {
   if (is_dying_or_dead()) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
+    return -1;
+  }
+
+  if(length == 0) {
+    std::cerr << "Reads of zero bytes not allowed\n";
     return -1;
   }
 

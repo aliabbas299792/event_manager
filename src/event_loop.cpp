@@ -60,7 +60,6 @@ void event_manager::await_single_message() {
   }
 }
 
-
 void event_manager::event_handler(int res, request_data *req_data) {
   if (req_data == nullptr) { // don't have anything to process for requests with no data
     return;
@@ -77,7 +76,6 @@ void event_manager::event_handler(int res, request_data *req_data) {
     }
   }
 
-
   pfd_info.submitted_reqs--; // a request for this pfd is no longer active now
 
   switch (req_data->ev) {
@@ -86,21 +84,30 @@ void event_manager::event_handler(int res, request_data *req_data) {
                               req_data->additional_info);
     break;
   }
+  case events::READ_INTERNAL:
   case events::READ: {
-    callbacks->read_callback(processed_data(req_data->buffer, res, req_data->length), pfd,
-                             req_data->additional_info);
+    if (req_data->length == 0) {
+      // so either from here it submits a shutdown request, or a close request
+      pfd_info.last_read_zero = true;
+      close_pfd(pfd, req_data->additional_info);
+    }
+
+    if (req_data->ev != events::READ_INTERNAL) {
+      callbacks->read_callback(processed_data(req_data->buffer, res, req_data->length), pfd,
+                               req_data->additional_info);
+    }
     break;
   }
   case events::WRITEV: {
     callbacks->writev_callback(
-        processed_data_vecs(reinterpret_cast<struct iovec *>(req_data->buffer), res, req_data->length),
-        pfd, req_data->additional_info);
+        processed_data_vecs(reinterpret_cast<struct iovec *>(req_data->buffer), res, req_data->length), pfd,
+        req_data->additional_info);
     break;
   }
   case events::READV: {
     callbacks->readv_callback(
-        processed_data_vecs(reinterpret_cast<struct iovec *>(req_data->buffer), res, req_data->length),
-        pfd, req_data->additional_info);
+        processed_data_vecs(reinterpret_cast<struct iovec *>(req_data->buffer), res, req_data->length), pfd,
+        req_data->additional_info);
     break;
   }
   case events::ACCEPT: {
@@ -113,22 +120,26 @@ void event_manager::event_handler(int res, request_data *req_data) {
       pfd_num = pfd_make(res, fd_types::NETWORK);
     }
 
-    callbacks->accept_callback(pfd, user_data, sizeof(*user_data), pfd_num, res,
-                               req_data->additional_info);
+    callbacks->accept_callback(pfd, user_data, sizeof(*user_data), pfd_num, res, req_data->additional_info);
 
     delete user_data; // free the sockaddr_storage
     break;
   }
   case events::SHUTDOWN: {
-    // additional_data stores the "how" parameter for the shutdown call
-    callbacks->shutdown_callback(req_data->info, pfd, res, req_data->additional_info);
+    if (res < 0) {
+      // on any sort of error, just try to close immediately
+      shutdown_and_close_normally(pfd, req_data->additional_info);
+    } else {
+      // otherwise proceed as normal
+      close_pfd(pfd, req_data->additional_info);
+    }
 
     break;
   }
   case events::CLOSE: {
     callbacks->close_callback(pfd, res, req_data->additional_info);
-    pfd_info.is_being_freed = true;
-    
+    pfd_info.is_being_closed = true;
+
     break;
   }
   case events::EVENT: {
@@ -148,7 +159,7 @@ void event_manager::event_handler(int res, request_data *req_data) {
   // only free if there are no other in flight requests for this pfd
   // have to use a new pfd_info reference since previous one may have been invalidated
   auto &pfd_info_after = pfd_to_data[pfd];
-  if(pfd_info_after.submitted_reqs == 0 && pfd_info.is_being_freed) {
+  if (pfd_info_after.submitted_reqs == 0 && pfd_info.is_being_closed) {
     pfd_free(pfd);
   }
 }

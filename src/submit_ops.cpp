@@ -1,5 +1,6 @@
 #include <iostream>
 #include <sys/eventfd.h>
+#include <sys/socket.h>
 
 #include "event_manager.hpp"
 
@@ -26,11 +27,16 @@ int event_manager::submit_all_queued_sqes_privately() {
   return res;
 }
 
-int event_manager::submit_read(int pfd, uint8_t *buffer, size_t length, uint64_t additional_info) {
-  if (queue_read(pfd, buffer, length, additional_info) == -1) {
+int event_manager::submit_read_internal(int pfd, uint8_t *buffer, size_t length, events e,
+                                        uint64_t additional_info) {
+  if (queue_read_internal(pfd, buffer, length, e, additional_info) == -1) {
     return -2;
   }
   return submit_all_queued_sqes();
+}
+
+int event_manager::submit_read(int pfd, uint8_t *buffer, size_t length, uint64_t additional_info) {
+  return submit_read_internal(pfd, buffer, length, events::READ, additional_info);
 }
 
 int event_manager::submit_write(int pfd, uint8_t *buffer, size_t length, uint64_t additional_info) {
@@ -61,15 +67,6 @@ int event_manager::submit_accept(int pfd, uint64_t additional_info) {
   return submit_all_queued_sqes();
 }
 
-void event_manager::shutdown_and_close_normally(int pfd) {
-  auto fd = pfd_to_data[pfd].fd;
-
-  shutdown(fd, SHUT_RDWR);
-  close(fd);
-
-  pfd_free(pfd);
-}
-
 int event_manager::submit_shutdown(int pfd, int how, uint64_t additional_info) {
   if (queue_shutdown(pfd, how, additional_info) == -1) {
     return -2;
@@ -95,16 +92,63 @@ int event_manager::submit_event_read(int pfd, uint64_t additional_info, events e
   return submit_all_queued_sqes();
 }
 
-// close pfd will always eventually lead to the close callback being called
-int event_manager::close_pfd(int pfd, uint64_t additional_info) {
-  auto pfd_stuff = pfd_to_data[pfd];
-  // close normal fds normally
-  if (pfd_stuff.type == fd_types::LOCAL || pfd_stuff.type == fd_types::EVENT) {
-    auto ret_code = close(pfd_stuff.fd);
-    pfd_free(pfd); // free local/event pfd
-    callbacks->close_callback(pfd, ret_code, additional_info);
-    return ret_code;
+int event_manager::shutdown_and_close_normally(int pfd, int additional_info) {
+  auto &pfd_info = pfd_to_data[pfd];
+
+  if (pfd_info.submitted_reqs == 0) {
+    // if no submitted reqs otherwise shutdown and shutdown and close immediately
+    auto fd = pfd_info.fd;
+    shutdown(fd, SHUT_RDWR);
+    auto ret_close = close(fd);
+
+    pfd_free(pfd);
+    callbacks->close_callback(pfd, ret_close, additional_info);
+    return ret_close;
   } else {
-    return submit_close(pfd, additional_info);
+    // otherwise mark it to be closed later
+    callbacks->close_callback(pfd, 0, additional_info);
+    pfd_info.is_being_closed = true;
+    return 0;
+  }
+}
+
+// Gracefully closing sockets works like this:
+// shutdown -> submit read -> read zero bytes -> close
+// or
+// read zero bytes -> shutdown -> close
+
+int event_manager::close_pfd(int pfd, uint64_t additional_info) {
+  auto &pfd_info = pfd_to_data[pfd];
+
+  if (pfd_info.type == fd_types::LOCAL || pfd_info.type == fd_types::EVENT) {
+    // close normal fds normally
+    return shutdown_and_close_normally(pfd, additional_info);
+
+  } else {
+    if (pfd_info.last_read_zero && pfd_info.shutdown_done) {
+      // shutdown done, last read zero done, so just close
+      auto ret_close = submit_close(pfd, additional_info);
+      if (ret_close >= 0) {
+        return ret_close;
+      }
+
+    } else if (pfd_info.shutdown_done) {
+      // try to read 1 byte, should cause a zero sized read
+      auto ret_read = submit_read_internal(pfd, &post_shutdown_read_byte, sizeof(post_shutdown_read_byte),
+                                           events::READ_INTERNAL, additional_info);
+      if (ret_read >= 0) {
+        return ret_read;
+      }
+
+    } else {
+      // attempt to shutdown network fd, whether or not there has been a zero sized read
+      auto ret_shutdown = submit_shutdown(pfd, SHUT_RDWR, additional_info);
+      if (ret_shutdown >= 0) {
+        return ret_shutdown;
+      }
+    }
+
+    // otherwise try closing it like a normal pfd
+    return shutdown_and_close_normally(pfd, additional_info);
   }
 }
