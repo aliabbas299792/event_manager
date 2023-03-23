@@ -9,6 +9,16 @@
 // how many items can be in the submission queue at once
 constexpr int QUEUE_DEPTH = 256;
 
+// so a return code of < 0 indicates an error
+enum return_codes {
+  SUCCESSFUL = 0,
+  // errors below
+  TRYING_TO_CLOSE_PFD_MULTIPLE_TIMES = -255,
+  EVENT_MANAGER_HAS_ALREADY_BEEN_KILLED,
+  ZERO_BYTE_READ_NOT_ALLOWED,
+  SUBMISSION_QUEUE_FULL
+};
+
 enum fd_types : uint16_t { // 2 byte enum
   GENERIC_ERROR = 0,
   LOCAL,

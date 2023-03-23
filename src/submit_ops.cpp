@@ -3,19 +3,22 @@
 #include <sys/socket.h>
 
 #include "event_manager.hpp"
+#include "header/event_manager_metadata.hpp"
 
 int event_manager::event_alert_normally(int pfd) { return eventfd_write(pfd_to_data[pfd].fd, 1); }
 
 int event_manager::submit_all_queued_sqes() {
   if (is_dying_or_dead()) {
     std::cerr << __FUNCTION__ << " ## " << __LINE__ << " (killed)\n";
-    return -1;
+    return return_codes::EVENT_MANAGER_HAS_ALREADY_BEEN_KILLED;
   }
 
   int res = io_uring_submit(&ring);
 
   current_num_of_queued_sqes = 0; // all are submitted
 
+  // returns the number of SQEs submitted on success
+  // on failure returns -errno
   return res;
 }
 
@@ -29,10 +32,8 @@ int event_manager::submit_all_queued_sqes_privately() {
 
 int event_manager::submit_read_internal(int pfd, uint8_t *buffer, size_t length, events e,
                                         uint64_t additional_info) {
-  if (queue_read_internal(pfd, buffer, length, e, additional_info) == -1) {
-    return -2;
-  }
-  return submit_all_queued_sqes();
+  auto queue_ret = queue_read_internal(pfd, buffer, length, e, additional_info);
+  return queue_ret < 0 ? queue_ret : submit_all_queued_sqes();
 }
 
 int event_manager::submit_read(int pfd, uint8_t *buffer, size_t length, uint64_t additional_info) {
@@ -40,45 +41,33 @@ int event_manager::submit_read(int pfd, uint8_t *buffer, size_t length, uint64_t
 }
 
 int event_manager::submit_write(int pfd, uint8_t *buffer, size_t length, uint64_t additional_info) {
-  if (queue_write(pfd, buffer, length, additional_info) == -1) {
-    return -2;
-  }
-  return submit_all_queued_sqes();
+  auto queue_ret = queue_write(pfd, buffer, length, additional_info);
+  return queue_ret < 0 ? queue_ret : submit_all_queued_sqes();
 }
 
 int event_manager::submit_readv(int pfd, struct iovec *iovs, size_t num, uint64_t additional_info) {
-  if (queue_readv(pfd, iovs, num, additional_info) == -1) {
-    return -2;
-  }
-  return submit_all_queued_sqes();
+  auto queue_ret = queue_readv(pfd, iovs, num, additional_info);
+  return queue_ret < 0 ? queue_ret : submit_all_queued_sqes();
 }
 
 int event_manager::submit_writev(int pfd, struct iovec *iovs, size_t num, uint64_t additional_info) {
-  if (queue_writev(pfd, iovs, num, additional_info) == -1) {
-    return -2;
-  }
-  return submit_all_queued_sqes();
+  auto queue_ret = queue_writev(pfd, iovs, num, additional_info);
+  return queue_ret < 0 ? queue_ret : submit_all_queued_sqes();
 }
 
 int event_manager::submit_accept(int pfd, uint64_t additional_info) {
-  if (queue_accept(pfd, additional_info) == -1) {
-    return -2;
-  }
-  return submit_all_queued_sqes();
+  auto queue_ret = queue_accept(pfd, additional_info);
+  return queue_ret < 0 ? queue_ret : submit_all_queued_sqes();
 }
 
 int event_manager::submit_shutdown(int pfd, int how, uint64_t additional_info) {
-  if (queue_shutdown(pfd, how, additional_info) == -1) {
-    return -2;
-  }
-  return submit_all_queued_sqes();
+  auto queue_ret = queue_shutdown(pfd, how, additional_info);
+  return queue_ret < 0 ? queue_ret : submit_all_queued_sqes();
 }
 
 int event_manager::submit_close(int pfd, uint64_t additional_info) {
-  if (queue_close(pfd, additional_info) == -1) {
-    return -2;
-  }
-  return submit_all_queued_sqes();
+  auto queue_ret = queue_close(pfd, additional_info);
+  return queue_ret < 0 ? queue_ret : submit_all_queued_sqes();
 }
 
 int event_manager::submit_generic_event(int pfd, uint64_t additional_info) {
@@ -86,10 +75,8 @@ int event_manager::submit_generic_event(int pfd, uint64_t additional_info) {
 }
 
 int event_manager::submit_event_read(int pfd, uint64_t additional_info, events event) {
-  if (queue_event_read(pfd, additional_info, event) == -1) {
-    return -2;
-  }
-  return submit_all_queued_sqes();
+  auto queue_ret = queue_event_read(pfd, additional_info, event);
+  return queue_ret < 0 ? queue_ret : submit_all_queued_sqes();
 }
 
 int event_manager::shutdown_and_close_normally(int pfd, int additional_info) {
@@ -114,7 +101,7 @@ int event_manager::shutdown_and_close_normally(int pfd, int additional_info) {
     // otherwise mark it to be closed later (flag set before so duplicate calls can't be made)
     pfd_info.is_being_freed = true;
     callbacks->close_callback(pfd, 0, additional_info);
-    return 0;
+    return return_codes::SUCCESSFUL;
   }
 }
 
@@ -127,8 +114,8 @@ int event_manager::close_pfd(int pfd, uint64_t additional_info) {
   auto &pfd_info = pfd_to_data[pfd];
 
   if(pfd_info.is_being_freed) {
-    // prevent closing
-    return -1;
+    // prevent closing if already been closed
+    return return_codes::TRYING_TO_CLOSE_PFD_MULTIPLE_TIMES;
   }
 
   if (pfd_info.type == fd_types::LOCAL || pfd_info.type == fd_types::EVENT) {
