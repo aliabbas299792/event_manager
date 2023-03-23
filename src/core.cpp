@@ -1,8 +1,8 @@
 // Methods around initialising, starting and stopping the event manager
 // As well as some helper methods for setting up
 
-#include <mutex>
 #include <iostream>
+#include <mutex>
 #include <stdexcept>
 
 #include "event_manager.hpp"
@@ -55,6 +55,55 @@ void event_manager::start() {
 void event_manager::kill() {
   uint64_t data = 1;
   write(pfd_to_data[kill_pfd].fd, &data, sizeof(uint64_t));
+}
+
+
+void event_manager::dying_stage_1() {
+  // submit anything in the queue first
+  // not using helper function since in DYING state
+
+  for (size_t i = 0; i < pfd_to_data.size(); i++) {
+    if (!pfd_freed_pfds.contains(i)) {
+      queue_cancel_request_by_pfd(i);
+
+      end_stage_num_to_cancel += pfd_to_data[i].submitted_reqs;
+    }
+
+    // don't queue more than can be fit in the queue
+    if (current_num_of_queued_sqes >= QUEUE_DEPTH) {
+      submit_all_queued_sqes_privately();
+    }
+  }
+
+  // submit any which haven't been submitted yet
+  submit_all_queued_sqes_privately();
+
+  // not dead but not just dying
+  if (end_stage_num_to_cancel != 0) {
+    manager_life_state = living_state::DYING_STAGE_2_CANCELLING_REQS;
+  } else {
+    manager_life_state = living_state::DEAD; // nothing left to cancel, we're done
+  }
+}
+
+void event_manager::dying_stage_2() {
+  end_stage_num_to_cancel--;
+
+  if (end_stage_num_to_cancel == 0) {
+    manager_life_state = living_state::DEAD;
+  }
+}
+
+void event_manager::dying_stage_3() {
+  // if it is dead, then this is the final iteration of the event loop,
+  // so kill the ring
+  io_uring_queue_exit(&ring);
+  close(pfd_to_data[kill_pfd].fd);
+
+  ring_instances--; // this instance of the ring is now dead
+
+  // this is the only callback that could be tried to be called even if they weren't set
+  callbacks->killed_callback(); // event_manager has been killed, call the last callback
 }
 
 int event_manager::queue_cancel_request_by_pfd(int pfd) {
