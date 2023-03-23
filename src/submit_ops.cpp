@@ -95,19 +95,25 @@ int event_manager::submit_event_read(int pfd, uint64_t additional_info, events e
 int event_manager::shutdown_and_close_normally(int pfd, int additional_info) {
   auto &pfd_info = pfd_to_data[pfd];
 
+  // after this function we either want to close the socket, or have closed it, so these two flags should be true
+  pfd_info.last_read_zero = true;
+  pfd_info.shutdown_done = true;
+
   if (pfd_info.submitted_reqs == 0) {
     // if no submitted reqs otherwise shutdown and shutdown and close immediately
     auto fd = pfd_info.fd;
     shutdown(fd, SHUT_RDWR);
     auto ret_close = close(fd);
 
-    pfd_free(pfd);
+    // closing is complete - we will free it after this (flag set before so duplicate calls can't be made)
+    pfd_info.is_being_freed = true;
     callbacks->close_callback(pfd, ret_close, additional_info);
+    pfd_free(pfd);
     return ret_close;
   } else {
-    // otherwise mark it to be closed later
+    // otherwise mark it to be closed later (flag set before so duplicate calls can't be made)
+    pfd_info.is_being_freed = true;
     callbacks->close_callback(pfd, 0, additional_info);
-    pfd_info.is_being_closed = true;
     return 0;
   }
 }
@@ -119,6 +125,11 @@ int event_manager::shutdown_and_close_normally(int pfd, int additional_info) {
 
 int event_manager::close_pfd(int pfd, uint64_t additional_info) {
   auto &pfd_info = pfd_to_data[pfd];
+
+  if(pfd_info.is_being_freed) {
+    // prevent closing
+    return -1;
+  }
 
   if (pfd_info.type == fd_types::LOCAL || pfd_info.type == fd_types::EVENT) {
     // close normal fds normally
@@ -134,10 +145,13 @@ int event_manager::close_pfd(int pfd, uint64_t additional_info) {
 
     } else if (pfd_info.shutdown_done) {
       // try to read 1 byte, should cause a zero sized read
-      auto ret_read = submit_read_internal(pfd, &post_shutdown_read_byte, sizeof(post_shutdown_read_byte),
-                                           events::READ_INTERNAL, additional_info);
-      if (ret_read >= 0) {
-        return ret_read;
+      if(!pfd_info.read_zero_check_initiated) {
+        auto ret_read = submit_read_internal(pfd, &post_shutdown_read_byte, sizeof(post_shutdown_read_byte),
+                                            events::READ_INTERNAL, additional_info);
+        if (ret_read >= 0) {
+          pfd_info.read_zero_check_initiated = true;
+          return ret_read;
+        }
       }
 
     } else {
