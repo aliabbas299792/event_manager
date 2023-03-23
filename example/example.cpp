@@ -9,6 +9,11 @@
 class test_server : public server_methods {
 public:
   void write_callback(processed_data write_metadata, uint64_t pfd, uint64_t additional_info) override {
+    if(write_metadata.op_res_num < 0) {
+      ev->close_pfd(pfd);
+      return;
+    }
+    
     size_t length = write_metadata.op_res_num;
     std::cout << "Wrote " << length << " bytes of data, the data was: "
               << std::string(reinterpret_cast<char *>(write_metadata.buff), length) << "\n";
@@ -27,6 +32,7 @@ public:
 int main() {
   test_server t{};
   event_manager ev{&t};
+  t.set_event_manager(&ev);
 
   std::thread t1([&]() { ev.start(); });
 
