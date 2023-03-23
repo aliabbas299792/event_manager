@@ -16,7 +16,7 @@ int event_manager::pfd_make(int fd, fd_types type) {
     pfd_freed_pfds.erase(idx);
 
     auto &freed_client = pfd_to_data[idx];
-    freed_client.is_being_closed = false;
+    freed_client.is_being_freed = false;
     freed_client.submitted_reqs = 0;
     freed_client.fd = fd;
     freed_client.type = type;
