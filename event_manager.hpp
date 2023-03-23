@@ -82,7 +82,7 @@ public:
 
 class event_manager {
 public:
-  enum living_state { LIVING = 0, DYING_STAGE_1, DYING_STAGE_2_CANCELLING_REQS, DEAD };
+  enum living_state { NOT_STARTED, LIVING, DYING_STAGE_1, DYING_STAGE_2_CANCELLING_REQS, DEAD };
   living_state get_living_state() { return manager_life_state; }
   bool is_dying_or_dead() { return manager_life_state >= DYING_STAGE_1; }
 
@@ -92,10 +92,11 @@ private:
   static std::mutex init_mutex;
 
   io_uring ring{};
-  living_state manager_life_state = LIVING;
+  living_state manager_life_state = NOT_STARTED;
 
   int current_num_of_queued_sqes{};
 
+  server_methods default_server_methods{};
   server_methods *callbacks{};
 
   int kill_pfd = -1; // initialised later
@@ -174,6 +175,8 @@ public:
   int queue_close(int pfd, uint64_t additional_info = -1);
 
   int get_num_queued_sqes() const;
+
+  ~event_manager();
 };
 
 #endif

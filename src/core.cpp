@@ -31,16 +31,21 @@ event_manager::event_manager(server_methods *callbacks) {
     io_uring_queue_init_params(QUEUE_DEPTH, &ring, &params);
   }
 
+  submit_event_read(kill_pfd, 0,
+                    events::KILL); // to ensure the system responds to the kill() command
+
+  // in case none is provided
+  callbacks = &default_server_methods;
+
   ring_instances++;
 }
 
 void event_manager::start() {
   if (callbacks == nullptr) {
-    throw std::runtime_error("Server methods callbacks must be set");
+    throw std::runtime_error("Server methods callbacks must be set (is nullptr)");
   }
 
-  submit_event_read(kill_pfd, 0,
-                    events::KILL); // to ensure the system responds to the kill() command
+  manager_life_state = living_state::LIVING;
 
   while (manager_life_state != living_state::DEAD) {
     await_single_message();
@@ -72,4 +77,21 @@ int event_manager::submit_cancel_request_by_pfd(int pfd) {
     return -2;
   }
   return submit_all_queued_sqes();
+}
+
+event_manager::~event_manager() {
+  // if the manager wasn't started, there are potentially
+  // resources that need to be cleaned, so send a kill signal
+  // and start the server
+  if (manager_life_state == living_state::NOT_STARTED) {
+    if (callbacks == nullptr) {
+      // if a nullptr was provided for server methods
+      // then just use the default server methods for cleanup
+      callbacks = &default_server_methods;
+    }
+
+    kill();
+
+    start();
+  }
 }
