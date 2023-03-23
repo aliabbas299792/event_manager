@@ -9,7 +9,7 @@
 // how many items can be in the submission queue at once
 constexpr int QUEUE_DEPTH = 256;
 
-enum fd_types : uint16_t { // 1 byte enum
+enum fd_types : uint16_t { // 2 byte enum
   GENERIC_ERROR = 0,
   LOCAL,
   NETWORK,
@@ -31,8 +31,12 @@ struct pfd_data {
   int fd = -1;
   // how many in flight requests there are
   int submitted_reqs{};
-  // is this pfd in the process of being freed?
-  bool is_being_closed{};
+  // is this pfd in the process of being freed? - true after being closed
+  bool is_being_freed{};
+
+  // the flags below are used to manage the graceful shutdown/close procedure (check close_pfd(...) for more)
+  // have we submitted a request to check for a read of size zero?
+  bool read_zero_check_initiated{};
   // if the last read is zero we can shutdown and close
   bool last_read_zero{};
   // if it is already shutdown, can close
