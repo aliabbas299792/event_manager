@@ -22,41 +22,11 @@ void event_manager::await_single_message() {
   delete req_data;
 
   if (manager_life_state == living_state::DYING_STAGE_1) { // clean up all resources if killed
-    // submit anything in the queue first, not using helper function since in
-    // DYING state
-
-    for (size_t i = 0; i < pfd_to_data.size(); i++) {
-      if (!pfd_freed_pfds.contains(i)) {
-        queue_cancel_request_by_pfd(i);
-
-        end_stage_num_to_cancel += pfd_to_data[i].submitted_reqs;
-      }
-
-      // don't queue more than can be fit in the queue
-      if (current_num_of_queued_sqes >= QUEUE_DEPTH) {
-        submit_all_queued_sqes_privately();
-      }
-    }
-
-    // submit any which haven't been submitted yet
-    submit_all_queued_sqes_privately();
-
-    // not dead but not just dying
-    if (end_stage_num_to_cancel != 0) {
-      manager_life_state = living_state::DYING_STAGE_2_CANCELLING_REQS;
-    } else {
-      manager_life_state = living_state::DEAD; // nothing left to cancel, we're done
-    }
+    dying_stage_1();
   }
 
   if (manager_life_state == living_state::DEAD) {
-    // if it is dead, then this is the final iteration, kill the ring
-    io_uring_queue_exit(&ring);
-    close(pfd_to_data[kill_pfd].fd);
-
-    ring_instances--; // this instance of the ring is now dead
-
-    callbacks->killed_callback(); // event_manager has been killed, call the last callback
+    dying_stage_3();
   }
 }
 
@@ -69,11 +39,7 @@ void event_manager::event_handler(int res, request_data *req_data) {
   auto &pfd_info = pfd_to_data[pfd];
 
   if (manager_life_state == living_state::DYING_STAGE_2_CANCELLING_REQS) {
-    end_stage_num_to_cancel--;
-
-    if (end_stage_num_to_cancel == 0) {
-      manager_life_state = living_state::DEAD;
-    }
+    dying_stage_2();
   }
 
   pfd_info.submitted_reqs--; // a request for this pfd is no longer active now
@@ -87,9 +53,14 @@ void event_manager::event_handler(int res, request_data *req_data) {
   case events::READ_INTERNAL:
   case events::READ: {
     if (req_data->length == 0) {
-      // so either from here it submits a shutdown request, or a close request
+      // so either from here it submits a shutdown request, or a close request - after this switch we call the close_pfd function
       pfd_info.last_read_zero = true;
-      close_pfd(pfd, req_data->additional_info);
+
+      // only close the pfd if the user explicitly tells you to
+      // also only call close if the state has changed, not if there was a duplicate call
+      if(pfd_info.shutdown_done) {
+        close_pfd(pfd, req_data->additional_info);
+      }
     }
 
     if (req_data->ev != events::READ_INTERNAL) {
@@ -130,15 +101,18 @@ void event_manager::event_handler(int res, request_data *req_data) {
       // on any sort of error, just try to close immediately
       shutdown_and_close_normally(pfd, req_data->additional_info);
     } else {
-      // otherwise proceed as normal
+      // otherwise we know shutdown has been done - after this switch we call the close_pfd function
+      pfd_info.shutdown_done = true;
+
+      // only call close if the state has changed, not if there was a duplicate call
       close_pfd(pfd, req_data->additional_info);
     }
 
     break;
   }
   case events::CLOSE: {
+    pfd_info.is_being_freed = true; // (flag set before so duplicate calls can't be made)
     callbacks->close_callback(pfd, res, req_data->additional_info);
-    pfd_info.is_being_closed = true;
 
     break;
   }
@@ -156,10 +130,13 @@ void event_manager::event_handler(int res, request_data *req_data) {
   }
   }
 
-  // only free if there are no other in flight requests for this pfd
   // have to use a new pfd_info reference since previous one may have been invalidated
   auto &pfd_info_after = pfd_to_data[pfd];
-  if (pfd_info_after.submitted_reqs == 0 && pfd_info.is_being_closed) {
-    pfd_free(pfd);
+  // only free if there are no other in flight requests for this pfd
+  if (pfd_info_after.submitted_reqs == 0 && pfd_info_after.is_being_freed) {
+    // and only then if the manager isn't dead
+    if(manager_life_state != living_state::DEAD) {
+      pfd_free(pfd);
+    }
   }
 }
