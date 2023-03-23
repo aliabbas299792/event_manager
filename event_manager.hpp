@@ -100,6 +100,11 @@ private:
   server_methods *callbacks{};
 
   int kill_pfd = -1; // initialised later
+
+  // manages how the event manager dies
+  void dying_stage_1();
+  void dying_stage_2();
+  void dying_stage_3();
 private:
   // just for freeing/storing fd related data at a low index
   // so it is assumed, fd values are centered around 0
@@ -129,6 +134,8 @@ private:
 
   int submit_shutdown(int pfd, int how, uint64_t additional_info = -1);
   int queue_shutdown(int pfd, int how, uint64_t additional_info = -1);
+  int submit_close(int pfd, uint64_t additional_info = -1);
+  int queue_close(int pfd, uint64_t additional_info = -1);
   int shutdown_and_close_normally(int pfd, int additional_info);
   uint8_t post_shutdown_read_byte{}; // used as a 1 byte buffer to read into during shutdown
 
@@ -160,7 +167,6 @@ public:
   int submit_write(int pfd, uint8_t *buffer, size_t length, uint64_t additional_info = -1);
   int submit_writev(int pfd, struct iovec *iovs, size_t num, uint64_t additional_info = -1);
   int submit_accept(int pfd, uint64_t additional_info = -1);
-  int submit_close(int pfd, uint64_t additional_info = -1);
   int submit_all_queued_sqes();
 
   int close_pfd(int pfd, uint64_t additional_info = -1);
@@ -172,7 +178,6 @@ public:
   int queue_write(int pfd, uint8_t *buffer, size_t length, uint64_t additional_info = -1);
   int queue_writev(int pfd, struct iovec *iovs, size_t num, uint64_t additional_info = -1);
   int queue_accept(int pfd, uint64_t additional_info = -1);
-  int queue_close(int pfd, uint64_t additional_info = -1);
 
   int get_num_queued_sqes() const;
 
