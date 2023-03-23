@@ -1,3 +1,6 @@
 [submodule "vendor/doctest"]
 	path = vendor/doctest
 	url = https://github.com/doctest/doctest
+[submodule "vendor/cpp_utility"]
+	path = vendor/cpp_utility
+	url = git@github.com:aliabbas299792/cpp_utility.git
