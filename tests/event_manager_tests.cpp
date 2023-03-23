@@ -35,7 +35,7 @@ TEST_CASE("writing a new file, stat/fstat contents, read contents and check "
 
   server_methods sm{}; // no callbacks set
   event_manager ev{};
-  ev.set_server_methods(&sm);
+  ev.set_callbacks(&sm);
 
   sm.set_event_manager(&ev);
 

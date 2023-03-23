@@ -11,7 +11,7 @@ int event_manager::shared_ring_fd = -1; // static variable, so must initialise h
 std::mutex event_manager::init_mutex{}; // used to ensure there isn't a race condition at startup
 int event_manager::ring_instances = 0;
 
-void event_manager::set_server_methods(server_methods *callbacks) { this->callbacks = callbacks; }
+void event_manager::set_callbacks(server_methods *callbacks) { this->callbacks = callbacks; }
 int event_manager::get_num_queued_sqes() const { return current_num_of_queued_sqes; }
 
 event_manager::event_manager(server_methods *callbacks) {

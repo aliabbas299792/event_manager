@@ -150,7 +150,7 @@ public:
   void start();
   void kill();
   const pfd_data &get_pfd_data(int pfd) { return pfd_to_data[pfd]; }
-  void set_server_methods(server_methods *callbacks);
+  void set_callbacks(server_methods *callbacks);
 
   // eventfd methods
   int submit_generic_event(int pfd, uint64_t additional_info);
