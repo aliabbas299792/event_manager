@@ -19,13 +19,6 @@ enum return_codes {
   SUBMISSION_QUEUE_FULL
 };
 
-enum fd_types : uint16_t { // 2 byte enum
-  GENERIC_ERROR = 0,
-  LOCAL,
-  NETWORK,
-  EVENT
-};
-
 struct request_data {
   uint64_t pfd{};
   events ev{};
@@ -37,7 +30,6 @@ struct request_data {
 };
 
 struct pfd_data {
-  fd_types type{};
   int fd = -1;
   // how many in flight requests there are
   int submitted_reqs{};

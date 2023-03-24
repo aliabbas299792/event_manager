@@ -102,7 +102,7 @@ inline int test_setup_listener_get_pfd(int port, event_manager *ev) {
     return -1;
   }
 
-  return ev->pass_fd_to_event_manager(listener_fd, true);
+  return ev->pass_fd_to_event_manager(listener_fd);
 }
 
 inline int connect_to_local_test_server(const char *port) {

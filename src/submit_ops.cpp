@@ -118,38 +118,32 @@ int event_manager::close_pfd(int pfd, uint64_t additional_info) {
     return return_codes::TRYING_TO_CLOSE_PFD_MULTIPLE_TIMES;
   }
 
-  if (pfd_info.type == fd_types::LOCAL || pfd_info.type == fd_types::EVENT) {
-    // close normal fds normally
-    return shutdown_and_close_normally(pfd, additional_info);
+  if (pfd_info.last_read_zero && pfd_info.shutdown_done) {
+    // shutdown done, last read zero done, so just close
+    auto ret_close = submit_close(pfd, additional_info);
+    if (ret_close >= 0) {
+      return ret_close;
+    }
 
-  } else {
-    if (pfd_info.last_read_zero && pfd_info.shutdown_done) {
-      // shutdown done, last read zero done, so just close
-      auto ret_close = submit_close(pfd, additional_info);
-      if (ret_close >= 0) {
-        return ret_close;
-      }
-
-    } else if (pfd_info.shutdown_done) {
-      // try to read 1 byte, should cause a zero sized read
-      if(!pfd_info.read_zero_check_initiated) {
-        auto ret_read = submit_read_internal(pfd, &post_shutdown_read_byte, sizeof(post_shutdown_read_byte),
-                                            events::READ_INTERNAL, additional_info);
-        if (ret_read >= 0) {
-          pfd_info.read_zero_check_initiated = true;
-          return ret_read;
-        }
-      }
-
-    } else {
-      // attempt to shutdown network fd, whether or not there has been a zero sized read
-      auto ret_shutdown = submit_shutdown(pfd, SHUT_RDWR, additional_info);
-      if (ret_shutdown >= 0) {
-        return ret_shutdown;
+  } else if (pfd_info.shutdown_done) {
+    // try to read 1 byte, should cause a zero sized read
+    if(!pfd_info.read_zero_check_initiated) {
+      auto ret_read = submit_read_internal(pfd, &post_shutdown_read_byte, sizeof(post_shutdown_read_byte),
+                                          events::READ_INTERNAL, additional_info);
+      if (ret_read >= 0) {
+        pfd_info.read_zero_check_initiated = true;
+        return ret_read;
       }
     }
 
-    // otherwise try closing it like a normal pfd
-    return shutdown_and_close_normally(pfd, additional_info);
+  } else {
+    // attempt to shutdown network fd, whether or not there has been a zero sized read
+    auto ret_shutdown = submit_shutdown(pfd, SHUT_RDWR, additional_info);
+    if (ret_shutdown >= 0) {
+      return ret_shutdown;
+    }
   }
+
+  // otherwise try closing it like a normal pfd
+  return shutdown_and_close_normally(pfd, additional_info);
 }

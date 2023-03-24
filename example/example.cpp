@@ -44,7 +44,7 @@ int main() {
   data.copy(write_buff, data.size());
 
   auto new_file_fd = open(filename.c_str(), O_WRONLY | O_CREAT, 0666);
-  auto new_file_pfd = ev.pass_fd_to_event_manager(new_file_fd, false);
+  auto new_file_pfd = ev.pass_fd_to_event_manager(new_file_fd);
 
   ev.submit_write(new_file_pfd, reinterpret_cast<uint8_t *>(write_buff), data.length());
   // == 1 above since should have submitted 1 sqe
@@ -59,7 +59,7 @@ int main() {
   stat(filename.c_str(), &statbuf);
 
   auto that_file_fd = open(filename.c_str(), O_RDONLY);
-  auto that_file_pfd = ev.pass_fd_to_event_manager(that_file_fd, false);
+  auto that_file_pfd = ev.pass_fd_to_event_manager(that_file_fd);
   char buff[1024];
 
   ev.submit_read(that_file_pfd, reinterpret_cast<uint8_t *>(&buff[0]), sizeof(buff));

@@ -110,7 +110,7 @@ private:
   // so it is assumed, fd values are centered around 0
   std::vector<pfd_data> pfd_to_data{};
   std::set<int> pfd_freed_pfds{}; // sets are ordered so smallest element at start, which we want
-  int pfd_make(int fd, fd_types type);
+  int pfd_make(int fd);
   void pfd_free(int pfd);
 
   int submit_cancel_request_by_pfd(int pfd);
@@ -159,7 +159,7 @@ public:
   int event_alert_normally(int pfd);
 
   // returns pfd for use with other event manager methods - assumes this isn't an eventfd
-  int pass_fd_to_event_manager(int fd, bool is_network_fd);
+  int pass_fd_to_event_manager(int fd);
 
   // generic fd submit ops (i.e calls submit_all_queues_sqes() immediately)
   int submit_read(int pfd, uint8_t *buffer, size_t length, uint64_t additional_info = -1);

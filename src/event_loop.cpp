@@ -88,7 +88,7 @@ void event_manager::event_handler(int res, request_data *req_data) {
     if (res < 0) {
       std::cerr << "accept, event_handler, res < 0: (res is " << res << ")\n";
     } else {
-      pfd_num = pfd_make(res, fd_types::NETWORK);
+      pfd_num = pfd_make(res);
     }
 
     callbacks->accept_callback(pfd, user_data, sizeof(*user_data), pfd_num, res, req_data->additional_info);
