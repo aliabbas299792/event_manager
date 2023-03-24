@@ -3,7 +3,7 @@ ROOT_PATH=$(git rev-parse --show-toplevel)
 cd $ROOT_PATH
 cd scripts
 
-./compile.sh
+./compile.sh $1
 
 cd $ROOT_PATH
 cd build
