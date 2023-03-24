@@ -20,11 +20,11 @@ And then to run the event manager, just call `ev.start()`.
 ## Usage
 Since `start()` will block the current thread, I'll run it in another thread below.
 
-To use a file descriptor of some sort with the event manager, you call
+To use a file descriptor of some sort with the event manager, you do:
 ```cpp
-ev.pass_fd_to_event_manager(file_descriptor, is_network_fd);
+int pfd = ev.pass_fd_to_event_manager(file_descriptor);
 ```
-If `is_network_fd` is true, then gracefully shutting down the socket will be handled by the event manager.
+The `pfd` returned (pseudo file descriptor) can be used with the event manager from that point onwards.
 
 From here you can submit a variety of calls using the manager (check `event_manager.hpp`).
 
