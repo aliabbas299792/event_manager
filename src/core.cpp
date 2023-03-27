@@ -7,6 +7,9 @@
 
 #include "event_manager.hpp"
 
+const auto stdlib_close = close;
+const auto stdlib_write = write;
+
 int event_manager::shared_ring_fd = -1; // static variable, so must initialise here or somewhere
 std::mutex event_manager::init_mutex{}; // used to ensure there isn't a race condition at startup
 int event_manager::ring_instances = 0;
@@ -54,7 +57,7 @@ void event_manager::start() {
 
 void event_manager::kill() {
   uint64_t data = 1;
-  write(pfd_to_data[kill_pfd].fd, &data, sizeof(uint64_t));
+  stdlib_write(pfd_to_data[kill_pfd].fd, (uint8_t*)&data, sizeof(uint64_t));
 }
 
 
@@ -98,7 +101,7 @@ void event_manager::dying_stage_3() {
   // if it is dead, then this is the final iteration of the event loop,
   // so kill the ring
   io_uring_queue_exit(&ring);
-  close(pfd_to_data[kill_pfd].fd);
+  stdlib_close(pfd_to_data[kill_pfd].fd);
 
   ring_instances--; // this instance of the ring is now dead
 

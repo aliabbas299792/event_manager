@@ -5,6 +5,9 @@
 #include "event_manager.hpp"
 #include "header/event_manager_metadata.hpp"
 
+const auto stdlib_close = close;
+const auto stdlib_shutdown = shutdown;
+
 int event_manager::event_alert_normally(int pfd) { return eventfd_write(pfd_to_data[pfd].fd, 1); }
 
 int event_manager::submit_all_queued_sqes() {
@@ -89,8 +92,8 @@ int event_manager::shutdown_and_close_normally(int pfd, int additional_info) {
   if (pfd_info.submitted_reqs == 0) {
     // if no submitted reqs otherwise shutdown and shutdown and close immediately
     auto fd = pfd_info.fd;
-    shutdown(fd, SHUT_RDWR);
-    auto ret_close = close(fd);
+    stdlib_shutdown(fd, SHUT_RDWR);
+    auto ret_close = stdlib_close(fd);
 
     // closing is complete - we will free it after this (flag set before so duplicate calls can't be made)
     pfd_info.is_being_freed = true;

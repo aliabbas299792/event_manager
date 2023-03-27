@@ -1,12 +1,14 @@
 #ifndef EVENT_MANAGER
 #define EVENT_MANAGER
 
+#include <initializer_list>
 #include <set>
 #include <vector>
 
 #include <liburing.h>
 
 #include "header/event_manager_metadata.hpp"
+#include "header/awaitable_types.hpp"
 
 /*
 pfd = pseudo fd, they are indexes to 64 bit structs in pfd_to_data and contain:
@@ -105,6 +107,7 @@ private:
   void dying_stage_1();
   void dying_stage_2();
   void dying_stage_3();
+
 private:
   // just for freeing/storing fd related data at a low index
   // so it is assumed, fd values are centered around 0
@@ -132,14 +135,13 @@ private:
   int submit_event_read(int pfd, uint64_t additional_info, events event);
   int queue_event_read(int pfd, uint64_t additional_info, events event);
 
-  int submit_shutdown(int pfd, int how, uint64_t additional_info = -1);
-  int queue_shutdown(int pfd, int how, uint64_t additional_info = -1);
-  int submit_close(int pfd, uint64_t additional_info = -1);
-  int queue_close(int pfd, uint64_t additional_info = -1);
   int shutdown_and_close_normally(int pfd, int additional_info);
   uint8_t post_shutdown_read_byte{}; // used as a 1 byte buffer to read into during shutdown
 
 public:
+  // helper to resume a coroutine
+  void set_handler_return_and_resume(ev_coro_handle handle, int return_code);
+  
   // the *_normally functions all are just wrappers for
   // the usual way to do those (i.e socket_create_normally is basically just
   // socket(...)), but gives back a pfd (pseudo fd) rather than an actual fd
@@ -167,6 +169,8 @@ public:
   int submit_write(int pfd, uint8_t *buffer, size_t length, uint64_t additional_info = -1);
   int submit_writev(int pfd, struct iovec *iovs, size_t num, uint64_t additional_info = -1);
   int submit_accept(int pfd, uint64_t additional_info = -1);
+  int submit_shutdown(int pfd, int how, uint64_t additional_info = -1);
+  int submit_close(int pfd, uint64_t additional_info = -1);
   int submit_all_queued_sqes();
 
   int close_pfd(int pfd, uint64_t additional_info = -1);
@@ -178,8 +182,26 @@ public:
   int queue_write(int pfd, uint8_t *buffer, size_t length, uint64_t additional_info = -1);
   int queue_writev(int pfd, struct iovec *iovs, size_t num, uint64_t additional_info = -1);
   int queue_accept(int pfd, uint64_t additional_info = -1);
+  int queue_shutdown(int pfd, int how, uint64_t additional_info = -1);
+  int queue_close(int pfd, uint64_t additional_info = -1);
 
   int get_num_queued_sqes() const;
+
+  ReadAwaitable read(int fd, uint8_t *buffer, size_t length);
+  ReadvAwaitable readv(int fd, struct iovec *iovs, size_t num);
+  WriteAwaitable write(int fd, uint8_t *buffer, size_t length);
+  WritevAwaitable writev(int fd, struct iovec *iovs, size_t num);
+  AcceptAwaitable accept(int listener_fd);
+  ShutdownAwaitable shutdown(int fd, int how);
+  CloseAwaitable close(int fd);
+
+  ReadAwaitable read(std::initializer_list<ReadRequest> reqs);
+  ReadvAwaitable readv(std::initializer_list<ReadvRequest> reqs);
+  WriteAwaitable write(std::initializer_list<WriteRequest> reqs);
+  WritevAwaitable writev(std::initializer_list<WritevRequest> reqs);
+  AcceptAwaitable accept(std::initializer_list<AcceptRequest> reqs);
+  ShutdownAwaitable shutdown(std::initializer_list<ShutdownRequest> reqs);
+  CloseAwaitable close(std::initializer_list<CloseRequest> reqs);
 
   ~event_manager();
 };
