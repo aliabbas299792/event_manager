@@ -1,0 +1,242 @@
+-- 24th-26th March 2023
+
+- move to coroutines of some sort to move away from callback based pattern
+- replace all queue/submit ops with op(args_list) + op({args_list1, args_list2...}) which is how we'll use the queuing feature
+- look into replacing the [shutdown -> read zero -> close] graceful closing process with IOSQE_IO_LINK or IOSQE_IO_HARDLINK (probably the latter)
+
+
+For graceful shutdown, with a socket `fd`, the state as `FD_STATE`, and in the state, a flag `state_flag`, an expiration time `expr`. Also with a shutdown callback `shutdown_cb`, close callback as `close_cb`:
+- if `read(fd) == 0`, call `shutdown(fd, SHUT_RD)`, set `FD_STATE.state_flag |= SHUT_RD`, then call `shutdown_cb(fd, FD_STATE.state_flag)`
+- if user calls `shutdown()`, fulfill request with whatever flag specified, set `FD_STATE.state_flag |= SHUT_RD`, then call `shutdown_cb(fd, FD_STATE.state_flag)`
+- if user calls `close()`:
+  - if `state_flag & SHUT_RDWR` (completely shut down), call `close(fd)`, then call `close_cb(fd)`
+  - if `state_flag & SHUT_RD`, call `shutdown(fd, SHUT_WR)`, set `FD_STATE.state_flag |= SHUT_WR`,then call `shutdown_cb(fd, FD_STATE.state_flag)`, call `close(fd)`, then call `close_cb(fd)`
+  - (A) if `state_flag & SHUT_WR`, then set `FD_STATE.expr = TIME_NOW() + 5`, and submit a special read request (`read(fd, size=1, type=special)`):
+    - if `read() == 0`, call `shutdown(fd, SHUT_RD)`, set `FD_STATE.state_flag |= SHUT_RD`,then call `shutdown_cb(fd, FD_STATE.state_flag)`, call `close(fd)`, then call `close_cb(fd)`
+    - if `FD_STATE.expr > TIME_NOW()`, call `shutdown(fd, SHUT_RD)` (forcefully closing the connection), set `FD_STATE.state_flag |= SHUT_RD`,then call `shutdown_cb(fd, FD_STATE.state_flag)`, call `close(fd)`, then call `close_cb(fd)`
+    - else call `read()` again
+  - if `state_flag & SHUT_RD == 0 && state_flag & SHUT_WR == 0` then:
+    - call `shutdown(fd, SHUT_WR)`, set `FD_STATE.state_flag |= SHUT_WR`,then call `shutdown_cb(fd, FD_STATE.state_flag)` then do everything at (A)
+
+Rewritten with ChatGPT, and then further augmented:
+
+- Notes:
+      - Don't bother with adding intermediate flags - will switch all to coroutine stuff anyway
+      - If a client closes their end first, then it will trigger the shutdown_cb()
+      - If multiple fds submitted for closing/shutdown, partition into distinct cases and
+        use IOSQE_IO_HARDLINK and just queuing multiple SQEs at once before submitting
+      - At any stage, if there is an error, simply call close(),
+        set FD_STATE.state_flag = SHUT_RDWR and FD_STATE.closed = true and call the close_cb()
+      - For a read/readv operation, if FD_STATE.state_flag & SHUT_RD,
+        return return_codes::READ_ON_CLOSED_FD
+      - For a write/writev operation, if FD_STATE.state_flag & SHUT_WR,
+        return return_codes::WRITE_ON_CLOSED_FD
+      - For a shutdown operation with flag F, if FD_STATE.state_flag & F, then
+        return return_codes::SHUTDOWN_ON_SHUTDOWN_FD
+      - For a close operation, if FD_STATE.closed = true,
+        return return_codes::CLOSE_ON_CLOSED_FD
+
+ERROR_CLEANUP_FUNC():
+  - Call close()
+  - Set FD_STATE.state_flag = SHUT_RDWR
+  - Set FD_STATE.closed = true
+  - Call close_cb(errno)
+
+0. Submit a timerfd which will trigger every 5-10s, used for cleaning up expired sockets
+
+1. If read(fd) == 0:
+    - Submit shutdown(fd, SHUT_RD)
+      - On error:
+        - Call ERROR_CLEANUP_FUNC()
+        - Call read_cb(fd, errno) and return
+      - Set FD_STATE.state_flag |= SHUT_RD
+      - Await shutdown() completion
+        - On error:
+          - Call ERROR_CLEANUP_FUNC()
+          - Call read_cb(fd, errno) and return
+        - Call shutdown_cb(fd, FD_STATE.state_flag)
+    - Call read_cb(fd)
+
+2. If the user calls shutdown():
+    - Submit shutdown(fd, FLAG)
+      - On error:
+        - Call ERROR_CLEANUP_FUNC()
+        - Call shutdown_cb(fd, FD_STATE.state_flag, errno) and return
+      - Set FD_STATE.state_flag |= FLAG
+      - Await shutdown() completion
+        - On error:
+          - Call ERROR_CLEANUP_FUNC()
+          - Call shutdown_cb(fd, FD_STATE.state_flag, errno) and return
+        - Call shutdown_cb(fd, FD_STATE.state_flag)
+
+3. If the user calls close():
+
+3.1.  - If state_flag & SHUT_RDWR (completely shut down already):
+          - Submit close(fd) - up to user to prevent duplicate close calls
+            - On error:
+              - Call ERROR_CLEANUP_FUNC() and return
+            - Await close() completion
+              - On error:
+                - Call ERROR_CLEANUP_FUNC() and return
+              - Call close_cb(fd)
+
+3.2.  - If state_flag & SHUT_RD:
+          - Submit shutdown(fd, SHUT_WR)
+            - On error:
+              - Call ERROR_CLEANUP_FUNC() and return
+            - Set FD_STATE.state_flag |= SHUT_WR
+            - Await shutdown() completion
+              - On error:
+                - Call ERROR_CLEANUP_FUNC() and return
+              - Call shutdown_cb(fd, FD_STATE.state_flag)
+              - Submit close(fd)
+                - On error:
+                  - Call ERROR_CLEANUP_FUNC() and return
+                - Await close() completion
+                  - On error:
+                    - Call ERROR_CLEANUP_FUNC() and return
+                  - Call close_cb(fd)
+
+3.3.  - If state_flag & SHUT_WR:
+          - Set FD_STATE.expr = TIME_NOW() + 5
+          - Submit a read(fd, size=1, type=READ_INTERNAL):
+            - On error:
+              - Call ERROR_CLEANUP_FUNC() and return
+            - Await read() completion
+              - On error:
+                - Call ERROR_CLEANUP_FUNC() and return
+
+3.3.1.        - If read() == 0:
+                  - Submit shutdown(fd, SHUT_RD)
+                    - On error:
+                      - Call ERROR_CLEANUP_FUNC() and return
+                    - Set FD_STATE.state_flag |= SHUT_RD
+                    - Await shutdown() completion
+                      - On error:
+                        - Call ERROR_CLEANUP_FUNC() and return
+                      - Call shutdown_cb(fd, FD_STATE.state_flag)
+                      - Submit close(fd)
+                        - On error:
+                          - Call ERROR_CLEANUP_FUNC() and return
+                        - Await close() completion
+                          - On error:
+                            - Call ERROR_CLEANUP_FUNC() and return
+                          - Call close_cb(fd)
+                          - Set FD_STATE.closed = true
+
+3.3.2.        - If FD_STATE.expr > TIME_NOW() (checked using timerfd from case 0.):
+                  - Submit shutdown(fd, SHUT_RD) (forcefully closing the connection)
+                    - On error:
+                      - Call ERROR_CLEANUP_FUNC() and return
+                    - Set FD_STATE.state_flag |= SHUT_RD
+                    - Await shutdown() completion
+                      - On error:
+                        - Call ERROR_CLEANUP_FUNC() and return
+                      - Call shutdown_cb(fd, FD_STATE.state_flag)
+                      - Submit close(fd)
+                        - On error:
+                          - Call ERROR_CLEANUP_FUNC() and return
+                        - Await close() completion
+                          - On error:
+                            - Call ERROR_CLEANUP_FUNC() and return
+                          - Call close_cb(fd)
+                          - Set FD_STATE.closed = true
+
+3.3.3.        - If read() != 0:
+                - Submit read() again:
+                  - On error:
+                    - Call ERROR_CLEANUP_FUNC() and return
+
+3.4.  - Not SHUT_RD and not SHUT_WR:
+        - Submit shutdown(fd, SHUT_WR)
+          - On error:
+            - Call ERROR_CLEANUP_FUNC() and return
+          - Set FD_STATE.state_flag |= SHUT_WR
+          - Await shutdown() completion
+            - On error:
+              - Call ERROR_CLEANUP_FUNC() and return
+            - Call shutdown_cb(fd, FD_STATE.state_flag)
+            - Continue with the steps from the "If state_flag & SHUT_WR" branch
+
+-- March 27th 2023
+You can use coroutines, like the stuff below, to do what you want:
+
+```cpp
+#include <coroutine>
+#include <iostream>
+#include <chrono>
+#include <thread>
+
+struct SleeperAndReturn {
+    constexpr bool await_ready() const noexcept { return false; } 
+    void await_suspend(std::coroutine_handle<> h) const {
+        auto t = std::jthread([h,l = length] {
+            std::this_thread::sleep_for(l);
+            h.resume();
+        });
+    }
+    constexpr int await_resume() const noexcept {
+        return length * 5;
+    }
+    const std::chrono::duration<int, std::milli> length;
+};
+
+struct Task {
+    // The coroutine level type
+    struct promise_type {
+        using Handle = std::coroutine_handle<promise_type>;
+        
+        Task get_return_object() {
+            return Task{Handle::from_promise(*this)};
+        }
+
+        // don't return to caller initially
+        std::suspend_never initial_suspend() {
+            return {};
+        }
+
+        // also don't return to caller before the end
+        std::suspend_never final_suspend() noexcept {
+            return {};
+        }
+
+        void return_void() {}
+        void unhandled_exception() { }
+    };
+
+    explicit Task(promise_type::Handle coro) : coro_(coro) {}
+    void destroy() { coro_.destroy(); }
+    void resume() { coro_.resume(); }
+    
+private:
+    promise_type::Handle coro_;
+};
+
+Task myCoroutine() {
+  using namespace std::chrono_literals;
+  auto before = std::chrono::steady_clock::now();
+  std::cout << co_await SleeperAndReturn(200ms) << "\n";
+  auto after = std::chrono::steady_clock::now();
+  std::cout << "Slept for " << (after-before) / 1ms << " ms\n";
+  std::cout << co_await SleeperAndReturn(200ms) << "\n";
+  after = std::chrono::steady_clock::now();
+  std::cout << "Slept for " << (after-before) / 1ms << " ms\n";
+  std::cout << co_await SleeperAndReturn(200ms) << "\n";
+  after = std::chrono::steady_clock::now();
+  std::cout << "Slept for " << (after-before) / 1ms << " ms\n";
+  co_return;
+}
+
+
+int main() {
+    myCoroutine();
+}
+```
+
+This will suspend myCoroutine() when you 'call' SleeperAndReturn (i.e when you await on the newly made struct)
+The struct uses the brackets syntax rather than {} to suit the idea that it is some sort of function
+that you are awaiting on.
+
+Check `event_manager_refactor` - it contains a `ReadAwaitable` which seems to work.
+
+-- Check awaitables.cpp, potentially change how return codes are done
