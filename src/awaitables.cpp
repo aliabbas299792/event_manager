@@ -16,7 +16,7 @@ constexpr bool ReadAwaitable::await_ready() const noexcept { return false; }
 
 int ReadAwaitable::await_resume() { return promise->return_code; }
 
-void ReadvAwaitable::await_suspend(coro_handle h) {
+void ReadvAwaitable::await_suspend(ev_coro_handle h) {
   for (const auto r : reqs) {
     ev->queue_readv(r.pfd, r.iovs, r.num, r.additional_info);
   }
@@ -27,7 +27,7 @@ constexpr bool ReadvAwaitable::await_ready() const noexcept { return false; }
 
 int ReadvAwaitable::await_resume() { return promise->return_code; }
 
-void WriteAwaitable::await_suspend(coro_handle h) {
+void WriteAwaitable::await_suspend(ev_coro_handle h) {
   for (const auto r : reqs) {
     ev->queue_write(r.pfd, r.buffer, r.length, r.additional_info);
   }
@@ -38,7 +38,7 @@ constexpr bool WriteAwaitable::await_ready() const noexcept { return false; }
 
 int WriteAwaitable::await_resume() { return promise->return_code; }
 
-void WritevAwaitable::await_suspend(coro_handle h) {
+void WritevAwaitable::await_suspend(ev_coro_handle h) {
   for (const auto r : reqs) {
     ev->queue_writev(r.pfd, r.iovs, r.num, r.additional_info);
   }
@@ -49,7 +49,7 @@ constexpr bool WritevAwaitable::await_ready() const noexcept { return false; }
 
 int WritevAwaitable::await_resume() { return promise->return_code; }
 
-void AcceptAwaitable::await_suspend(coro_handle h) {
+void AcceptAwaitable::await_suspend(ev_coro_handle h) {
   for (const auto r : reqs) {
     ev->queue_accept(r.listener_pfd, r.additional_info);
   }
@@ -60,7 +60,7 @@ constexpr bool AcceptAwaitable::await_ready() const noexcept { return false; }
 
 int AcceptAwaitable::await_resume() { return promise->return_code; }
 
-void ShutdownAwaitable::await_suspend(coro_handle h) {
+void ShutdownAwaitable::await_suspend(ev_coro_handle h) {
   for (const auto r : reqs) {
     ev->queue_shutdown(r.pfd, r.how, r.additional_info);
   }
@@ -71,7 +71,7 @@ constexpr bool ShutdownAwaitable::await_ready() const noexcept { return false; }
 
 int ShutdownAwaitable::await_resume() { return promise->return_code; }
 
-void CloseAwaitable::await_suspend(coro_handle h) {
+void CloseAwaitable::await_suspend(ev_coro_handle h) {
   for (const auto r : reqs) {
     ev->queue_close(r.pfd, r.additional_info);
   }
