@@ -12,16 +12,16 @@
 // The variant ensures that IO tasks can deal with all of these response
 // types
 
-enum ResponseType : std::size_t {
-  READ_RESP = 0,
-  WRITE_RESP,
-  OPEN_RESP,
-  CLOSE_RESP,
-  SHUTDOWN_RESP,
-  READV_RESP,
-  WRITEV_RESP,
-  ACCEPT_RESP,
-  CONNECT_RESP
+enum class ResponseType : std::size_t {
+  READ = 0,
+  WRITE,
+  OPEN,
+  CLOSE,
+  SHUTDOWN,
+  READV,
+  WRITEV,
+  ACCEPT,
+  CONNECT
 };
 
 // default unspecialised
@@ -29,50 +29,50 @@ template <ResponseType T> struct ResponseTypes {
   using Type = std::nullptr_t;
 };
 
-template <> struct ResponseTypes<ResponseType::READ_RESP> {
+template <> struct ResponseTypes<ResponseType::READ> {
   using Type = float;
 };
 
-template <> struct ResponseTypes<ResponseType::WRITE_RESP> {
+template <> struct ResponseTypes<ResponseType::WRITE> {
   using Type = float;
 };
 
-template <> struct ResponseTypes<ResponseType::OPEN_RESP> {
+template <> struct ResponseTypes<ResponseType::OPEN> {
   using Type = float;
 };
 
-template <> struct ResponseTypes<ResponseType::CLOSE_RESP> {
+template <> struct ResponseTypes<ResponseType::CLOSE> {
   using Type = float;
 };
 
-template <> struct ResponseTypes<ResponseType::SHUTDOWN_RESP> {
+template <> struct ResponseTypes<ResponseType::SHUTDOWN> {
   using Type = float;
 };
 
-template <> struct ResponseTypes<ResponseType::READV_RESP> {
+template <> struct ResponseTypes<ResponseType::READV> {
   using Type = float;
 };
 
-template <> struct ResponseTypes<ResponseType::WRITEV_RESP> {
+template <> struct ResponseTypes<ResponseType::WRITEV> {
   using Type = float;
 };
 
-template <> struct ResponseTypes<ResponseType::ACCEPT_RESP> {
+template <> struct ResponseTypes<ResponseType::ACCEPT> {
   using Type = float;
 };
 
-template <> struct ResponseTypes<ResponseType::CONNECT_RESP> {
+template <> struct ResponseTypes<ResponseType::CONNECT> {
   using Type = float;
 };
 
 template <ResponseType Rt> using RespTypeMap = typename ResponseTypes<Rt>::Type;
 
 using ResponseVariant = std::variant<
-    RespTypeMap<ResponseType::READ_RESP>, RespTypeMap<ResponseType::WRITE_RESP>,
-    RespTypeMap<ResponseType::OPEN_RESP>, RespTypeMap<ResponseType::CLOSE_RESP>,
-    RespTypeMap<ResponseType::SHUTDOWN_RESP>,
-    RespTypeMap<ResponseType::READV_RESP>, RespTypeMap<ResponseType::WRITEV_RESP>,
-    RespTypeMap<ResponseType::ACCEPT_RESP>,
-    RespTypeMap<ResponseType::CONNECT_RESP>, std::monostate>;
+    RespTypeMap<ResponseType::READ>, RespTypeMap<ResponseType::WRITE>,
+    RespTypeMap<ResponseType::OPEN>, RespTypeMap<ResponseType::CLOSE>,
+    RespTypeMap<ResponseType::SHUTDOWN>,
+    RespTypeMap<ResponseType::READV>, RespTypeMap<ResponseType::WRITEV>,
+    RespTypeMap<ResponseType::ACCEPT>,
+    RespTypeMap<ResponseType::CONNECT>, std::monostate>;
 
 #endif

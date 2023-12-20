@@ -12,16 +12,16 @@
 // The variant ensures that IO tasks can deal with all of these request
 // types
 
-enum RequestType : std::size_t {
-  READ_REQ = 0,
-  WRITE_REQ,
-  OPEN_REQ,
-  CLOSE_REQ,
-  SHUTDOWN_REQ,
-  READV_REQ,
-  WRITEV_REQ,
-  ACCEPT_REQ,
-  CONNECT_REQ
+enum class RequestType : std::size_t {
+  READ = 0,
+  WRITE,
+  OPEN,
+  CLOSE,
+  SHUTDOWN,
+  READV,
+  WRITEV,
+  ACCEPT,
+  CONNECT
 };
 
 // default unspecialised
@@ -29,49 +29,49 @@ template <RequestType T> struct RequestTypes {
   using Type = std::nullptr_t;
 };
 
-template <> struct RequestTypes<RequestType::READ_REQ> {
+template <> struct RequestTypes<RequestType::READ> {
   using Type = float;
 };
 
-template <> struct RequestTypes<RequestType::WRITE_REQ> {
+template <> struct RequestTypes<RequestType::WRITE> {
   using Type = float;
 };
 
-template <> struct RequestTypes<RequestType::OPEN_REQ> {
+template <> struct RequestTypes<RequestType::OPEN> {
   using Type = float;
 };
 
-template <> struct RequestTypes<RequestType::CLOSE_REQ> {
+template <> struct RequestTypes<RequestType::CLOSE> {
   using Type = float;
 };
 
-template <> struct RequestTypes<RequestType::SHUTDOWN_REQ> {
+template <> struct RequestTypes<RequestType::SHUTDOWN> {
   using Type = float;
 };
 
-template <> struct RequestTypes<RequestType::READV_REQ> {
+template <> struct RequestTypes<RequestType::READV> {
   using Type = float;
 };
 
-template <> struct RequestTypes<RequestType::WRITEV_REQ> {
+template <> struct RequestTypes<RequestType::WRITEV> {
   using Type = float;
 };
 
-template <> struct RequestTypes<RequestType::ACCEPT_REQ> {
+template <> struct RequestTypes<RequestType::ACCEPT> {
   using Type = float;
 };
 
-template <> struct RequestTypes<RequestType::CONNECT_REQ> {
+template <> struct RequestTypes<RequestType::CONNECT> {
   using Type = float;
 };
 
 template <RequestType Rt> using ReqTypeMap = typename RequestTypes<Rt>::Type;
 
 using RequestVariant = std::variant<
-    ReqTypeMap<RequestType::READ_REQ>, ReqTypeMap<RequestType::WRITE_REQ>,
-    ReqTypeMap<RequestType::OPEN_REQ>, ReqTypeMap<RequestType::CLOSE_REQ>,
-    ReqTypeMap<RequestType::SHUTDOWN_REQ>, ReqTypeMap<RequestType::READV_REQ>,
-    ReqTypeMap<RequestType::WRITEV_REQ>, ReqTypeMap<RequestType::ACCEPT_REQ>,
-    ReqTypeMap<RequestType::CONNECT_REQ>, std::monostate>;
+    ReqTypeMap<RequestType::READ>, ReqTypeMap<RequestType::WRITE>,
+    ReqTypeMap<RequestType::OPEN>, ReqTypeMap<RequestType::CLOSE>,
+    ReqTypeMap<RequestType::SHUTDOWN>, ReqTypeMap<RequestType::READV>,
+    ReqTypeMap<RequestType::WRITEV>, ReqTypeMap<RequestType::ACCEPT>,
+    ReqTypeMap<RequestType::CONNECT>, std::monostate>;
 
 #endif
