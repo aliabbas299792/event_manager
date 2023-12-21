@@ -14,4 +14,7 @@ example_event_manager = executable('example_event_manager', source_files, depend
 communication_tests = executable('communication_tests', 'communication/communication_tests.cpp', dependencies: [io_uring_dep, thread_dep])
 test('Communication Tests', communication_tests)
 
+coroutine_tests = executable('coroutine_tests', 'coroutine/coroutine_tests.cpp', dependencies: [io_uring_dep, thread_dep])
+test('Coroutine Tests', coroutine_tests)
+
 # subdir('example')
