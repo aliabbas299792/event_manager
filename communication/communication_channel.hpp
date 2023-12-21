@@ -49,6 +49,14 @@ public:
       return std::nullopt;
     }
   }
+
+  RequestType request_store_current_type() {
+    return static_cast<RequestType>(request_store_.index());
+  }
+
+  ResponseType response_store_current_type() {
+    return static_cast<ResponseType>(response_store_.index());
+  }
 };
 
 #endif
