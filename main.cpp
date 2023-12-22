@@ -37,7 +37,7 @@ int main() {
   auto coro = test_coro();
   
   auto a = coro.start();
-  visit_request_types(a);
+  visit_request_types(*a);
 
   auto b = coro.resume<ResponseType::READ>(53.5);
 
