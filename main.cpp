@@ -1,6 +1,5 @@
 #include "communication/communication_channel.hpp"
 #include "communication/response_types.hpp"
-#include "coroutine/awaiter.hpp"
 #include "coroutine/task.hpp"
 #include "event_loop/event_manager.hpp"
 #include <coroutine>

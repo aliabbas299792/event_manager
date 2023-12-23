@@ -10,9 +10,7 @@
 #include <vector>
 
 #include "communication/communication_channel.hpp"
-#include "communication/request_types.hpp"
 #include "communication/response_types.hpp"
-#include "coroutine/awaiter.hpp"
 #include "coroutine/task.hpp"
 
 #include "io_awaitables.hpp"
