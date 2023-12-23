@@ -1,5 +1,7 @@
 #include "communication/response_types.hpp"
+#include "event_loop/request_data.hpp"
 #include "event_manager.hpp"
+#include <cerrno>
 
 int EventManager::shared_ring_fd = -1;
 int EventManager::ring_instances{};
@@ -52,10 +54,6 @@ void EventManager::await_message() {
   }
 
   auto req_data = reinterpret_cast<RequestData *>(io_uring_cqe_get_data(cqe));
-  if (cqe->res < 0) {
-    std::cerr << "\tio_uring request failure\n";
-  }
-
   event_handler(cqe->res, req_data);
 
   io_uring_cqe_seen(&ring, cqe);
@@ -92,10 +90,18 @@ void EventManager::register_coro(EvTask &coro) {
 }
 
 void EventManager::event_handler(int res, RequestData *req_data) {
-  if (req_data ==
-      nullptr) { // don't have anything to process for requests with no data
+  // don't have anything to process for requests with no data
+  // or if the handle is a nullptr, then there's nothing to resume
+  if (req_data == nullptr || req_data->handle == nullptr) {
     return;
   }
+
+  auto promise = req_data->handle.promise();
+  auto &specific_data = req_data->specific_data;
+
+  // if (res < 0) {
+  //   std::cerr << "\tio_uring request failure\n";
+  // }
 
   // if (manager_life_state == living_state::DYING_STAGE_2_CANCELLING_REQS) {
   //   dying_stage_2();
@@ -105,40 +111,29 @@ void EventManager::event_handler(int res, RequestData *req_data) {
 
   switch (req_data->req_type) {
   case ReqType::WRITE: {
-    // callbacks->write_callback(processed_data(req_data->buffer, res,
-    // req_data->length), pfd, req_data->additional_info);
+    WriteResponsePack data{};
+    if (res < 0) {
+      data.error_num = errno;
+    } else {
+      data = {.bytes_wrote = res};
+    }
+    promise.set_resp_data<ResponseType::WRITE>(std::move(data));
+    std::cout <<"got to write resume\n";
+    req_data->handle.resume();
+    std::cout << req_data->handle.done() << " is it done\n";
     break;
   }
   case ReqType::READ: {
-    std::cout << "got to here\n";
-    req_data->handle.promise().state.com_data.set_resp_data<ResponseType::READ>(res);
-    if(req_data->handle) {
-      std::cout << "referst to a real coro\n";
-      std::cout << req_data->handle.done() << " (is coro done)\n";
-      req_data->handle.resume();
-    }else {
-      std::cout << "refers to a not coro\n";
+    ReadResponsePack data{};
+    if (res < 0) {
+      data.error_num = errno;
+    } else {
+      data = {.bytes_read = res, .buff = specific_data.read_data.buffer};
     }
-    // if (req_data->length == 0) {
-    //   // so either from here it submits a shutdown request, or a close
-    //   request - after this switch we call the close_pfd function
-    //   pfd_info.last_read_zero = true;
-
-    //   // only close the pfd if the user explicitly tells you to
-    //   // also only call close if the state has changed, not if there was a
-    //   duplicate call if(pfd_info.shutdown_done) {
-    //     close_pfd(pfd, req_data->additional_info);
-    //   }
-    // }
-
-    // if (req_data->ev != ReqType::READ_INTERNAL) {
-    //   callbacks->read_callback(processed_data(req_data->buffer, res,
-    //   req_data->length), pfd,
-    //                            req_data->additional_info);
-    // }
-    break;
-  default:
-    std::cout << "got to default\n";
+    promise.set_resp_data<ResponseType::READ>(std::move(data));
+    req_data->handle.resume();
   }
+  default:
+    break;
   }
 }

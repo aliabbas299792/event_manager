@@ -10,6 +10,12 @@
 #include "coroutine/task.hpp"
 #include "request_data.hpp"
 
+template<typename Data>
+struct IOResponse {
+  int initial_error{};
+  Data data{};
+};
+
 template <ResponseType Rt> struct IOAwaitable {
   CommunicationChannel *channel{};
   RequestData req_data{};
@@ -24,12 +30,13 @@ template <ResponseType Rt> struct IOAwaitable {
     return error_code != 0;
   }
 
-  RespTypeMap<Rt> await_resume() {
+  IOResponse<RespTypeMap<Rt>> await_resume() {
     if (error_code != 0) {
-      return error_code; // return the intiial return code somehow
+      return {.initial_error=error_code};
     }
 
-    return channel->get_resp_data<Rt>().value();
+    std::cout << "await resume\n";
+    return {.data=channel->get_resp_data<Rt>().value()};
   }
 
   IOAwaitable(io_uring *ring) : ring(ring), sqe(io_uring_get_sqe(ring)) {

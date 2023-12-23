@@ -39,7 +39,7 @@ public:
       state.exception_ptr = std::current_exception();
     }
 
-    template<ResponseType Rt, typename RespType = RespTypeMap<Rt>>
+    template <ResponseType Rt, typename RespType = RespTypeMap<Rt>>
     void set_resp_data(RespType &&data) {
       state.com_data.set_resp_data<Rt>(std::forward<RespType>(data));
     }
@@ -102,8 +102,8 @@ public:
   // these below are what makes this task awaitable
   bool await_ready() const noexcept { return false; };
   void await_suspend(Handle other_handle) {
-    if (!started_coro) { // if the coroutine hasn't started upon co_awaiting, do
-                         // that first
+    // if the coroutine hasn't started upon co_awaiting, do that first
+    if (!started_coro) {
       start();
     }
 
