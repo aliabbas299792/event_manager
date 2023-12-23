@@ -2,6 +2,7 @@
 #define EV_TASK_
 
 #include "communication/communication_channel.hpp"
+#include "communication/response_types.hpp"
 
 #include <coroutine>
 #include <iostream>
@@ -36,6 +37,11 @@ public:
 
     void unhandled_exception() {
       state.exception_ptr = std::current_exception();
+    }
+
+    template<ResponseType Rt, typename RespType = RespTypeMap<Rt>>
+    void set_resp_data(RespType &&data) {
+      state.com_data.set_resp_data<Rt>(std::forward<RespType>(data));
     }
   };
 

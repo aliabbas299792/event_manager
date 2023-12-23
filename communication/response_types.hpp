@@ -2,6 +2,7 @@
 #define RESPONSE_TYPE_
 
 #include <cstddef>
+#include <cstdint>
 #include <variant>
 
 // To add a new type, there are 3 modifications needed:
@@ -23,41 +24,73 @@ enum class ResponseType : std::size_t {
   CONNECT
 };
 
+struct GenericResponsePack {
+  int error_num{};
+};
+
+struct ReadResponsePack : GenericResponsePack {
+  int bytes_read{};
+  uint8_t *buff{};
+};
+
+struct WriteResponsePack : GenericResponsePack {
+  int bytes_wrote{};
+};
+
+struct CloseResponsePack : GenericResponsePack {};
+
+struct ShutdownResponsePack : GenericResponsePack {};
+
+struct ReadvResponsePack : GenericResponsePack {
+  int bytes_read{};
+  uint8_t *buff{};
+};
+
+struct WritevResponsePack : GenericResponsePack {
+  int bytes_wrote{};
+};
+
+struct AcceptResponsePack : GenericResponsePack {
+  int fd{};
+};
+
+struct ConnectResponsePack : GenericResponsePack {};
+
 // default unspecialised
 template <ResponseType T> struct ResponseTypes {
   using Type = std::nullptr_t;
 };
 
 template <> struct ResponseTypes<ResponseType::READ> {
-  using Type = float;
+  using Type = ReadResponsePack;
 };
 
 template <> struct ResponseTypes<ResponseType::WRITE> {
-  using Type = float;
+  using Type = WriteResponsePack;
 };
 
 template <> struct ResponseTypes<ResponseType::CLOSE> {
-  using Type = float;
+  using Type = CloseResponsePack;
 };
 
 template <> struct ResponseTypes<ResponseType::SHUTDOWN> {
-  using Type = float;
+  using Type = ShutdownResponsePack;
 };
 
 template <> struct ResponseTypes<ResponseType::READV> {
-  using Type = float;
+  using Type = ReadvResponsePack;
 };
 
 template <> struct ResponseTypes<ResponseType::WRITEV> {
-  using Type = float;
+  using Type = WritevResponsePack;
 };
 
 template <> struct ResponseTypes<ResponseType::ACCEPT> {
-  using Type = float;
+  using Type = AcceptResponsePack;
 };
 
 template <> struct ResponseTypes<ResponseType::CONNECT> {
-  using Type = float;
+  using Type = ConnectResponsePack;
 };
 
 template <ResponseType Rt> using RespTypeMap = typename ResponseTypes<Rt>::Type;

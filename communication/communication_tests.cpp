@@ -54,7 +54,7 @@ TEST_CASE("Testing response storing") {
       auto ret = cc.get_resp_data<Rt>();
 
       REQUIRE(ret.has_value());
-      REQUIRE(ret.value() == default_value);
+      REQUIRE(ret.value().bytes_read == default_value.bytes_read);
       REQUIRE(!cc.get_resp_data<Rt>().has_value());
     }
     {
@@ -65,7 +65,7 @@ TEST_CASE("Testing response storing") {
       auto ret = cc.get_resp_data<Rt>();
 
       REQUIRE(ret.has_value());
-      REQUIRE(ret.value() == default_value);
+      REQUIRE(ret.value().bytes_wrote == default_value.bytes_wrote);
       REQUIRE(!cc.get_resp_data<Rt>().has_value());
     }
     {
@@ -76,7 +76,7 @@ TEST_CASE("Testing response storing") {
       auto ret = cc.get_resp_data<Rt>();
 
       REQUIRE(ret.has_value());
-      REQUIRE(ret.value() == default_value);
+      REQUIRE(ret.value().error_num == default_value.error_num);
       REQUIRE(!cc.get_resp_data<Rt>().has_value());
     }
     {
@@ -87,7 +87,7 @@ TEST_CASE("Testing response storing") {
       auto ret = cc.get_resp_data<Rt>();
 
       REQUIRE(ret.has_value());
-      REQUIRE(ret.value() == default_value);
+      REQUIRE(ret.value().error_num == default_value.error_num);
       REQUIRE(!cc.get_resp_data<Rt>().has_value());
     }
     {
@@ -98,7 +98,7 @@ TEST_CASE("Testing response storing") {
       auto ret = cc.get_resp_data<Rt>();
 
       REQUIRE(ret.has_value());
-      REQUIRE(ret.value() == default_value);
+      REQUIRE(ret.value().bytes_read == default_value.bytes_read);
       REQUIRE(!cc.get_resp_data<Rt>().has_value());
     }
     {
@@ -109,7 +109,7 @@ TEST_CASE("Testing response storing") {
       auto ret = cc.get_resp_data<Rt>();
 
       REQUIRE(ret.has_value());
-      REQUIRE(ret.value() == default_value);
+      REQUIRE(ret.value().bytes_wrote == default_value.bytes_wrote);
       REQUIRE(!cc.get_resp_data<Rt>().has_value());
     }
     {
@@ -120,7 +120,7 @@ TEST_CASE("Testing response storing") {
       auto ret = cc.get_resp_data<Rt>();
 
       REQUIRE(ret.has_value());
-      REQUIRE(ret.value() == default_value);
+      REQUIRE(ret.value().error_num == default_value.error_num);
       REQUIRE(!cc.get_resp_data<Rt>().has_value());
     }
     {
@@ -131,7 +131,7 @@ TEST_CASE("Testing response storing") {
       auto ret = cc.get_resp_data<Rt>();
 
       REQUIRE(ret.has_value());
-      REQUIRE(ret.value() == default_value);
+      REQUIRE(ret.value().error_num == default_value.error_num);
       REQUIRE(!cc.get_resp_data<Rt>().has_value());
     }
   }
