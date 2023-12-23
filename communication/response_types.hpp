@@ -15,7 +15,6 @@
 enum class ResponseType : std::size_t {
   READ = 0,
   WRITE,
-  OPEN,
   CLOSE,
   SHUTDOWN,
   READV,
@@ -34,10 +33,6 @@ template <> struct ResponseTypes<ResponseType::READ> {
 };
 
 template <> struct ResponseTypes<ResponseType::WRITE> {
-  using Type = float;
-};
-
-template <> struct ResponseTypes<ResponseType::OPEN> {
   using Type = float;
 };
 
@@ -69,10 +64,9 @@ template <ResponseType Rt> using RespTypeMap = typename ResponseTypes<Rt>::Type;
 
 using ResponseVariant = std::variant<
     RespTypeMap<ResponseType::READ>, RespTypeMap<ResponseType::WRITE>,
-    RespTypeMap<ResponseType::OPEN>, RespTypeMap<ResponseType::CLOSE>,
-    RespTypeMap<ResponseType::SHUTDOWN>,
+    RespTypeMap<ResponseType::CLOSE>, RespTypeMap<ResponseType::SHUTDOWN>,
     RespTypeMap<ResponseType::READV>, RespTypeMap<ResponseType::WRITEV>,
-    RespTypeMap<ResponseType::ACCEPT>,
-    RespTypeMap<ResponseType::CONNECT>, std::monostate>;
+    RespTypeMap<ResponseType::ACCEPT>, RespTypeMap<ResponseType::CONNECT>,
+    std::monostate>;
 
 #endif
