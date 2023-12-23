@@ -10,33 +10,53 @@
 #include "coroutine/task.hpp"
 #include "request_data.hpp"
 
+/*
+Each awaitable must implement `void suspend_action(EvTask::Handle handle)`
+CRTP is used to call them from the IOAwaitable
+I chose to do this so that all the awaitable lifecycle functions were in the parent
+*/
+
 template<typename Data>
 struct IOResponse {
   int initial_error{};
   Data data{};
 };
 
-template <ResponseType Rt> struct IOAwaitable {
+template <ResponseType Rt, typename DerivedAwaitable> struct IOAwaitable {
   CommunicationChannel *channel{};
   RequestData req_data{};
+  EvTask::Handle  handle{};
 
   int error_code{};
   io_uring *const ring;
   io_uring_sqe *const sqe;
 
   bool await_ready() const noexcept {
+    // std::cout << "checking await ready " << (error_code != 0) << "\n";
     // if the initial return code is non zero then we have run into an error
     // and cannot proceed
     return error_code != 0;
   }
 
+  void await_suspend(EvTask::Handle handle) {
+    // std::cout << "will suspend\n";
+    this->handle = handle;
+    static_cast<DerivedAwaitable*>(this)->suspend_action(handle);
+  }
+
   IOResponse<RespTypeMap<Rt>> await_resume() {
+    // std::cout << "await resume reached\n";
     if (error_code != 0) {
       return {.initial_error=error_code};
     }
 
-    std::cout << "await resume\n";
-    return {.data=channel->get_resp_data<Rt>().value()};
+    // std::cout << "reached the end of await resume\n";
+    // std::cout << handle.done() << " (is it done?)\n";
+    // std::cout << handle.resume() << " (is it done?)\n";
+    // handle.resume();
+    auto val = channel->get_resp_data<Rt>();
+    // std::cout << "do we actually have a value: " << val.has_value() << "\n";
+    return {.data=val.value()};
   }
 
   IOAwaitable(io_uring *ring) : ring(ring), sqe(io_uring_get_sqe(ring)) {
@@ -46,8 +66,8 @@ template <ResponseType Rt> struct IOAwaitable {
   }
 };
 
-struct ReadAwaitable : IOAwaitable<ResponseType::READ> {
-  void await_suspend(EvTask::Handle handle) {
+struct ReadAwaitable : IOAwaitable<ResponseType::READ, ReadAwaitable> {
+  void suspend_action(EvTask::Handle handle) {
     channel = &handle.promise().state.com_data;
     req_data.handle = handle; // just got the handle, so set it
 
@@ -62,6 +82,7 @@ struct ReadAwaitable : IOAwaitable<ResponseType::READ> {
       error_code = ret;
       handle.resume();
     }
+    // std::cout << "at the end of the readawait suspend function\n";
   }
 
   ReadAwaitable(int fd, uint8_t *buff, size_t length, io_uring *ring)
@@ -73,8 +94,8 @@ struct ReadAwaitable : IOAwaitable<ResponseType::READ> {
   }
 };
 
-struct WriteAwaitable : IOAwaitable<ResponseType::WRITE> {
-  void await_suspend(EvTask::Handle handle) {
+struct WriteAwaitable : IOAwaitable<ResponseType::WRITE, WriteAwaitable> {
+  void suspend_action(EvTask::Handle handle) {
     channel = &handle.promise().state.com_data;
     req_data.handle = handle; // just got the handle, so set it
 
@@ -100,8 +121,8 @@ struct WriteAwaitable : IOAwaitable<ResponseType::WRITE> {
   }
 };
 
-struct CloseAwaitable : IOAwaitable<ResponseType::CLOSE> {
-  void await_suspend(EvTask::Handle handle) {
+struct CloseAwaitable : IOAwaitable<ResponseType::CLOSE, CloseAwaitable> {
+  void suspend_action(EvTask::Handle handle) {
     channel = &handle.promise().state.com_data;
     req_data.handle = handle; // just got the handle, so set it
 
@@ -125,8 +146,8 @@ struct CloseAwaitable : IOAwaitable<ResponseType::CLOSE> {
   }
 };
 
-struct ShutdownAwaitable : IOAwaitable<ResponseType::SHUTDOWN> {
-  void await_suspend(EvTask::Handle handle) {
+struct ShutdownAwaitable : IOAwaitable<ResponseType::SHUTDOWN, ShutdownAwaitable> {
+  void suspend_action(EvTask::Handle handle) {
     channel = &handle.promise().state.com_data;
     req_data.handle = handle; // just got the handle, so set it
 
@@ -150,8 +171,8 @@ struct ShutdownAwaitable : IOAwaitable<ResponseType::SHUTDOWN> {
   }
 };
 
-struct ReadvAwaitable : IOAwaitable<ResponseType::READV> {
-  void await_suspend(EvTask::Handle handle) {
+struct ReadvAwaitable : IOAwaitable<ResponseType::READV, ReadvAwaitable> {
+  void suspend_action(EvTask::Handle handle) {
     channel = &handle.promise().state.com_data;
     req_data.handle = handle; // just got the handle, so set it
 
@@ -176,8 +197,8 @@ struct ReadvAwaitable : IOAwaitable<ResponseType::READV> {
   }
 };
 
-struct WritevAwaitable : IOAwaitable<ResponseType::WRITEV> {
-  void await_suspend(EvTask::Handle handle) {
+struct WritevAwaitable : IOAwaitable<ResponseType::WRITEV, WritevAwaitable> {
+  void suspend_action(EvTask::Handle handle) {
     channel = &handle.promise().state.com_data;
     req_data.handle = handle; // just got the handle, so set it
 
@@ -203,8 +224,8 @@ struct WritevAwaitable : IOAwaitable<ResponseType::WRITEV> {
   }
 };
 
-struct AcceptAwaitable : IOAwaitable<ResponseType::ACCEPT> {
-  void await_suspend(EvTask::Handle handle) {
+struct AcceptAwaitable : IOAwaitable<ResponseType::ACCEPT, AcceptAwaitable> {
+  void suspend_action(EvTask::Handle handle) {
     channel = &handle.promise().state.com_data;
     req_data.handle = handle; // just got the handle, so set it
 
@@ -231,8 +252,8 @@ struct AcceptAwaitable : IOAwaitable<ResponseType::ACCEPT> {
   }
 };
 
-struct ConnectAwaitable : IOAwaitable<ResponseType::CONNECT> {
-  void await_suspend(EvTask::Handle handle) {
+struct ConnectAwaitable : IOAwaitable<ResponseType::CONNECT, ConnectAwaitable> {
+  void suspend_action(EvTask::Handle handle) {
     channel = &handle.promise().state.com_data;
     req_data.handle = handle; // just got the handle, so set it
 

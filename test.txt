@@ -1,0 +1,9 @@
+hello world this is a message from the program this is epic
+mmences at
+       the file offset, and the file offset is incremented by the number
+       of bytes read.  If the file offset is at or past the end of file,
+       no bytes are read, and read() returns zero.
+
+       If count is zero, read() may detect the errors described below.
+       In the absence of any errors, or if read() does not check for
+       errors, a read() with a count of 0 returns zero and has no other

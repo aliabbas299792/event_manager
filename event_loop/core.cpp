@@ -96,7 +96,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
     return;
   }
 
-  auto promise = req_data->handle.promise();
+  auto &promise = req_data->handle.promise();
   auto &specific_data = req_data->specific_data;
 
   // if (res < 0) {
@@ -118,9 +118,9 @@ void EventManager::event_handler(int res, RequestData *req_data) {
       data = {.bytes_wrote = res};
     }
     promise.set_resp_data<ResponseType::WRITE>(std::move(data));
-    std::cout <<"got to write resume\n";
+    // std::cout <<"got to write resume\n";
     req_data->handle.resume();
-    std::cout << req_data->handle.done() << " is it done\n";
+    // std::cout << req_data->handle.done() << " is it done\n";
     break;
   }
   case ReqType::READ: {
@@ -131,7 +131,11 @@ void EventManager::event_handler(int res, RequestData *req_data) {
       data = {.bytes_read = res, .buff = specific_data.read_data.buffer};
     }
     promise.set_resp_data<ResponseType::READ>(std::move(data));
+    // std::cout << (int)promise.state.com_data.response_store_current_type() << " vs " << (int)ResponseType::READ << "\n";
+    // std::cout << "just before read resume\n";
     req_data->handle.resume();
+    // std::cout << "just after read resume\n";
+    // std::cout << "is the coroutine finished: " << (req_data->handle.done() ? "yes" : "no") << "\n";
   }
   default:
     break;

@@ -14,22 +14,29 @@ EvTask other_coro_read(EventManager *ev, int fd, uint8_t *buff) {
 
 EvTask other_coro_write(EventManager *ev, int fd, std::string &str) {
   auto res = co_await ev->write(fd, reinterpret_cast<uint8_t*>(str.data()), str.length());
-  std::cout << res.data.bytes_wrote << " we are writing\n";
+  // std::cout << res.data.bytes_wrote << " we are writing\n";
   co_return res.data.bytes_wrote;
 }
 
 EvTask coro(EventManager *ev) {
   int fd = open("../test.txt", O_RDWR);
-  std::cout << fd << " is the fd\n";
+  // std::cout << fd << " is the fd\n";
   uint8_t buff[2048]{};
 
+  // auto task1 = ev->read(fd, buff, 2048);
+  // std::cout << "about to call coawait read\n";
   auto res = co_await ev->read(fd, buff, 2048);
-  std::cout << "res is the ressonse " << res.data.bytes_read << "\n";
+  std::cout << "Read this data:\n--------START--------\n";
+  std::cout << buff << "\n---------END---------\n";
+  // auto res = co_await other_coro_read(ev, fd, buff);
+  // std::cout << "res is the response " << res.data.bytes_read << "\n";
+  // std::cout << "res is the response " << res << "\n";
 
   std::string str = "hello world this is a message from the program this is epic\n";
   auto res2 = co_await ev->write(fd, reinterpret_cast<uint8_t*>(str.data()), str.length());
-  std::cout << "we co awaited\n";
+  // std::cout << "we co awaited\n";
   std::cout << "res2 " << res2.data.bytes_wrote << "\n";
+  // std::cout << ">>>>>>we're finally at the end of the coroutine....\n";
   co_return 0;
 }
 
@@ -37,5 +44,5 @@ int main() {
   EventManager ev(10);
   ev.register_coro(coro(&ev));
   ev.start();
-  std::cout << "Hello world\n";
+  // std::cout << "Hello world\n";
 }

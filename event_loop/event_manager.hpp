@@ -44,6 +44,7 @@ public:
   void event_handler(int res, RequestData *req_data);
 
   ReadAwaitable read(int fd, uint8_t *buffer, size_t length) {
+    // std::cout << "constructing the coawait read object\n";
     return ReadAwaitable{fd, buffer, length, &ring};
   }
 

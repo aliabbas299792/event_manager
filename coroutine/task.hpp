@@ -27,15 +27,20 @@ public:
 
     std::suspend_always initial_suspend() noexcept { return {}; }
     std::suspend_always final_suspend() noexcept {
+      // std::cout << "at the final suspension\n";
       for (auto &h : state.awaiter_handles) {
         h.resume();
       }
       return {};
     }
 
-    void return_value(int ret_code = 0) { state.ret_code = ret_code; }
+    void return_value(int ret_code = 0) {
+      // std::cout << "at the return value place, got a code of " << ret_code << "\n";
+      state.ret_code = ret_code;
+    }
 
     void unhandled_exception() {
+      // std::cout << "got an unhandled exception\n";
       state.exception_ptr = std::current_exception();
     }
 
@@ -69,54 +74,57 @@ public:
     return &com_channel;
   }
 
-  template <ResponseType RespT, typename ParamType = RespTypeMap<RespT>>
-  CommunicationChannel *resume(ParamType resp_data) {
-    if (!started_coro) {
-      std::cerr << "We may be passing data to the coroutine which it won't "
-                   "read since it hasn't started yet\n";
-      started_coro = true;
-    }
+  // template <ResponseType RespT, typename ParamType = RespTypeMap<RespT>>
+  // CommunicationChannel *resume(ParamType resp_data) {
+  //   if (!started_coro) {
+  //     std::cerr << "We may be passing data to the coroutine which it won't "
+  //                  "read since it hasn't started yet\n";
+  //     started_coro = true;
+  //   }
 
-    // Called outside the coroutine with the response data you'd like to send to
-    // pass to the coroutine (if any)
-    // After the coroutine pauses again (at point X) then we may have a request
-    // from it
-    auto &state = handle.promise().state;
-    auto &com_channel = state.com_data;
+  //   // Called outside the coroutine with the response data you'd like to send to
+  //   // pass to the coroutine (if any)
+  //   // After the coroutine pauses again (at point X) then we may have a request
+  //   // from it
+  //   auto &state = handle.promise().state;
+  //   auto &com_channel = state.com_data;
 
-    com_channel.set_resp_data<RespT>(resp_data);
-    handle.resume();
-    // point X
+  //   com_channel.set_resp_data<RespT>(resp_data);
+  //   handle.resume();
+  //   // point X
 
-    if (state.exception_ptr) {
-      std::rethrow_exception(state.exception_ptr);
-    }
+  //   if (state.exception_ptr) {
+  //     std::rethrow_exception(state.exception_ptr);
+  //   }
 
-    return &com_channel;
-  }
+  //   return &com_channel;
+  // }
 
   bool is_done() { return handle.done(); }
 
   explicit operator bool() { return is_done(); }
 
-  // these below are what makes this task awaitable
-  bool await_ready() const noexcept { return false; };
-  void await_suspend(Handle other_handle) {
-    // if the coroutine hasn't started upon co_awaiting, do that first
-    if (!started_coro) {
-      start();
-    }
+  // // these below are what makes this task awaitable
+  // bool await_ready() const noexcept { return false;
+  //   std::cout << "here for some reason await ready task\n"; };
+  // void await_suspend(Handle other_handle) {
+  //   std::cout << "here for some reason await suspend task\n";
+  //   // if the coroutine hasn't started upon co_awaiting, do that first
+  //   if (!started_coro) {
+  //     start();
+  //   }
 
-    if (is_done()) { // in the off chance we're awaiting on a complete coroutine
-      other_handle.resume();
-      return;
-    }
+  //   if (is_done()) { // in the off chance we're awaiting on a complete coroutine
+  //     other_handle.resume();
+  //     return;
+  //   }
 
-    auto &state = this->handle.promise().state;
-    auto &awaiter_handles = state.awaiter_handles;
-    awaiter_handles.push_back(other_handle);
-  }
-  int await_resume() { return handle.promise().state.ret_code; }
+  //   auto &state = this->handle.promise().state;
+  //   auto &awaiter_handles = state.awaiter_handles;
+  //   awaiter_handles.push_back(other_handle);
+  // }
+  // int await_resume() { 
+  //   std::cout << "here for some reason await resume task\n";return handle.promise().state.ret_code; }
 };
 
 #endif
