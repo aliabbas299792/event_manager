@@ -1,5 +1,16 @@
+# EvTask
+- You can use it for coroutines, and await on awaitable objects in a function with this return type
+- You can await on it, and it will return an integer
+- If you await on it, then the current coroutine will be suspended if the inner coroutine is suspended
+  - This leads to a semblance of sequential execution for a stack of coroutine calls
+
 # Todo
+0. Firstly address the comment at the top of `core.cpp`
 1. Introduce the basic io_uring setup and event loop
+2. There is only one asynchronous thing to do, `io_uring_submit` and then waiting for it
+  - To test it first, add a read/write prep function on the event loop
+  - Implement the `submit_and_wait(...)` method described below, which should make use of the awaiting on coroutines functionality I developed in the github gist
+  - Implement all the `co_await op` stuff in terms of that
 2. Rather than switching on some tag in the event loop, use the visitor pattern for the task itself
 3. At the end of the event loop for each iteration
   1. Collect a new potential request object
