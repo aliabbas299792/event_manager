@@ -8,12 +8,24 @@
 #include "communication/communication_channel.hpp"
 #include "coroutine/task.hpp"
 
-struct Job {
-  EvTask coro;
-  CommunicationChannel *channel{};
+struct RetrieveHandle {
+  EvTask::Handle handle{};
+  bool await_ready() const noexcept { return false; }
+  void await_suspend(EvTask::Handle h) {
+    handle = h;
+    h.resume();
+  }
+  EvTask::Handle await_resume() { return handle; }
+};
 
-  Job(EvTask &&coroutine, CommunicationChannel *com_channel)
-      : coro(std::move(coroutine)), channel(com_channel) {}
+struct GenericResponse {
+  CommunicationChannel *stored_data = nullptr;
+
+  bool await_ready() const noexcept { return false; };
+  void await_suspend(typename EvTask::Handle handle) {
+    stored_data = &handle.promise().state.com_data;
+  }
+  CommunicationChannel *await_resume() { return stored_data; }
 };
 
 class EventManager {
@@ -43,7 +55,14 @@ public:
 
   void start();
   void await_message();
-  void process_job(Job &&job);
+  template <typename Fn>
+  EvTask read(int fd, uint8_t *buffer, size_t length, Fn handler) {
+    auto handle = co_await RetrieveHandle{};
+    std::cout << "gto to qeuue read edn and got an sqe\n";
+
+    auto channel = co_await GenericResponse{};
+    co_return 0;
+  }
 };
 
 #endif
