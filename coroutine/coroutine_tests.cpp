@@ -51,7 +51,7 @@ EvTask test_coro() {
   }
 
   co_await EvAwaiter<RequestType::WRITE, ResponseType::WRITE>(myval);
-  co_return;
+  co_return 0;
 };
 
 TEST_CASE("Example coroutine message passing") {
