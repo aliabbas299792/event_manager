@@ -1,45 +1,34 @@
 #include "communication/communication_channel.hpp"
-#include "coroutine/task.hpp"
+#include "communication/response_types.hpp"
 #include "coroutine/awaiter.hpp"
+#include "coroutine/task.hpp"
+#include "event_loop/event_manager.hpp"
 #include <coroutine>
+#include <fcntl.h>
 #include <iostream>
 #include <variant>
 
-void visit_request_types(CommunicationChannel &cc) {
-  switch (cc.request_store_current_type()) {
-  case RequestType::READ:
-    std::cout << "it was a read request: " << cc.get_req_data<RequestType::READ>().value() << "\n";
-    break;
-  case RequestType::WRITE:
-  case RequestType::OPEN:
-  case RequestType::CLOSE:
-  case RequestType::SHUTDOWN:
-  case RequestType::READV:
-  case RequestType::WRITEV:
-  case RequestType::ACCEPT:
-  case RequestType::CONNECT:
-    break;
-  }
+EvTask other_coro_read(EventManager *ev, int fd, uint8_t *buff) {
+  auto res = co_await ev->read(fd, buff, 2048);
+  co_return res;
 }
 
-EvTask test_coro() {
-  float myval = 323.2;
-  auto x = co_await EvAwaiter<RequestType::READ, ResponseType::READ>{myval};
-  if (x.has_value()) {
-    auto val = x.value() + myval;
-    std::cout << "got back " << val << "\n";
-  }
+EvTask coro(EventManager *ev) {
+  int fd = open("./test.txt", O_RDWR);
+  std::cout << fd << " is the fd\n";
+  uint8_t buff[2048]{};
 
-  co_return;
-};
+  auto res = co_await other_coro_read(ev, fd, buff);
+  std::cout << "res is the ressonse " << res << "\n";
+
+  std::string str = "hello world this is a message from the program this is epic\n";
+  auto res2 = co_await ev->write(fd, reinterpret_cast<uint8_t*>(str.data()), str.length());
+  co_return 0;
+}
 
 int main() {
-  auto coro = test_coro();
-  
-  auto a = coro.start();
-  visit_request_types(*a);
-
-  auto b = coro.resume<ResponseType::READ>(53.5);
-
+  EventManager ev(10);
+  ev.register_coro(coro(&ev));
+  ev.start();
   std::cout << "Hello world\n";
 }
