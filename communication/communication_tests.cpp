@@ -49,7 +49,7 @@ TEST_CASE("Testing response storing") {
     {
       constexpr auto Rt = RequestType::READ;
 
-      RespTypeMap<Rt> default_value{};
+      RespDataTypeMap<Rt> default_value{};
       cc.set_resp_data<Rt>(default_value);
       auto ret = cc.get_resp_data<Rt>();
 
@@ -60,7 +60,7 @@ TEST_CASE("Testing response storing") {
     {
       constexpr auto Rt = RequestType::WRITE;
 
-      RespTypeMap<Rt> default_value{};
+      RespDataTypeMap<Rt> default_value{};
       cc.set_resp_data<Rt>(default_value);
       auto ret = cc.get_resp_data<Rt>();
 
@@ -71,7 +71,7 @@ TEST_CASE("Testing response storing") {
     {
       constexpr auto Rt = RequestType::CLOSE;
 
-      RespTypeMap<Rt> default_value{};
+      RespDataTypeMap<Rt> default_value{};
       cc.set_resp_data<Rt>(default_value);
       auto ret = cc.get_resp_data<Rt>();
 
@@ -82,7 +82,7 @@ TEST_CASE("Testing response storing") {
     {
       constexpr auto Rt = RequestType::SHUTDOWN;
 
-      RespTypeMap<Rt> default_value{};
+      RespDataTypeMap<Rt> default_value{};
       cc.set_resp_data<Rt>(default_value);
       auto ret = cc.get_resp_data<Rt>();
 
@@ -93,7 +93,7 @@ TEST_CASE("Testing response storing") {
     {
       constexpr auto Rt = RequestType::READV;
 
-      RespTypeMap<Rt> default_value{};
+      RespDataTypeMap<Rt> default_value{};
       cc.set_resp_data<Rt>(default_value);
       auto ret = cc.get_resp_data<Rt>();
 
@@ -104,7 +104,7 @@ TEST_CASE("Testing response storing") {
     {
       constexpr auto Rt = RequestType::WRITEV;
 
-      RespTypeMap<Rt> default_value{};
+      RespDataTypeMap<Rt> default_value{};
       cc.set_resp_data<Rt>(default_value);
       auto ret = cc.get_resp_data<Rt>();
 
@@ -115,7 +115,7 @@ TEST_CASE("Testing response storing") {
     {
       constexpr auto Rt = RequestType::ACCEPT;
 
-      RespTypeMap<Rt> default_value{};
+      RespDataTypeMap<Rt> default_value{};
       cc.set_resp_data<Rt>(default_value);
       auto ret = cc.get_resp_data<Rt>();
 
@@ -126,7 +126,7 @@ TEST_CASE("Testing response storing") {
     {
       constexpr auto Rt = RequestType::CONNECT;
 
-      RespTypeMap<Rt> default_value{};
+      RespDataTypeMap<Rt> default_value{};
       cc.set_resp_data<Rt>(default_value);
       auto ret = cc.get_resp_data<Rt>();
 

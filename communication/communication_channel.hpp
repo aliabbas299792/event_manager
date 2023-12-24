@@ -11,14 +11,14 @@ private:
   ResponseVariant response_store_{std::monostate{}};
 
 public:
-  template <RequestType Rt, typename RespType = RespTypeMap<Rt>>
+  template <RequestType Rt, typename RespType = RespDataTypeMap<Rt>>
   CommunicationChannel &set_resp_data(RespType &&data) {
     constexpr const int ItemIndex = static_cast<std::size_t>(Rt);
     response_store_.emplace<ItemIndex>(std::forward<RespType>(data));
     return *this;
   }
 
-  template <RequestType Rt, typename RespType = RespTypeMap<Rt>>
+  template <RequestType Rt, typename RespType = RespDataTypeMap<Rt>>
   [[nodiscard("Response data shouldn't be discarded")]] std::optional<RespType>
   get_resp_data() {
     constexpr const int ItemIndex = static_cast<std::size_t>(Rt);

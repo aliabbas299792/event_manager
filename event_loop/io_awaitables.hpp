@@ -42,7 +42,7 @@ template <RequestType Rt, typename DerivedAwaitable> struct IOAwaitable {
     static_cast<DerivedAwaitable *>(this)->suspend_action(handle);
   }
 
-  IOResponse<RespTypeMap<Rt>> await_resume() {
+  IOResponse<RespDataTypeMap<Rt>> await_resume() {
     if (error_code != 0) {
       return {.initial_error = error_code};
     }

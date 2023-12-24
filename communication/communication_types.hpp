@@ -57,49 +57,49 @@ struct AcceptResponsePack : GenericResponsePack {
 struct ConnectResponsePack : GenericResponsePack {};
 
 // default unspecialised
-template <RequestType T> struct ResponseTypes {
+template <RequestType T> struct ResponseDataTypes {
   using Type = std::nullptr_t;
 };
 
-template <> struct ResponseTypes<RequestType::READ> {
+template <> struct ResponseDataTypes<RequestType::READ> {
   using Type = ReadResponsePack;
 };
 
-template <> struct ResponseTypes<RequestType::WRITE> {
+template <> struct ResponseDataTypes<RequestType::WRITE> {
   using Type = WriteResponsePack;
 };
 
-template <> struct ResponseTypes<RequestType::CLOSE> {
+template <> struct ResponseDataTypes<RequestType::CLOSE> {
   using Type = CloseResponsePack;
 };
 
-template <> struct ResponseTypes<RequestType::SHUTDOWN> {
+template <> struct ResponseDataTypes<RequestType::SHUTDOWN> {
   using Type = ShutdownResponsePack;
 };
 
-template <> struct ResponseTypes<RequestType::READV> {
+template <> struct ResponseDataTypes<RequestType::READV> {
   using Type = ReadvResponsePack;
 };
 
-template <> struct ResponseTypes<RequestType::WRITEV> {
+template <> struct ResponseDataTypes<RequestType::WRITEV> {
   using Type = WritevResponsePack;
 };
 
-template <> struct ResponseTypes<RequestType::ACCEPT> {
+template <> struct ResponseDataTypes<RequestType::ACCEPT> {
   using Type = AcceptResponsePack;
 };
 
-template <> struct ResponseTypes<RequestType::CONNECT> {
+template <> struct ResponseDataTypes<RequestType::CONNECT> {
   using Type = ConnectResponsePack;
 };
 
-template <RequestType Rt> using RespTypeMap = typename ResponseTypes<Rt>::Type;
+template <RequestType Rt> using RespDataTypeMap = typename ResponseDataTypes<Rt>::Type;
 
 using ResponseVariant = std::variant<
-    RespTypeMap<RequestType::READ>, RespTypeMap<RequestType::WRITE>,
-    RespTypeMap<RequestType::CLOSE>, RespTypeMap<RequestType::SHUTDOWN>,
-    RespTypeMap<RequestType::READV>, RespTypeMap<RequestType::WRITEV>,
-    RespTypeMap<RequestType::ACCEPT>, RespTypeMap<RequestType::CONNECT>,
+    RespDataTypeMap<RequestType::READ>, RespDataTypeMap<RequestType::WRITE>,
+    RespDataTypeMap<RequestType::CLOSE>, RespDataTypeMap<RequestType::SHUTDOWN>,
+    RespDataTypeMap<RequestType::READV>, RespDataTypeMap<RequestType::WRITEV>,
+    RespDataTypeMap<RequestType::ACCEPT>, RespDataTypeMap<RequestType::CONNECT>,
     std::monostate>;
 
 #endif

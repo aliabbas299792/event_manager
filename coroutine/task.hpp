@@ -39,7 +39,7 @@ public:
       state.exception_ptr = std::current_exception();
     }
 
-    template <RequestType Rt, typename RespType = RespTypeMap<Rt>>
+    template <RequestType Rt, typename RespType = RespDataTypeMap<Rt>>
     void set_resp_data(RespType &&data) {
       state.com_data.set_resp_data<Rt>(std::forward<RespType>(data));
     }
@@ -69,7 +69,7 @@ public:
     return &com_channel;
   }
 
-  template <RequestType RespT, typename ParamType = RespTypeMap<RespT>>
+  template <RequestType RespT, typename ParamType = RespDataTypeMap<RespT>>
   CommunicationChannel *resume(ParamType resp_data) {
     if (!started_coro) {
       std::cerr << "We may be passing data to the coroutine which it won't "
