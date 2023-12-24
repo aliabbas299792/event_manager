@@ -13,7 +13,7 @@
 #include "communication/communication_types.hpp"
 #include "coroutine/task.hpp"
 
-#include "io_awaitables.hpp"
+#include "coroutine/io_awaitables.hpp"
 
 class EventManager {
   enum living_state { NOT_STARTED, LIVING, DYING, DEAD };
@@ -26,6 +26,9 @@ class EventManager {
   io_uring ring{};
 
   std::vector<EvTask> coroutines_to_start{};
+
+  void await_message();
+  void event_handler(int res, RequestData *req_data);
 
 public:
   EvTask kill_ring();
@@ -40,39 +43,15 @@ public:
   EventManager(size_t queue_depth);
 
   void start();
-  void await_message();
-  void event_handler(int res, RequestData *req_data);
 
-  ReadAwaitable read(int fd, uint8_t *buffer, size_t length) {
-    return ReadAwaitable{fd, buffer, length, &ring};
-  }
-
-  WriteAwaitable write(int fd, uint8_t *buffer, size_t length) {
-    return WriteAwaitable{fd, buffer, length, &ring};
-  }
-
-  CloseAwaitable close(int fd) { return CloseAwaitable{fd, &ring}; }
-
-  ShutdownAwaitable shutdown(int fd, int how) {
-    return ShutdownAwaitable{fd, how, &ring};
-  }
-
-  ReadvAwaitable readv(int fd, struct iovec *iovs, size_t num) {
-    return ReadvAwaitable{fd, iovs, num, &ring};
-  }
-
-  WritevAwaitable writev(int fd, struct iovec *iovs, size_t num) {
-    return WritevAwaitable{fd, iovs, num, &ring};
-  }
-
-  AcceptAwaitable accept(int sockfd, sockaddr *addr, socklen_t *addrlen) {
-    return AcceptAwaitable{sockfd, addr, addrlen, &ring};
-  }
-
-  ConnectAwaitable connect(int sockfd, const sockaddr *addr,
-                           socklen_t addrlen) {
-    return ConnectAwaitable{sockfd, addr, addrlen, &ring};
-  }
+  ReadAwaitable read(int fd, uint8_t *buffer, size_t length);
+  WriteAwaitable write(int fd, uint8_t *buffer, size_t length);
+  CloseAwaitable close(int fd);
+  ShutdownAwaitable shutdown(int fd, int how);
+  ReadvAwaitable readv(int fd, struct iovec *iovs, size_t num);
+  WritevAwaitable writev(int fd, struct iovec *iovs, size_t num);
+  AcceptAwaitable accept(int sockfd, sockaddr *addr, socklen_t *addrlen);
+  ConnectAwaitable connect(int sockfd, const sockaddr *addr, socklen_t addrlen);
 
   // int queue_read(int fd, uint8_t *buffer, size_t length);
   // int queue_readv(int fd, struct iovec *iovs, size_t num);

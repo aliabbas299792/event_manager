@@ -7,8 +7,8 @@
 
 #include "communication/communication_channel.hpp"
 #include "communication/communication_types.hpp"
-#include "coroutine/task.hpp"
-#include "request_data.hpp"
+#include "event_loop/request_data.hpp"
+#include "task.hpp"
 
 /*
 Each awaitable must implement `void prepare_sqring_op(EvTask::Handle handle)`
@@ -39,7 +39,7 @@ template <RequestType Rt, typename DerivedAwaitable> struct IOAwaitable {
     channel = &handle.promise().state.com_data;
     req_data.handle = handle; // just got the handle, so set it
 
-    static_cast<DerivedAwaitable *>(this)->prepare_sqring_op(handle);
+    static_cast<DerivedAwaitable *>(this)->prepare_sqring_op(handle, sqe);
     io_uring_sqe_set_data(sqe, &req_data);
 
     auto ret = io_uring_submit(ring);
@@ -69,7 +69,7 @@ template <RequestType Rt, typename DerivedAwaitable> struct IOAwaitable {
 };
 
 struct ReadAwaitable : IOAwaitable<RequestType::READ, ReadAwaitable> {
-  void prepare_sqring_op(EvTask::Handle handle) {
+  void prepare_sqring_op(EvTask::Handle handle, io_uring_sqe *sqe) {
     auto &read_data = req_data.specific_data.read_data;
     io_uring_prep_read(sqe, read_data.fd, read_data.buffer, read_data.length,
                        0);
@@ -83,7 +83,7 @@ struct ReadAwaitable : IOAwaitable<RequestType::READ, ReadAwaitable> {
 };
 
 struct WriteAwaitable : IOAwaitable<RequestType::WRITE, WriteAwaitable> {
-  void prepare_sqring_op(EvTask::Handle handle) {
+  void prepare_sqring_op(EvTask::Handle handle, io_uring_sqe *sqe) {
     auto &write_data = req_data.specific_data.write_data;
     io_uring_prep_write(sqe, write_data.fd, write_data.buffer,
                         write_data.length, 0);
@@ -97,7 +97,7 @@ struct WriteAwaitable : IOAwaitable<RequestType::WRITE, WriteAwaitable> {
 };
 
 struct CloseAwaitable : IOAwaitable<RequestType::CLOSE, CloseAwaitable> {
-  void prepare_sqring_op(EvTask::Handle handle) {
+  void prepare_sqring_op(EvTask::Handle handle, io_uring_sqe *sqe) {
     auto &close_data = req_data.specific_data.close_data;
     io_uring_prep_close(sqe, close_data.fd);
   }
@@ -110,7 +110,7 @@ struct CloseAwaitable : IOAwaitable<RequestType::CLOSE, CloseAwaitable> {
 
 struct ShutdownAwaitable
     : IOAwaitable<RequestType::SHUTDOWN, ShutdownAwaitable> {
-  void prepare_sqring_op(EvTask::Handle handle) {
+  void prepare_sqring_op(EvTask::Handle handle, io_uring_sqe *sqe) {
     auto &shutdown_data = req_data.specific_data.shutdown_data;
     io_uring_prep_shutdown(sqe, shutdown_data.fd, shutdown_data.how);
   }
@@ -122,7 +122,7 @@ struct ShutdownAwaitable
 };
 
 struct ReadvAwaitable : IOAwaitable<RequestType::READV, ReadvAwaitable> {
-  void prepare_sqring_op(EvTask::Handle handle) {
+  void prepare_sqring_op(EvTask::Handle handle, io_uring_sqe *sqe) {
     auto &readv_data = req_data.specific_data.readv_data;
     io_uring_prep_readv(sqe, readv_data.fd, readv_data.iovs, readv_data.num, 0);
   }
@@ -135,7 +135,7 @@ struct ReadvAwaitable : IOAwaitable<RequestType::READV, ReadvAwaitable> {
 };
 
 struct WritevAwaitable : IOAwaitable<RequestType::WRITEV, WritevAwaitable> {
-  void prepare_sqring_op(EvTask::Handle handle) {
+  void prepare_sqring_op(EvTask::Handle handle, io_uring_sqe *sqe) {
     auto &writev_data = req_data.specific_data.writev_data;
     io_uring_prep_writev(sqe, writev_data.fd, writev_data.iovs, writev_data.num,
                          0);
@@ -149,7 +149,7 @@ struct WritevAwaitable : IOAwaitable<RequestType::WRITEV, WritevAwaitable> {
 };
 
 struct AcceptAwaitable : IOAwaitable<RequestType::ACCEPT, AcceptAwaitable> {
-  void prepare_sqring_op(EvTask::Handle handle) {
+  void prepare_sqring_op(EvTask::Handle handle, io_uring_sqe *sqe) {
     auto &accept_data = req_data.specific_data.accept_data;
     io_uring_prep_accept(sqe, accept_data.sockfd, accept_data.addr,
                          accept_data.addrlen, 0);
@@ -164,7 +164,7 @@ struct AcceptAwaitable : IOAwaitable<RequestType::ACCEPT, AcceptAwaitable> {
 };
 
 struct ConnectAwaitable : IOAwaitable<RequestType::CONNECT, ConnectAwaitable> {
-  void prepare_sqring_op(EvTask::Handle handle) {
+  void prepare_sqring_op(EvTask::Handle handle, io_uring_sqe *sqe) {
     auto &connect_data = req_data.specific_data.connect_data;
     io_uring_prep_connect(sqe, connect_data.sockfd, connect_data.addr,
                           connect_data.addrlen);
