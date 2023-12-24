@@ -11,10 +11,9 @@
 #include "request_data.hpp"
 
 /*
-Each awaitable must implement `void suspend_action(EvTask::Handle handle)`
-CRTP is used to call them from the IOAwaitable
-I chose to do this so that all the awaitable lifecycle functions were in the
-parent
+Each awaitable must implement `void prepare_sqring_op(EvTask::Handle handle)`
+CRTP is used to call them from the IOAwaitable, as this can significantly reduce
+code duplication
 */
 
 template <typename Data> struct IOResponse {
@@ -25,7 +24,6 @@ template <typename Data> struct IOResponse {
 template <RequestType Rt, typename DerivedAwaitable> struct IOAwaitable {
   CommunicationChannel *channel{};
   RequestData req_data{};
-  EvTask::Handle handle{};
 
   int error_code{};
   io_uring *const ring;
@@ -38,8 +36,18 @@ template <RequestType Rt, typename DerivedAwaitable> struct IOAwaitable {
   }
 
   void await_suspend(EvTask::Handle handle) {
-    this->handle = handle;
-    static_cast<DerivedAwaitable *>(this)->suspend_action(handle);
+    channel = &handle.promise().state.com_data;
+    req_data.handle = handle; // just got the handle, so set it
+
+    static_cast<DerivedAwaitable *>(this)->prepare_sqring_op(handle);
+    io_uring_sqe_set_data(sqe, &req_data);
+
+    auto ret = io_uring_submit(ring);
+    if (ret < 1) { // since submit returns the number of entries submitted
+      std::cerr << "io_uring_submit failed\n";
+      error_code = ret;
+      handle.resume();
+    }
   }
 
   IOResponse<RespDataTypeMap<Rt>> await_resume() {
@@ -47,7 +55,6 @@ template <RequestType Rt, typename DerivedAwaitable> struct IOAwaitable {
       return {.initial_error = error_code};
     }
 
-    // handle.resume();
     auto val = channel->get_resp_data<Rt>();
     return {.data = val.value()};
   }
@@ -62,21 +69,10 @@ template <RequestType Rt, typename DerivedAwaitable> struct IOAwaitable {
 };
 
 struct ReadAwaitable : IOAwaitable<RequestType::READ, ReadAwaitable> {
-  void suspend_action(EvTask::Handle handle) {
-    channel = &handle.promise().state.com_data;
-    req_data.handle = handle; // just got the handle, so set it
-
+  void prepare_sqring_op(EvTask::Handle handle) {
     auto &read_data = req_data.specific_data.read_data;
     io_uring_prep_read(sqe, read_data.fd, read_data.buffer, read_data.length,
                        0);
-    io_uring_sqe_set_data(sqe, &req_data);
-
-    auto ret = io_uring_submit(ring);
-    if (ret < 0) {
-      std::cerr << "io_uring_submit failed\n";
-      error_code = ret;
-      handle.resume();
-    }
   }
 
   ReadAwaitable(int fd, uint8_t *buff, size_t length, io_uring *ring)
@@ -87,21 +83,10 @@ struct ReadAwaitable : IOAwaitable<RequestType::READ, ReadAwaitable> {
 };
 
 struct WriteAwaitable : IOAwaitable<RequestType::WRITE, WriteAwaitable> {
-  void suspend_action(EvTask::Handle handle) {
-    channel = &handle.promise().state.com_data;
-    req_data.handle = handle; // just got the handle, so set it
-
+  void prepare_sqring_op(EvTask::Handle handle) {
     auto &write_data = req_data.specific_data.write_data;
     io_uring_prep_write(sqe, write_data.fd, write_data.buffer,
                         write_data.length, 0);
-    io_uring_sqe_set_data(sqe, &req_data);
-
-    auto ret = io_uring_submit(ring);
-    if (ret < 0) {
-      std::cerr << "io_uring_submit failed\n";
-      error_code = ret;
-      handle.resume();
-    }
   }
 
   WriteAwaitable(int fd, uint8_t *buff, size_t length, io_uring *ring)
@@ -112,20 +97,9 @@ struct WriteAwaitable : IOAwaitable<RequestType::WRITE, WriteAwaitable> {
 };
 
 struct CloseAwaitable : IOAwaitable<RequestType::CLOSE, CloseAwaitable> {
-  void suspend_action(EvTask::Handle handle) {
-    channel = &handle.promise().state.com_data;
-    req_data.handle = handle; // just got the handle, so set it
-
+  void prepare_sqring_op(EvTask::Handle handle) {
     auto &close_data = req_data.specific_data.close_data;
     io_uring_prep_close(sqe, close_data.fd);
-    io_uring_sqe_set_data(sqe, &req_data);
-
-    auto ret = io_uring_submit(ring);
-    if (ret < 1) { // since submit returns the number of entries submitted
-      std::cerr << "io_uring_submit failed\n";
-      error_code = ret;
-      handle.resume();
-    }
   }
 
   CloseAwaitable(int fd, io_uring *ring) : IOAwaitable(ring) {
@@ -136,20 +110,9 @@ struct CloseAwaitable : IOAwaitable<RequestType::CLOSE, CloseAwaitable> {
 
 struct ShutdownAwaitable
     : IOAwaitable<RequestType::SHUTDOWN, ShutdownAwaitable> {
-  void suspend_action(EvTask::Handle handle) {
-    channel = &handle.promise().state.com_data;
-    req_data.handle = handle; // just got the handle, so set it
-
+  void prepare_sqring_op(EvTask::Handle handle) {
     auto &shutdown_data = req_data.specific_data.shutdown_data;
     io_uring_prep_shutdown(sqe, shutdown_data.fd, shutdown_data.how);
-    io_uring_sqe_set_data(sqe, &req_data);
-
-    auto ret = io_uring_submit(ring);
-    if (ret < 0) {
-      std::cerr << "io_uring_submit failed\n";
-      error_code = ret;
-      handle.resume();
-    }
   }
 
   ShutdownAwaitable(int fd, int how, io_uring *ring) : IOAwaitable(ring) {
@@ -159,20 +122,9 @@ struct ShutdownAwaitable
 };
 
 struct ReadvAwaitable : IOAwaitable<RequestType::READV, ReadvAwaitable> {
-  void suspend_action(EvTask::Handle handle) {
-    channel = &handle.promise().state.com_data;
-    req_data.handle = handle; // just got the handle, so set it
-
+  void prepare_sqring_op(EvTask::Handle handle) {
     auto &readv_data = req_data.specific_data.readv_data;
     io_uring_prep_readv(sqe, readv_data.fd, readv_data.iovs, readv_data.num, 0);
-    io_uring_sqe_set_data(sqe, &req_data);
-
-    auto ret = io_uring_submit(ring);
-    if (ret < 0) {
-      std::cerr << "io_uring_submit failed\n";
-      error_code = ret;
-      handle.resume();
-    }
   }
 
   ReadvAwaitable(int fd, struct iovec *iovs, size_t num, io_uring *ring)
@@ -183,21 +135,10 @@ struct ReadvAwaitable : IOAwaitable<RequestType::READV, ReadvAwaitable> {
 };
 
 struct WritevAwaitable : IOAwaitable<RequestType::WRITEV, WritevAwaitable> {
-  void suspend_action(EvTask::Handle handle) {
-    channel = &handle.promise().state.com_data;
-    req_data.handle = handle; // just got the handle, so set it
-
+  void prepare_sqring_op(EvTask::Handle handle) {
     auto &writev_data = req_data.specific_data.writev_data;
     io_uring_prep_writev(sqe, writev_data.fd, writev_data.iovs, writev_data.num,
                          0);
-    io_uring_sqe_set_data(sqe, &req_data);
-
-    auto ret = io_uring_submit(ring);
-    if (ret < 0) {
-      std::cerr << "io_uring_submit failed\n";
-      error_code = ret;
-      handle.resume();
-    }
   }
 
   WritevAwaitable(int fd, struct iovec *iovs, size_t num, io_uring *ring)
@@ -208,21 +149,10 @@ struct WritevAwaitable : IOAwaitable<RequestType::WRITEV, WritevAwaitable> {
 };
 
 struct AcceptAwaitable : IOAwaitable<RequestType::ACCEPT, AcceptAwaitable> {
-  void suspend_action(EvTask::Handle handle) {
-    channel = &handle.promise().state.com_data;
-    req_data.handle = handle; // just got the handle, so set it
-
+  void prepare_sqring_op(EvTask::Handle handle) {
     auto &accept_data = req_data.specific_data.accept_data;
     io_uring_prep_accept(sqe, accept_data.sockfd, accept_data.addr,
                          accept_data.addrlen, 0);
-    io_uring_sqe_set_data(sqe, &req_data);
-
-    auto ret = io_uring_submit(ring);
-    if (ret < 0) {
-      std::cerr << "io_uring_submit failed\n";
-      error_code = ret;
-      handle.resume();
-    }
   }
 
   AcceptAwaitable(int sockfd, sockaddr *addr, socklen_t *addrlen,
@@ -234,21 +164,10 @@ struct AcceptAwaitable : IOAwaitable<RequestType::ACCEPT, AcceptAwaitable> {
 };
 
 struct ConnectAwaitable : IOAwaitable<RequestType::CONNECT, ConnectAwaitable> {
-  void suspend_action(EvTask::Handle handle) {
-    channel = &handle.promise().state.com_data;
-    req_data.handle = handle; // just got the handle, so set it
-
+  void prepare_sqring_op(EvTask::Handle handle) {
     auto &connect_data = req_data.specific_data.connect_data;
     io_uring_prep_connect(sqe, connect_data.sockfd, connect_data.addr,
                           connect_data.addrlen);
-    io_uring_sqe_set_data(sqe, &req_data);
-
-    auto ret = io_uring_submit(ring);
-    if (ret < 0) {
-      std::cerr << "io_uring_submit failed\n";
-      error_code = ret;
-      handle.resume();
-    }
   }
 
   ConnectAwaitable(int sockfd, const sockaddr *addr, socklen_t addrlen,
