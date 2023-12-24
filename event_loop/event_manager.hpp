@@ -10,7 +10,7 @@
 #include <vector>
 
 #include "communication/communication_channel.hpp"
-#include "communication/response_types.hpp"
+#include "communication/communication_types.hpp"
 #include "coroutine/task.hpp"
 
 #include "io_awaitables.hpp"
@@ -44,7 +44,6 @@ public:
   void event_handler(int res, RequestData *req_data);
 
   ReadAwaitable read(int fd, uint8_t *buffer, size_t length) {
-    // std::cout << "constructing the coawait read object\n";
     return ReadAwaitable{fd, buffer, length, &ring};
   }
 
@@ -52,9 +51,7 @@ public:
     return WriteAwaitable{fd, buffer, length, &ring};
   }
 
-  CloseAwaitable close(int fd) {
-    return CloseAwaitable{fd, &ring};
-  }
+  CloseAwaitable close(int fd) { return CloseAwaitable{fd, &ring}; }
 
   ShutdownAwaitable shutdown(int fd, int how) {
     return ShutdownAwaitable{fd, how, &ring};
@@ -72,7 +69,8 @@ public:
     return AcceptAwaitable{sockfd, addr, addrlen, &ring};
   }
 
-  ConnectAwaitable connect(int sockfd, const sockaddr* addr, socklen_t addrlen) {
+  ConnectAwaitable connect(int sockfd, const sockaddr *addr,
+                           socklen_t addrlen) {
     return ConnectAwaitable{sockfd, addr, addrlen, &ring};
   }
 
@@ -112,7 +110,7 @@ public:
       // handler(response_type, channel);
 
       // auto l = []() -> EvTask {
-      //   co_await EvAwaiter<RequestType::ACCEPT, ResponseType::ACCEPT>{};
+      //   co_await EvAwaiter<RequestType::ACCEPT, RequestType::ACCEPT>{};
       // };
     }
 

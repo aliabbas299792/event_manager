@@ -1,4 +1,4 @@
-#include "communication/response_types.hpp"
+#include "communication/communication_types.hpp"
 #include "event_loop/request_data.hpp"
 #include "event_manager.hpp"
 #include <cerrno>
@@ -28,7 +28,7 @@ they are done
   - Set the correct response data, and call handle.resume<T>()
 
 Right now await_single_message isn't done, and io_uring_wait_cqe isn't added,
-add these and add the handling logic for read ReqType Then try out a simple
+add these and add the handling logic for read RequestType Then try out a simple
 example of co_await a read request
 */
 
@@ -110,34 +110,87 @@ void EventManager::event_handler(int res, RequestData *req_data) {
   // now
 
   switch (req_data->req_type) {
-  case ReqType::WRITE: {
-    WriteResponsePack data{};
-    if (res < 0) {
-      data.error_num = errno;
-    } else {
-      data = {.bytes_wrote = res};
-    }
-    promise.set_resp_data<ResponseType::WRITE>(std::move(data));
-    // std::cout <<"got to write resume\n";
-    req_data->handle.resume();
-    // std::cout << req_data->handle.done() << " is it done\n";
-    break;
-  }
-  case ReqType::READ: {
+  case RequestType::READ: {
     ReadResponsePack data{};
     if (res < 0) {
       data.error_num = errno;
     } else {
       data = {.bytes_read = res, .buff = specific_data.read_data.buffer};
     }
-    promise.set_resp_data<ResponseType::READ>(std::move(data));
-    // std::cout << (int)promise.state.com_data.response_store_current_type() << " vs " << (int)ResponseType::READ << "\n";
-    // std::cout << "just before read resume\n";
+    promise.set_resp_data<RequestType::READ>(std::move(data));
     req_data->handle.resume();
-    // std::cout << "just after read resume\n";
-    // std::cout << "is the coroutine finished: " << (req_data->handle.done() ? "yes" : "no") << "\n";
-  }
-  default:
     break;
+  }
+  case RequestType::WRITE: {
+    WriteResponsePack data{};
+    if (res < 0) {
+      data.error_num = errno;
+    } else {
+      data = {.bytes_wrote = res};
+    }
+    promise.set_resp_data<RequestType::WRITE>(std::move(data));
+    req_data->handle.resume();
+    break;
+  }
+  case RequestType::CLOSE: {
+    CloseResponsePack data{};
+    if (res < 0) {
+      data.error_num = errno;
+    }
+    promise.set_resp_data<RequestType::CLOSE>(std::move(data));
+    req_data->handle.resume();
+    break;
+  }
+  case RequestType::SHUTDOWN: {
+    ShutdownResponsePack data{};
+    if (res < 0) {
+      data.error_num = errno;
+    }
+    promise.set_resp_data<RequestType::SHUTDOWN>(std::move(data));
+    req_data->handle.resume();
+    break;
+  }
+  case RequestType::READV: {
+    ReadvResponsePack data{};
+    if (res < 0) {
+      data.error_num = errno;
+    } else {
+      data = {.bytes_read = res, .buff = specific_data.read_data.buffer};
+    }
+    promise.set_resp_data<RequestType::READV>(std::move(data));
+    req_data->handle.resume();
+    break;
+  }
+  case RequestType::WRITEV: {
+    WritevResponsePack data{};
+    if (res < 0) {
+      data.error_num = errno;
+    } else {
+      data = {.bytes_wrote = res};
+    }
+    promise.set_resp_data<RequestType::WRITEV>(std::move(data));
+    req_data->handle.resume();
+    break;
+  }
+  case RequestType::ACCEPT: {
+    AcceptResponsePack data{};
+    if (res < 0) {
+      data.error_num = errno;
+    } else {
+      data = {.fd = res};
+    }
+    promise.set_resp_data<RequestType::ACCEPT>(std::move(data));
+    req_data->handle.resume();
+    break;
+  }
+  case RequestType::CONNECT: {
+    ConnectResponsePack data{};
+    if (res < 0) {
+      data.error_num = errno;
+    }
+    promise.set_resp_data<RequestType::CONNECT>(std::move(data));
+    req_data->handle.resume();
+    break;
+  }
   }
 }

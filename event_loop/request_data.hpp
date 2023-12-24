@@ -7,18 +7,6 @@
 
 #include "coroutine/task.hpp"
 
-enum class ReqType {
-  WRITE,
-  READ,
-  WRITEV,
-  READV,
-  ACCEPT,
-  SHUTDOWN,
-  CLOSE,
-  CONNECT,
-  KILL = 998
-};
-
 struct ReadRequestData {
   int fd{};
   uint8_t *buffer{};
@@ -66,7 +54,7 @@ struct ConnectRequestData {
 
 struct RequestData {
   EvTask::Handle handle{};
-  ReqType req_type{};
+  RequestType req_type{};
 
   union {
     ReadRequestData read_data;

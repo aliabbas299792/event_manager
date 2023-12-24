@@ -10,35 +10,35 @@ TEST_CASE("Testing response storing") {
     // This test just checks an empty buffer can be checked for response data
     // and it's fine
     {
-      auto ret = cc.get_resp_data<ResponseType::READ>();
+      auto ret = cc.get_resp_data<RequestType::READ>();
       REQUIRE(!ret.has_value());
     }
     {
-      auto ret = cc.get_resp_data<ResponseType::WRITE>();
+      auto ret = cc.get_resp_data<RequestType::WRITE>();
       REQUIRE(!ret.has_value());
     }
     {
-      auto ret = cc.get_resp_data<ResponseType::CLOSE>();
+      auto ret = cc.get_resp_data<RequestType::CLOSE>();
       REQUIRE(!ret.has_value());
     }
     {
-      auto ret = cc.get_resp_data<ResponseType::SHUTDOWN>();
+      auto ret = cc.get_resp_data<RequestType::SHUTDOWN>();
       REQUIRE(!ret.has_value());
     }
     {
-      auto ret = cc.get_resp_data<ResponseType::READV>();
+      auto ret = cc.get_resp_data<RequestType::READV>();
       REQUIRE(!ret.has_value());
     }
     {
-      auto ret = cc.get_resp_data<ResponseType::WRITEV>();
+      auto ret = cc.get_resp_data<RequestType::WRITEV>();
       REQUIRE(!ret.has_value());
     }
     {
-      auto ret = cc.get_resp_data<ResponseType::ACCEPT>();
+      auto ret = cc.get_resp_data<RequestType::ACCEPT>();
       REQUIRE(!ret.has_value());
     }
     {
-      auto ret = cc.get_resp_data<ResponseType::CONNECT>();
+      auto ret = cc.get_resp_data<RequestType::CONNECT>();
       REQUIRE(!ret.has_value());
     }
   }
@@ -47,7 +47,7 @@ TEST_CASE("Testing response storing") {
     // This test checks if 1) storing the value works 2) retrieving it works and
     // 3) the buffer is emptied after retrieval
     {
-      constexpr auto Rt = ResponseType::READ;
+      constexpr auto Rt = RequestType::READ;
 
       RespTypeMap<Rt> default_value{};
       cc.set_resp_data<Rt>(default_value);
@@ -58,7 +58,7 @@ TEST_CASE("Testing response storing") {
       REQUIRE(!cc.get_resp_data<Rt>().has_value());
     }
     {
-      constexpr auto Rt = ResponseType::WRITE;
+      constexpr auto Rt = RequestType::WRITE;
 
       RespTypeMap<Rt> default_value{};
       cc.set_resp_data<Rt>(default_value);
@@ -69,7 +69,7 @@ TEST_CASE("Testing response storing") {
       REQUIRE(!cc.get_resp_data<Rt>().has_value());
     }
     {
-      constexpr auto Rt = ResponseType::CLOSE;
+      constexpr auto Rt = RequestType::CLOSE;
 
       RespTypeMap<Rt> default_value{};
       cc.set_resp_data<Rt>(default_value);
@@ -80,7 +80,7 @@ TEST_CASE("Testing response storing") {
       REQUIRE(!cc.get_resp_data<Rt>().has_value());
     }
     {
-      constexpr auto Rt = ResponseType::SHUTDOWN;
+      constexpr auto Rt = RequestType::SHUTDOWN;
 
       RespTypeMap<Rt> default_value{};
       cc.set_resp_data<Rt>(default_value);
@@ -91,7 +91,7 @@ TEST_CASE("Testing response storing") {
       REQUIRE(!cc.get_resp_data<Rt>().has_value());
     }
     {
-      constexpr auto Rt = ResponseType::READV;
+      constexpr auto Rt = RequestType::READV;
 
       RespTypeMap<Rt> default_value{};
       cc.set_resp_data<Rt>(default_value);
@@ -102,7 +102,7 @@ TEST_CASE("Testing response storing") {
       REQUIRE(!cc.get_resp_data<Rt>().has_value());
     }
     {
-      constexpr auto Rt = ResponseType::WRITEV;
+      constexpr auto Rt = RequestType::WRITEV;
 
       RespTypeMap<Rt> default_value{};
       cc.set_resp_data<Rt>(default_value);
@@ -113,7 +113,7 @@ TEST_CASE("Testing response storing") {
       REQUIRE(!cc.get_resp_data<Rt>().has_value());
     }
     {
-      constexpr auto Rt = ResponseType::ACCEPT;
+      constexpr auto Rt = RequestType::ACCEPT;
 
       RespTypeMap<Rt> default_value{};
       cc.set_resp_data<Rt>(default_value);
@@ -124,7 +124,7 @@ TEST_CASE("Testing response storing") {
       REQUIRE(!cc.get_resp_data<Rt>().has_value());
     }
     {
-      constexpr auto Rt = ResponseType::CONNECT;
+      constexpr auto Rt = RequestType::CONNECT;
 
       RespTypeMap<Rt> default_value{};
       cc.set_resp_data<Rt>(default_value);

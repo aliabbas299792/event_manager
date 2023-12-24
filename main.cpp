@@ -1,8 +1,9 @@
 #include "communication/communication_channel.hpp"
-#include "communication/response_types.hpp"
+#include "communication/communication_types.hpp"
 #include "coroutine/task.hpp"
 #include "event_loop/event_manager.hpp"
 #include <coroutine>
+#include <cstring>
 #include <fcntl.h>
 #include <iostream>
 #include <variant>
@@ -13,30 +14,34 @@ EvTask other_coro_read(EventManager *ev, int fd, uint8_t *buff) {
 }
 
 EvTask other_coro_write(EventManager *ev, int fd, std::string &str) {
-  auto res = co_await ev->write(fd, reinterpret_cast<uint8_t*>(str.data()), str.length());
-  // std::cout << res.data.bytes_wrote << " we are writing\n";
+  auto res = co_await ev->write(fd, reinterpret_cast<uint8_t *>(str.data()),
+                                str.length());
   co_return res.data.bytes_wrote;
 }
 
 EvTask coro(EventManager *ev) {
   int fd = open("../test.txt", O_RDWR);
-  // std::cout << fd << " is the fd\n";
   uint8_t buff[2048]{};
 
-  // auto task1 = ev->read(fd, buff, 2048);
-  // std::cout << "about to call coawait read\n";
-  auto res = co_await ev->read(fd, buff, 2048);
+  co_await ev->read(fd, buff, 2048);
   std::cout << "Read this data:\n--------START--------\n";
   std::cout << buff << "\n---------END---------\n";
-  // auto res = co_await other_coro_read(ev, fd, buff);
-  // std::cout << "res is the response " << res.data.bytes_read << "\n";
-  // std::cout << "res is the response " << res << "\n";
 
-  std::string str = "hello world this is a message from the program this is epic\n";
-  auto res2 = co_await ev->write(fd, reinterpret_cast<uint8_t*>(str.data()), str.length());
-  // std::cout << "we co awaited\n";
-  std::cout << "res2 " << res2.data.bytes_wrote << "\n";
-  // std::cout << ">>>>>>we're finally at the end of the coroutine....\n";
+  co_await ev->close(fd);
+  fd = open("../test.txt", O_RDWR | O_TRUNC);
+  std::cout << "The new fd is " << fd << "\n\n";
+
+  std::string str = "Hello world this is a message from the program";
+  std::cout << "Writing: \"" << str << "\" to the file instead\n"; 
+  auto res = co_await ev->write(fd, reinterpret_cast<uint8_t *>(str.data()),
+                                 str.length());
+  std::cout << "How many bytes were written: " << res.data.bytes_wrote << "\n";
+
+  std::memset(buff, 0, 2048);
+  co_await ev->read(fd, buff, 2048);
+  std::cout << "Read this data:\n--------START--------\n";
+  std::cout << buff << "\n---------END---------\n";
+
   co_return 0;
 }
 
@@ -44,5 +49,4 @@ int main() {
   EventManager ev(10);
   ev.register_coro(coro(&ev));
   ev.start();
-  // std::cout << "Hello world\n";
 }
