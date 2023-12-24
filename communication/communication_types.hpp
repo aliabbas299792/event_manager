@@ -5,13 +5,7 @@
 #include <cstdint>
 #include <variant>
 
-// To add a new type, there are 3 modifications needed:
-// 1. Add a new enum value for it
-// 2. Add a new type trait specialisation for the enum value
-// 3. Add ResponseTypes<ResponseTypes::new_enum_value> to the variant at the
-// bottom (before the monostate)
-// The variant ensures that IO tasks can deal with all of these response
-// types
+#include "response_packs.hpp"
 
 enum class RequestType : std::size_t {
   READ = 0,
@@ -23,38 +17,6 @@ enum class RequestType : std::size_t {
   ACCEPT,
   CONNECT
 };
-
-struct GenericResponsePack {
-  int error_num{};
-};
-
-struct ReadResponsePack : GenericResponsePack {
-  int bytes_read{};
-  uint8_t *buff{};
-};
-
-struct WriteResponsePack : GenericResponsePack {
-  int bytes_wrote{};
-};
-
-struct CloseResponsePack : GenericResponsePack {};
-
-struct ShutdownResponsePack : GenericResponsePack {};
-
-struct ReadvResponsePack : GenericResponsePack {
-  int bytes_read{};
-  uint8_t *buff{};
-};
-
-struct WritevResponsePack : GenericResponsePack {
-  int bytes_wrote{};
-};
-
-struct AcceptResponsePack : GenericResponsePack {
-  int fd{};
-};
-
-struct ConnectResponsePack : GenericResponsePack {};
 
 // default unspecialised
 template <RequestType T> struct ResponseDataTypes {
