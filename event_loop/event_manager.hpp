@@ -2,6 +2,7 @@
 #define EVENT_MANAGER_
 
 #include <coroutine>
+#include <cstddef>
 #include <liburing.h>
 #include <liburing/io_uring.h>
 #include <mutex>
@@ -12,12 +13,21 @@
 #include "communication/communication_channel.hpp"
 #include "communication/communication_types.hpp"
 #include "coroutine/task.hpp"
+#include "event_loop/request_data.hpp"
 
-#include "coroutine/io_awaitables.hpp"
+struct RequestData;
+struct ReadAwaitable;
+struct WriteAwaitable;
+struct ReadvAwaitable;
+struct WritevAwaitable;
+struct CloseAwaitable;
+struct ShutdownAwaitable;
+struct AcceptAwaitable;
+struct ConnectAwaitable;
 
 class EventManager {
-  enum living_state { NOT_STARTED, LIVING, DYING, DEAD };
-  living_state manager_life_state_{};
+  enum LivingState { NOT_STARTED, LIVING, DYING, DEAD };
+  LivingState manager_life_state_{};
 
   static std::mutex init_mutex;
   static int shared_ring_fd;
@@ -30,8 +40,12 @@ class EventManager {
   void await_message();
   void event_handler(int res, RequestData *req_data);
 
+  std::size_t in_flight_requests{};
+  std::coroutine_handle<> kill_coro_handle{};
+  bool should_restrict_usage();
+
 public:
-  EvTask kill_ring();
+  EvTask kill();
 
   // registering the coroutine puts it in a vector, the vector is looped through
   // in the event loop and emptied, and each coroutine has .start() called on
@@ -43,6 +57,8 @@ public:
   EventManager(size_t queue_depth);
 
   void start();
+  int submit_queued_entries();
+  io_uring_sqe *get_uring_sqe();
 
   ReadAwaitable read(int fd, uint8_t *buffer, size_t length);
   WriteAwaitable write(int fd, uint8_t *buffer, size_t length);
@@ -61,40 +77,40 @@ public:
   // int queue_shutdown(int fd, int how);
   // int queue_close(int fd);
 
-  template <typename F> EvTask submit_and_wait(F handler) {
-    auto ret = io_uring_submit(&ring);
-    if (ret < 0) {
-      co_return ret;
-    }
+  // template <typename F> EvTask submit_and_wait(F handler) {
+  //   auto ret = io_uring_submit(&ring);
+  //   if (ret < 0) {
+  //     co_return ret;
+  //   }
 
-    // how many are currently being processed
-    auto num_submitted = ret;
+  //   // how many are currently being processed
+  //   auto num_submitted = ret;
 
-    // how many are still queued for submission
-    auto num_queued = ring.sq.sqe_tail - ring.sq.sqe_head;
+  //   // how many are still queued for submission
+  //   auto num_queued = ring.sq.sqe_tail - ring.sq.sqe_head;
 
-    while (num_submitted != 0 || num_queued != 0) {
-      while (num_queued != 0 && num_submitted == 0) {
-        auto ret = io_uring_submit(&ring);
-        if (ret < 0) {
-          co_return ret;
-        }
+  //   while (num_submitted != 0 || num_queued != 0) {
+  //     while (num_queued != 0 && num_submitted == 0) {
+  //       auto ret = io_uring_submit(&ring);
+  //       if (ret < 0) {
+  //         co_return ret;
+  //       }
 
-        num_submitted += ret;
-        num_queued -= ret;
-      }
+  //       num_submitted += ret;
+  //       num_queued -= ret;
+  //     }
 
-      // auto channel = co_await GenericResponse{};
-      // auto response_type = channel->response_store_current_type();
-      // handler(response_type, channel);
+  //     // auto channel = co_await GenericResponse{};
+  //     // auto response_type = channel->response_store_current_type();
+  //     // handler(response_type, channel);
 
-      // auto l = []() -> EvTask {
-      //   co_await EvAwaiter<RequestType::ACCEPT, RequestType::ACCEPT>{};
-      // };
-    }
+  //     // auto l = []() -> EvTask {
+  //     //   co_await EvAwaiter<RequestType::ACCEPT, RequestType::ACCEPT>{};
+  //     // };
+  //   }
 
-    co_return 0;
-  }
+  //   co_return 0;
+  // }
 
   /*
   - queue functions for merely doing io_uring_get_sqe and preparing the

@@ -5,13 +5,28 @@ thread_dep = dependency('threads')
 
 source_files = ['main.cpp', 'event_loop/core.cpp', 'event_loop/io_ops.cpp']
 
+# sanitiser_args = ['-fsanitize=address']
+# sanitiser_args = ['-fsanitize=undefined']
+sanitiser_args = []
+
 # libevent_manager = executable('event_manager', source_files, dependencies: [io_uring_dep, thread_dep])
-example_event_manager = executable('example_event_manager', source_files, dependencies: [io_uring_dep, thread_dep])
+example_event_manager = executable(
+  'example_event_manager',
+  source_files,
+  c_args: sanitiser_args,
+  cpp_args: sanitiser_args,
+  link_args: sanitiser_args,
+  dependencies: [io_uring_dep, thread_dep]
+)
 # libevent_manager_dep = declare_dependency(link_with: libevent_manager)
 
 # subdir('tests')
 
-communication_tests = executable('communication_tests', 'communication/communication_tests.cpp', dependencies: [io_uring_dep, thread_dep])
+communication_tests = executable(
+  'communication_tests',
+  'communication/communication_tests.cpp',
+  dependencies: [io_uring_dep, thread_dep]
+)
 test('Communication Tests', communication_tests)
 
 # subdir('example')
