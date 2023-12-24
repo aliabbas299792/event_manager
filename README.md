@@ -5,32 +5,15 @@
   - This leads to a semblance of sequential execution for a stack of coroutine calls
 
 # Todo
-0. Firstly address the comment at the top of `core.cpp`
-1. Introduce the basic io_uring setup and event loop
-2. There is only one asynchronous thing to do, `io_uring_submit` and then waiting for it
-  - To test it first, add a read/write prep function on the event loop
-  - Implement the `submit_and_wait(...)` method described below, which should make use of the awaiting on coroutines functionality I developed in the github gist
-  - Implement all the `co_await op` stuff in terms of that
-2. Rather than switching on some tag in the event loop, use the visitor pattern for the task itself
-3. At the end of the event loop for each iteration
-  1. Collect a new potential request object
-  2. If it exists the visitor pattern to dispatch the correct io_uring job
-
-For clarifying ideas, have a look at the long comment in `experiment.cpp`.
-
-# Interface
-You should be able to do `co_await queue_operation(...)` operations and also `co_await operation(...)`.
-- The former should merely do `io_uring_get_sqe` and queue up the operation
-- The latter should do that and:
-  - call `io_uring_submit` over and over until the item is actually submitted
-  - upon resumption from the event loop pass back the response data to the caller
-
-
-There also needs to be a `submit_and_wait(...)` awaitable.
-- This function should follow the looping method described in the comment in `experiment.cpp` to submit everything
-- Internally it should call `co_await submit_requests(...)` which should facilitate the looping method above
-- And it should call `co_await poll_responses()`, which should be resumed upon received any response for any request for this coroutine
-- `submit_and_wait` should take a lambda `resp_handler`, we call `resp_handler(CommunicationChannel *cc)`, so the user is able to use `response_store_current_type()` and `get_resp_store_data<T>()` to dynamically retrieve any data
-
-This looping method allows us to submit any number of events at once, and then effectively poll for them in our coroutine in a much more simple manner.
-
+1. Jot down the outline of the entire multi stage tear down sequence for the event loop, and have a look at how it was done for the other event_manager, since it seemed to work there
+2. Implement the above
+3. Add more error handling, since currently, especially the optional stuff, isn't used very much (this might need to be removed too)
+4. Add a system to the event loop that checks if a request has been somehow looped through a bunch of times without being seen, this may have been a problem in a previous iteration of this system
+5. Think a way of relatively efficiently queueing up multiple operations, and submitting them all and waiting on them all simultaneously - something like the `submit_and_wait()` function thought of earlier which took a lambda would be good
+  - And on this topic, you'll need to document the user side visitor pattern type thing users would realistically need to use this system
+6. Add in these operations:
+  - `openat`
+  - `opendir`
+  - `statx`
+  - `unlink`
+  - `rename`

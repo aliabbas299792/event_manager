@@ -7,31 +7,6 @@ int EventManager::shared_ring_fd = -1;
 int EventManager::ring_instances{};
 std::mutex EventManager::init_mutex{};
 
-/*
-Current flow:
-1. Enter coroutine
-2. Call co_await queue_read() or something
-  - This will make a heap object and SQE and set the data
-3. Call submit_and_wait(somefn)
-  - This submits io_uring requests
-  - And in a loop calls co_await GenericResponse{}
-  - Which will suspend, and be resumed from incoming requests from event loop
-  - And return a communication channel which is passed onto somefn()
-    - somefn() may or may not be a coroutine - for now assume it is not
-
-So:
-1. Coroutine needs to be registered with event loop
-2. Coroutine is started
-3. I/O requests may be made inside coroutine, io_uring_wait_cqe gets them when
-they are done
-4. The handle field of the data request struct has the handle to be resumed
-  - Set the correct response data, and call handle.resume<T>()
-
-Right now await_single_message isn't done, and io_uring_wait_cqe isn't added,
-add these and add the handling logic for read RequestType Then try out a simple
-example of co_await a read request
-*/
-
 void EventManager::start() {
   while (manager_life_state_ != DEAD) {
     // start all queued up coroutines, then empty the vector
@@ -62,9 +37,8 @@ void EventManager::await_message() {
 EventManager::EventManager(size_t queue_depth) {
   std::scoped_lock<std::mutex> lock{init_mutex};
 
-  if (shared_ring_fd == -1 ||
-      ring_instances ==
-          0) { // uses a shared asynchronous backend for all threads
+  // uses a shared asynchronous backend for all threads
+  if (shared_ring_fd == -1 || ring_instances == 0) {
     io_uring_queue_init(queue_depth, &ring, 0);
     shared_ring_fd = ring.ring_fd;
   } else {
