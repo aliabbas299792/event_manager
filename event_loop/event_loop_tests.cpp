@@ -93,7 +93,7 @@ std::string indent_with_str(const std::string &str, const std::string &indent) {
 }
 
 EvTask coro(EventManager *ev) {
-  int fd = open("../test.txt", O_RDWR);
+  int fd = open("test.txt", O_RDWR | O_CREAT);
 
   char buff[2048]{};
   co_await ev->write(fd, get_write_data(lorem_ipsum), lorem_ipsum.length());
