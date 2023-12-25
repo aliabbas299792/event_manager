@@ -3,6 +3,7 @@
 #include "event_manager.hpp"
 #include <cerrno>
 #include <coroutine>
+#include <cstdio>
 #include <liburing.h>
 
 int EventManager::shared_ring_fd = -1;
@@ -71,13 +72,26 @@ EventManager::EventManager(size_t queue_depth)
 
   // uses a shared asynchronous backend for all threads
   if (shared_ring_fd == -1 || ring_instances == 0) {
-    io_uring_queue_init(queue_depth, &ring, 0);
+    int ret = io_uring_queue_init(queue_depth, &ring, 0);
+    if (ret < 0) {
+      perror("The IO ring was unable to setup properly (initial ring for "
+             "sharing)");
+      perror("The IO ring was unable to be setup properly");
+      manager_life_state_ = LivingState::DEAD;
+      return;
+    }
+
     shared_ring_fd = ring.ring_fd;
   } else {
     io_uring_params params{};
     params.wq_fd = shared_ring_fd;
     params.flags = IORING_SETUP_ATTACH_WQ;
-    io_uring_queue_init_params(queue_depth, &ring, &params);
+    int ret = io_uring_queue_init_params(queue_depth, &ring, &params);
+    if (ret < 0) {
+      perror("The IO ring was unable to be setup properly");
+      manager_life_state_ = LivingState::DEAD;
+      return;
+    }
   }
 
   ring_instances++;
