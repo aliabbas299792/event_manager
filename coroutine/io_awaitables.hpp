@@ -58,6 +58,7 @@ template <RequestType Rt, typename DerivedAwaitable> struct IOAwaitable {
     io_uring_sqe_set_data(sqe, &req_data);
 
     if (!make_submission) {
+      handle.resume();
       return;
     }
 

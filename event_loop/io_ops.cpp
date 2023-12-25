@@ -63,7 +63,9 @@ EvTask EventManager::queue_read(int fd, uint8_t *buffer, size_t length) {
 EvTask EventManager::queue_write(int fd, const uint8_t *buffer, size_t length) {
   if (should_restrict_usage())
     co_return -1;
+  std::cout << "queue write\n";
   co_await QueueOperation(WriteParameterPack(fd, buffer, length));
+  std::cout << "queue write after\n";
   co_return 0;
 }
 
@@ -113,6 +115,7 @@ EvTask EventManager::queue_connect(int sockfd, const sockaddr *addr,
 
 EvTask EventManager::dispatch_requests(
     ObtainQueueOperations::RequestVec requests_vec) {
+  std::cout << "disaptchin\n";
   for (auto &req : requests_vec) {
     auto req_type = static_cast<RequestType>(req.index());
     switch (req_type) {

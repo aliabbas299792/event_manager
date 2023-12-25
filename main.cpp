@@ -90,31 +90,48 @@ std::string indent_with_str(const std::string &str, const std::string &indent) {
 }
 
 EvTask coro(EventManager *ev) {
-  auto filepath = "./test.txt";
+  // auto filepath = "./test.txt";
 
-  int fd = open(filepath, O_RDWR | O_CREAT);
+  // int fd = open(filepath, O_RDWR | O_CREAT);
 
-  char buff[2048]{};
-  co_await ev->write(fd, get_write_data(lorem_ipsum), lorem_ipsum.length());
+  // char buff[2048]{};
+  // co_await ev->write(fd, get_write_data(lorem_ipsum), lorem_ipsum.length());
 
-  co_await ev->read(fd, reinterpret_cast<uint8_t *>(buff), 2048);
-  OUTPUT << "(*) Read this data:\n" << indent_with_str(buff, "> ") << "\n";
+  // co_await ev->read(fd, reinterpret_cast<uint8_t *>(buff), 2048);
+  // OUTPUT << "(*) Read this data:\n" << indent_with_str(buff, "> ") << "\n";
 
-  co_await ev->close(fd);
-  fd = open(filepath, O_RDWR | O_TRUNC);
-  OUTPUT << "\nClosed the old fd, the new fd is " << fd << "\n\n";
+  // co_await ev->close(fd);
+  // fd = open(filepath, O_RDWR | O_TRUNC);
+  // OUTPUT << "\nClosed the old fd, the new fd is " << fd << "\n\n";
 
-  OUTPUT << "(*) Writing:\n"
-         << indent_with_str(the_grand_inquisitor, "+ ") << "\n";
-  auto res = co_await ev->write(fd, get_write_data(the_grand_inquisitor),
-                                the_grand_inquisitor.length());
-  OUTPUT << "How many bytes were written: " << res.data.bytes_wrote << "\n\n";
+  // OUTPUT << "(*) Writing:\n"
+  //        << indent_with_str(the_grand_inquisitor, "+ ") << "\n";
+  // auto res = co_await ev->write(fd, get_write_data(the_grand_inquisitor),
+  //                               the_grand_inquisitor.length());
+  // OUTPUT << "How many bytes were written: " << res.data.bytes_wrote << "\n\n";
 
-  std::memset(buff, 0, 2048);
-  co_await ev->read(fd, reinterpret_cast<uint8_t *>(buff), 2048);
-  OUTPUT << "(*) Read this data:\n" << indent_with_str(buff, "> ") << "\n\n";
+  // std::memset(buff, 0, 2048);
+  // co_await ev->read(fd, reinterpret_cast<uint8_t *>(buff), 2048);
+  // OUTPUT << "(*) Read this data:\n" << indent_with_str(buff, "> ") << "\n\n";
 
-  co_await ev->close(fd);
+  // co_await ev->close(fd);
+
+  int fd1 = open("example1.txt", O_RDWR | O_CREAT);
+  int fd2 = open("example2.txt", O_RDWR | O_CREAT);
+  int fd3 = open("example3.txt", O_RDWR | O_CREAT);
+  int fd4 = open("example4.txt", O_RDWR | O_CREAT);
+  int fd5 = open("example5.txt", O_RDWR | O_CREAT);
+  co_await ev->queue_write(fd1, get_write_data(lorem_ipsum), lorem_ipsum.length());
+  std::cout <<"got here?\n";
+  co_await ev->queue_write(fd2, get_write_data(lorem_ipsum), lorem_ipsum.length());
+  co_await ev->queue_write(fd3, get_write_data(lorem_ipsum), lorem_ipsum.length());
+  co_await ev->queue_write(fd4, get_write_data(lorem_ipsum), lorem_ipsum.length());
+  co_await ev->queue_write(fd5, get_write_data(lorem_ipsum), lorem_ipsum.length());
+
+  co_await ev->submit_and_wait([](RequestType req_type, CommunicationChannel *channel) {
+    std::cout << "got a response " << (int)req_type << "\n";
+  });
+
 
   std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
@@ -131,5 +148,6 @@ int main() {
   ev.register_coro(coroTask);
   ev.start();
 
-  std::cout << (OUTPUT.rdbuf()->str() == expected_output) << "\n";
+  // std::cout << (OUTPUT.rdbuf()->str() == expected_output) << "\n";
+  std::cout << OUTPUT.str();
 }

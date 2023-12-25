@@ -49,6 +49,7 @@ struct ObtainQueueOperations {
     auto &state = h.promise().state;
     requests = std::move(state.queue_operation_requests);
     state.queue_operation_requests = {};
+    h.resume();
   }
   RequestVec await_resume() { return std::move(requests); }
 };
@@ -59,10 +60,14 @@ struct GenericResponse {
   void await_suspend(EvTask::Handle h) {
     channel = &h.promise().state.com_data;
   }
-  CommunicationChannel *await_resume() {
-    return channel;
-  }
+  CommunicationChannel *await_resume() { return channel; }
 };
+
+template <typename F>
+concept SubmitAndWaitHandler =
+    requires(F fn, RequestType req_type, CommunicationChannel *channel) {
+      fn(req_type, channel);
+    };
 
 class EventManager {
   enum LivingState { NOT_STARTED, LIVING, DYING, DEAD };
@@ -120,8 +125,11 @@ public:
 
   EvTask dispatch_requests(ObtainQueueOperations::RequestVec requests_vec);
 
-  template <typename F> EvTask submit_and_wait(F handler) {
-    ObtainQueueOperations::RequestVec requests_vec = co_await ObtainQueueOperations{};
+  template <SubmitAndWaitHandler F> EvTask submit_and_wait(F handler) {
+    std::cout << "disaptchin\n";
+    ObtainQueueOperations::RequestVec requests_vec =
+        co_await ObtainQueueOperations{};
+    int num_requests = requests_vec.size();
     co_await dispatch_requests(std::move(requests_vec));
 
     auto ret = io_uring_submit(&ring);
@@ -136,8 +144,10 @@ public:
     auto num_queued = ring.sq.sqe_tail - ring.sq.sqe_head;
 
     while (num_submitted != 0 || num_queued != 0) {
+      std::cout << "submitting outer " << ret << " out of " << num_requests << "\n";
       while (num_queued != 0 && num_submitted == 0) {
         auto ret = io_uring_submit(&ring);
+        std::cout << "submitting inner " << ret << " out of " << num_requests << "\n";
         if (ret < 0) {
           co_return ret;
         }
@@ -145,7 +155,9 @@ public:
         num_submitted += ret;
         num_queued -= ret;
       }
+    }
 
+    for (int i = 0; i < num_requests; i++) {
       auto channel = co_await GenericResponse{};
       auto response_type = channel->response_store_current_type();
       handler(response_type, channel);
