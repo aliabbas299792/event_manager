@@ -7,7 +7,7 @@ ReadAwaitable EventManager::read(int fd, uint8_t *buffer, size_t length) {
   return ReadAwaitable{fd, buffer, length, this};
 }
 
-WriteAwaitable EventManager::write(int fd, uint8_t *buffer, size_t length) {
+WriteAwaitable EventManager::write(int fd, const uint8_t *buffer, size_t length) {
   if (should_restrict_usage())
     return {};
   return WriteAwaitable{fd, buffer, length, this};

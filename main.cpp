@@ -4,45 +4,71 @@
 #include "coroutine/task.hpp"
 #include "event_loop/event_manager.hpp"
 #include <coroutine>
+#include <cstdint>
 #include <cstring>
 #include <fcntl.h>
 #include <iostream>
 #include <thread>
 #include <variant>
 
-EvTask other_coro_read(EventManager *ev, int fd, uint8_t *buff) {
-  auto res = co_await ev->read(fd, buff, 2048);
-  co_return res.data.bytes_read;
+const std::string lorem_ipsum =
+    "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean ultricies\n"
+    "ex sit amet orci tincidunt, a viverra sem suscipit. Phasellus non quam\n"
+    "bibendum, molestie enim vel, placerat nibh. Mauris elementum, nisi et\n"
+    "fringilla auctor, velit justo porttitor neque, ut viverra neque magna\n"
+    "quis urna. Mauris eu libero lacinia, pulvinar purus nec, dapibus mi.\n"
+    "Aliquam id accumsan nunc, vitae molestie diam. Proin eget aliquet orci,\n"
+    "vitae pretium ante. Proin libero augue, vulputate eget iaculis vel,\n"
+    "ultricies at velit. Phasellus euismod nisl vitae lacus scelerisque\n"
+    "imperdiet sit amet vitae mi. Quisque rutrum leo et placerat iaculis.\n"
+    "Fusce ac mattis eros, aliquet fringilla tellus. Quisque mauris mauris,\n"
+    "dapibus nec orci et, lobortis tincidunt mauris.";
+
+const std::string the_grand_inquisitor =
+    "Upon my word, man is created weaker and more base than you supposed! Can\n"
+    "he, can he perform the deeds of which you are capable? In respecting him\n"
+    "so much you acted as though you had ceased to have compassion for him,\n"
+    "because you demanded too much of him—and yet who was this? The very one\n"
+    "you had loved more than yourself! Had you respected him less you would\n"
+    "have demanded of him less, and that would have been closer to love, for\n"
+    "his burden would have been lighter. He is weak and dishonourable.";
+
+const uint8_t *get_write_data(const std::string &str) {
+  return reinterpret_cast<const uint8_t *>(str.data());
 }
 
-EvTask other_coro_write(EventManager *ev, int fd, std::string &str) {
-  auto res = co_await ev->write(fd, reinterpret_cast<uint8_t *>(str.data()),
-                                str.length());
-  co_return res.data.bytes_wrote;
+std::string indent_with_str(const std::string &str, const std::string &indent) {
+  std::string out{indent};
+  for(const char c : str) {
+    out += c;
+    if(c == '\n') {
+      out += indent;
+    }
+  }
+  return out;
 }
 
 EvTask coro(EventManager *ev) {
   int fd = open("../test.txt", O_RDWR);
-  uint8_t buff[2048]{};
 
-  co_await ev->read(fd, buff, 2048);
-  std::cout << "Read this data:\n--------START--------\n";
-  std::cout << buff << "\n---------END---------\n";
+  char buff[2048]{};
+  co_await ev->write(fd, get_write_data(lorem_ipsum), lorem_ipsum.length());
+
+  co_await ev->read(fd, reinterpret_cast<uint8_t*>(buff), 2048);
+  std::cout << "(*) Read this data:\n" << indent_with_str(buff, "> ") << "\n";
 
   co_await ev->close(fd);
   fd = open("../test.txt", O_RDWR | O_TRUNC);
-  std::cout << "The new fd is " << fd << "\n\n";
+  std::cout << "\nClosed the old fd, the new fd is " << fd << "\n\n";
 
-  std::string str = "Hello world this is a message from the program";
-  std::cout << "Writing: \"" << str << "\" to the file instead\n";
-  auto res = co_await ev->write(fd, reinterpret_cast<uint8_t *>(str.data()),
-                                str.length());
-  std::cout << "How many bytes were written: " << res.data.bytes_wrote << "\n";
+  std::cout << "(*) Writing:\n" << indent_with_str(the_grand_inquisitor, "+ ") << "\n";
+  auto res = co_await ev->write(fd, get_write_data(the_grand_inquisitor),
+                                the_grand_inquisitor.length());
+  std::cout << "How many bytes were written: " << res.data.bytes_wrote << "\n\n";
 
   std::memset(buff, 0, 2048);
-  co_await ev->read(fd, buff, 2048);
-  std::cout << "Read this data:\n--------START--------\n";
-  std::cout << buff << "\n---------END---------\n";
+  co_await ev->read(fd, reinterpret_cast<uint8_t*>(buff), 2048);
+  std::cout << "(*) Read this data:\n" << indent_with_str(buff, "> ") << "\n\n";
 
   co_await ev->close(fd);
 
@@ -50,19 +76,14 @@ EvTask coro(EventManager *ev) {
 
   co_await ev->kill();
 
-  std::cout << "here we are after it is dead\n";
+  std::cout << "We killed the event manager and we're at the end\n";
   co_return 0;
 }
 
 int main() {
-  while (true) {
-    EventManager ev(10);
-    auto coroTask = coro(&ev);
+  EventManager ev(10);
+  auto coroTask = coro(&ev);
 
-    ev.register_coro(coroTask);
-    ev.start();
-
-    std::cout << "->>>>>>>>>>>>>>>> Completed an iteration\n";
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-  }
+  ev.register_coro(coroTask);
+  ev.start();
 }

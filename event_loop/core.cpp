@@ -58,7 +58,6 @@ void EventManager::await_message() {
 
   io_uring_cqe_seen(&ring, cqe);
   in_flight_requests--; // seen one request
-  std::cout << in_flight_requests << " -- ";
 
   // if the kill process has been started, then we must want an update
   if (manager_life_state_ == LivingState::DYING) {
@@ -145,15 +144,11 @@ EvTask EventManager::kill_internal() {
                  "flushed\n";
     co_return -1;
   }
-  std::cout << "we here1\n";
 
   // while there are still in flight requests we do not proceed
   while (in_flight_requests != 0) {
-    std::cout << "we here2 " << in_flight_requests << "\n";
     co_await std::suspend_always{};
   }
-
-  std::cout << "we here3\n";
 
   manager_life_state_ = LivingState::DEAD;
 
@@ -283,7 +278,6 @@ void EventManager::event_handler(int res, RequestData *req_data) {
 }
 
 bool EventManager::should_restrict_usage() {
-  std::cout << manager_life_state_ << " == " << LivingState::LIVING << "\n";
   if (manager_life_state_ > LivingState::LIVING) {
     std::cerr << "The manager is no longer living\n";
     return true;

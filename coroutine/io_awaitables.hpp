@@ -93,7 +93,7 @@ struct WriteAwaitable : IOAwaitable<RequestType::WRITE, WriteAwaitable> {
                         write_data.length, 0);
   }
 
-  WriteAwaitable(int fd, uint8_t *buff, size_t length, EventManager *ev)
+  WriteAwaitable(int fd, const uint8_t *buff, size_t length, EventManager *ev)
       : IOAwaitable(ev) {
     auto &write_data = req_data.specific_data.write_data;
     write_data = {fd, buff, length};

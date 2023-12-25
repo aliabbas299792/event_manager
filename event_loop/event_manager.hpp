@@ -62,7 +62,7 @@ public:
   io_uring_sqe *get_uring_sqe();
 
   ReadAwaitable read(int fd, uint8_t *buffer, size_t length);
-  WriteAwaitable write(int fd, uint8_t *buffer, size_t length);
+  WriteAwaitable write(int fd, const uint8_t *buffer, size_t length);
   CloseAwaitable close(int fd);
   ShutdownAwaitable shutdown(int fd, int how);
   ReadvAwaitable readv(int fd, struct iovec *iovs, size_t num);

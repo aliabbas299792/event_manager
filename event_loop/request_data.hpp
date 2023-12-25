@@ -15,7 +15,7 @@ struct ReadRequestData {
 
 struct WriteRequestData {
   int fd{};
-  uint8_t *buffer{};
+  const uint8_t *buffer{};
   size_t length{};
 };
 
