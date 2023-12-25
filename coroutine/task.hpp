@@ -9,12 +9,15 @@
 #include <vector>
 
 class EvTask {
-  bool started_coro{};
-
 public:
   struct promise_type;
   using Handle = std::coroutine_handle<promise_type>;
 
+private:
+  bool started_coro{};
+  Handle handle{};
+
+public:
   struct promise_type {
     struct {
       std::exception_ptr exception_ptr{};
@@ -26,7 +29,7 @@ public:
     EvTask get_return_object() { return EvTask{Handle::from_promise(*this)}; }
 
     std::suspend_always initial_suspend() noexcept { return {}; }
-    std::suspend_always final_suspend() noexcept {
+    std::suspend_never final_suspend() noexcept {
       for (auto &h : state.awaiter_handles) {
         h.resume();
       }
@@ -44,8 +47,6 @@ public:
       state.com_data.set_resp_data<Rt>(std::forward<RespType>(data));
     }
   };
-
-  Handle handle{};
 
   EvTask(Handle h) : handle(h) {}
 
@@ -68,6 +69,8 @@ public:
 
     return &com_channel;
   }
+
+  void resume() { handle.resume(); }
 
   template <RequestType RespT, typename ParamType = RespDataTypeMap<RespT>>
   CommunicationChannel *resume(ParamType resp_data) {
@@ -100,9 +103,7 @@ public:
   explicit operator bool() { return is_done(); }
 
   // these below are what makes this task awaitable
-  bool await_ready() const noexcept {
-    return false;
-  };
+  bool await_ready() const noexcept { return false; };
 
   void await_suspend(Handle other_handle) {
     // if the coroutine hasn't started upon co_awaiting, do that first
@@ -119,9 +120,7 @@ public:
     auto &awaiter_handles = state.awaiter_handles;
     awaiter_handles.push_back(other_handle);
   }
-  int await_resume() {
-    return handle.promise().state.ret_code;
-  }
+  int await_resume() { return handle.promise().state.ret_code; }
 };
 
 #endif

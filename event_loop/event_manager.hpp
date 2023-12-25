@@ -41,8 +41,9 @@ class EventManager {
   void event_handler(int res, RequestData *req_data);
 
   std::size_t in_flight_requests{};
-  std::coroutine_handle<> kill_coro_handle{};
   bool should_restrict_usage();
+  EvTask kill_coro_task;
+  EvTask kill_internal();
 
 public:
   EvTask kill();

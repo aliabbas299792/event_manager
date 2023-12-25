@@ -61,12 +61,13 @@ void EventManager::await_message() {
   std::cout << in_flight_requests << " -- ";
 
   // if the kill process has been started, then we must want an update
-  if (manager_life_state_ == LivingState::DYING && kill_coro_handle) {
-    kill_coro_handle.resume();
+  if (manager_life_state_ == LivingState::DYING) {
+    kill_coro_task.resume();
   }
 }
 
-EventManager::EventManager(size_t queue_depth) {
+EventManager::EventManager(size_t queue_depth)
+    : kill_coro_task(kill_internal()) {
   std::scoped_lock<std::mutex> lock{init_mutex};
 
   // uses a shared asynchronous backend for all threads
@@ -98,14 +99,11 @@ The number of in flight io_uring operations is tracked using in_flight_requests
 Since this is a coroutine, it can be awaited in another coroutine,
 and so we can schedule something to run immediately after
 */
-EvTask EventManager::kill() {
+EvTask EventManager::kill_internal() {
   if (manager_life_state_ >= LivingState::DYING) {
     std::cerr << "The event manager is already in the process of dying\n";
     co_return -1;
   }
-
-  // store the handle so we can be resumed later in the event loop
-  kill_coro_handle = co_await RetrieveCurrentHandle{};
 
   // disallow new entries
   manager_life_state_ = LivingState::DYING;
@@ -162,13 +160,15 @@ EvTask EventManager::kill() {
   io_uring_queue_exit(&ring);
   ring_instances--;
 
-  if(ring_instances == 0) {
+  if (ring_instances == 0) {
     // reset it since it no longer refers to a valid ring
     shared_ring_fd = -1;
   }
 
   co_return 0;
 };
+
+EvTask EventManager::kill() { co_await kill_coro_task; }
 
 void EventManager::register_coro(EvTask &&coro) {
   if (should_restrict_usage())
