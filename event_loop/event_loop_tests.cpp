@@ -93,7 +93,9 @@ std::string indent_with_str(const std::string &str, const std::string &indent) {
 }
 
 EvTask coro(EventManager *ev) {
-  int fd = open("test.txt", O_RDWR | O_CREAT);
+  auto filepath = "./test.txt";
+
+  int fd = open(filepath, O_RDWR | O_CREAT);
 
   char buff[2048]{};
   co_await ev->write(fd, get_write_data(lorem_ipsum), lorem_ipsum.length());
@@ -102,7 +104,7 @@ EvTask coro(EventManager *ev) {
   OUTPUT << "(*) Read this data:\n" << indent_with_str(buff, "> ") << "\n";
 
   co_await ev->close(fd);
-  fd = open("../test.txt", O_RDWR | O_TRUNC);
+  fd = open(filepath, O_RDWR | O_TRUNC);
   OUTPUT << "\nClosed the old fd, the new fd is " << fd << "\n\n";
 
   OUTPUT << "(*) Writing:\n"
