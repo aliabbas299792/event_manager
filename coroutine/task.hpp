@@ -1,6 +1,8 @@
 #ifndef EV_TASK_
 #define EV_TASK_
 
+#include "event_loop/parameter_packs.hpp"
+
 #include "communication/communication_channel.hpp"
 #include "communication/communication_types.hpp"
 
@@ -24,6 +26,7 @@ public:
       CommunicationChannel com_data{};
       std::vector<std::coroutine_handle<>> awaiter_handles{};
       int ret_code{};
+      std::vector<OperationParameterPackVariant> queue_operation_requests{};
     } state;
 
     EvTask get_return_object() { return EvTask{Handle::from_promise(*this)}; }

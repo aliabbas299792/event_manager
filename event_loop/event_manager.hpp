@@ -12,9 +12,12 @@
 
 #include "communication/communication_channel.hpp"
 #include "communication/communication_types.hpp"
+#include "communication/response_packs.hpp"
 #include "coroutine/task.hpp"
 #include "event_loop/request_data.hpp"
+#include "parameter_packs.hpp"
 
+// forward declare the awaitable return types and request data
 struct RequestData;
 struct ReadAwaitable;
 struct WriteAwaitable;
@@ -24,6 +27,42 @@ struct CloseAwaitable;
 struct ShutdownAwaitable;
 struct AcceptAwaitable;
 struct ConnectAwaitable;
+
+struct QueueOperation {
+  OperationParameterPackVariant operation;
+
+  bool await_ready() const noexcept { return false; }
+  void await_suspend(EvTask::Handle h) {
+    h.promise().state.queue_operation_requests.push_back(std::move(operation));
+    h.resume();
+  }
+  void await_resume() {}
+
+  QueueOperation(OperationParameterPackVariant op) : operation(op) {}
+};
+
+struct ObtainQueueOperations {
+  using RequestVec = std::vector<OperationParameterPackVariant>;
+  RequestVec requests{};
+  bool await_ready() const noexcept { return false; }
+  void await_suspend(EvTask::Handle h) {
+    auto &state = h.promise().state;
+    requests = std::move(state.queue_operation_requests);
+    state.queue_operation_requests = {};
+  }
+  RequestVec await_resume() { return std::move(requests); }
+};
+
+struct GenericResponse {
+  CommunicationChannel *channel{};
+  bool await_ready() const noexcept { return false; }
+  void await_suspend(EvTask::Handle h) {
+    channel = &h.promise().state.com_data;
+  }
+  CommunicationChannel *await_resume() {
+    return channel;
+  }
+};
 
 class EventManager {
   enum LivingState { NOT_STARTED, LIVING, DYING, DEAD };
@@ -70,48 +109,50 @@ public:
   AcceptAwaitable accept(int sockfd, sockaddr *addr, socklen_t *addrlen);
   ConnectAwaitable connect(int sockfd, const sockaddr *addr, socklen_t addrlen);
 
-  // int queue_read(int fd, uint8_t *buffer, size_t length);
-  // int queue_readv(int fd, struct iovec *iovs, size_t num);
-  // int queue_write(int fd, uint8_t *buffer, size_t length);
-  // int queue_writev(int fd, struct iovec *iovs, size_t num);
-  // int queue_accept(int fd);
-  // int queue_shutdown(int fd, int how);
-  // int queue_close(int fd);
+  EvTask queue_read(int fd, uint8_t *buffer, size_t length);
+  EvTask queue_write(int fd, const uint8_t *buffer, size_t length);
+  EvTask queue_close(int fd);
+  EvTask queue_shutdown(int fd, int how);
+  EvTask queue_readv(int fd, struct iovec *iovs, size_t num);
+  EvTask queue_writev(int fd, struct iovec *iovs, size_t num);
+  EvTask queue_accept(int sockfd, sockaddr *addr, socklen_t *addrlen);
+  EvTask queue_connect(int sockfd, const sockaddr *addr, socklen_t addrlen);
 
-  // template <typename F> EvTask submit_and_wait(F handler) {
-  //   auto ret = io_uring_submit(&ring);
-  //   if (ret < 0) {
-  //     co_return ret;
-  //   }
+  EvTask dispatch_requests(ObtainQueueOperations::RequestVec requests_vec);
 
-  //   // how many are currently being processed
-  //   auto num_submitted = ret;
+  template <typename F> EvTask submit_and_wait(F handler) {
+    ObtainQueueOperations::RequestVec requests_vec = co_await ObtainQueueOperations{};
+    co_await dispatch_requests(std::move(requests_vec));
 
-  //   // how many are still queued for submission
-  //   auto num_queued = ring.sq.sqe_tail - ring.sq.sqe_head;
+    auto ret = io_uring_submit(&ring);
+    if (ret < 0) {
+      co_return ret;
+    }
 
-  //   while (num_submitted != 0 || num_queued != 0) {
-  //     while (num_queued != 0 && num_submitted == 0) {
-  //       auto ret = io_uring_submit(&ring);
-  //       if (ret < 0) {
-  //         co_return ret;
-  //       }
+    // how many are currently being processed
+    auto num_submitted = ret;
 
-  //       num_submitted += ret;
-  //       num_queued -= ret;
-  //     }
+    // how many are still queued for submission
+    auto num_queued = ring.sq.sqe_tail - ring.sq.sqe_head;
 
-  //     // auto channel = co_await GenericResponse{};
-  //     // auto response_type = channel->response_store_current_type();
-  //     // handler(response_type, channel);
+    while (num_submitted != 0 || num_queued != 0) {
+      while (num_queued != 0 && num_submitted == 0) {
+        auto ret = io_uring_submit(&ring);
+        if (ret < 0) {
+          co_return ret;
+        }
 
-  //     // auto l = []() -> EvTask {
-  //     //   co_await EvAwaiter<RequestType::ACCEPT, RequestType::ACCEPT>{};
-  //     // };
-  //   }
+        num_submitted += ret;
+        num_queued -= ret;
+      }
 
-  //   co_return 0;
-  // }
+      auto channel = co_await GenericResponse{};
+      auto response_type = channel->response_store_current_type();
+      handler(response_type, channel);
+    }
+
+    co_return 0;
+  }
 
   /*
   - queue functions for merely doing io_uring_get_sqe and preparing the
