@@ -1,3 +1,6 @@
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include "vendor/doctest/doctest.h"
+
 #include "communication/communication_channel.hpp"
 #include "communication/communication_types.hpp"
 #include "coroutine/io_awaitables.hpp"
@@ -122,12 +125,12 @@ EvTask coro(EventManager *ev) {
   co_return 0;
 }
 
-int main() {
+TEST_CASE("Testing variety of event loop capabilities") {
   EventManager ev(10);
   auto coroTask = coro(&ev);
 
   ev.register_coro(coroTask);
   ev.start();
 
-  std::cout << (OUTPUT.rdbuf()->str() == expected_output) << "\n";
+  REQUIRE(OUTPUT.rdbuf()->str() == expected_output);
 }

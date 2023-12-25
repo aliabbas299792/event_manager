@@ -3,7 +3,7 @@ project('event_manager', 'cpp', default_options: ['cpp_std=c++20'])
 io_uring_dep = declare_dependency(link_args: ['-luring'])
 thread_dep = dependency('threads')
 
-source_files = ['main.cpp', 'event_loop/core.cpp', 'event_loop/io_ops.cpp']
+general_source_files = ['event_loop/core.cpp', 'event_loop/io_ops.cpp']
 
 # sanitiser_args = ['-fsanitize=address']
 # sanitiser_args = ['-fsanitize=undefined']
@@ -12,7 +12,7 @@ sanitiser_args = []
 # libevent_manager = executable('event_manager', source_files, dependencies: [io_uring_dep, thread_dep])
 example_event_manager = executable(
   'example_event_manager',
-  source_files,
+  ['main.cpp'] + general_source_files,
   c_args: sanitiser_args,
   cpp_args: sanitiser_args,
   link_args: sanitiser_args,
@@ -28,5 +28,12 @@ communication_tests = executable(
   dependencies: [io_uring_dep, thread_dep]
 )
 test('Communication Tests', communication_tests)
+
+event_loop_tests = executable(
+  'event_loop_tests',
+  ['event_loop/event_loop_tests.cpp'] + general_source_files,
+  dependencies: [io_uring_dep, thread_dep]
+)
+test('Event Loop Tests', event_loop_tests)
 
 # subdir('example')
