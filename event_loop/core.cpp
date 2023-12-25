@@ -177,7 +177,7 @@ EvTask EventManager::kill_internal() {
   co_return 0;
 };
 
-EvTask EventManager::kill() { co_await kill_coro_task; }
+EvTask EventManager::kill() { co_return co_await kill_coro_task; }
 
 void EventManager::register_coro(EvTask &&coro) {
   if (should_restrict_usage())
