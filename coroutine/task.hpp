@@ -103,7 +103,7 @@ public:
               << "\n";
     std::cout << is_done_ptr << "\n";
 
-    if (is_done()) {
+    if (*is_done_ptr) {
       std::cerr << "Cannot communicate with the coroutine as it has finished "
                    "already\n";
       return nullptr;
@@ -166,7 +166,7 @@ public:
     }
 
     // in the off chance we're awaiting on a complete coroutine
-    if (is_done()) {
+    if (*is_done_ptr) {
       other_handle.resume();
       return;
     }
@@ -180,6 +180,14 @@ public:
               << "\n";
 
     return *ret_code_ptr;
+  }
+
+  ~EvTask() {
+    if(!*is_done_ptr) {
+      auto &state = handle.promise().state;
+      state.is_done_ptr = nullptr;
+      state.ret_code_ptr = nullptr;
+    }
   }
 };
 
