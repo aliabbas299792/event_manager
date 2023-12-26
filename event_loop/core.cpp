@@ -9,7 +9,6 @@
 int EventManager::shared_ring_fd = -1;
 int EventManager::ring_instances{};
 std::mutex EventManager::init_mutex{};
-int EvTask::id = 0;
 
 struct RetrieveCurrentHandle {
   std::coroutine_handle<> handle;

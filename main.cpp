@@ -165,4 +165,6 @@ int main() {
   ev.register_coro(&coroTask3);
   ev.register_coro(&coroTask4);
   ev.start();
+
+  std::cout << "We're at the end of the program\n";
 }

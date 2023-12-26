@@ -34,15 +34,9 @@ public:
 
     std::suspend_always initial_suspend() noexcept { return {}; }
     std::suspend_never final_suspend() noexcept {
-      std::cout << "We are at the final suspend\n";
-
       if (state.awaiter_handle) {
         state.awaiter_handle.resume();
       }
-
-      std::cout << (state.is_done_ptr ? "yes" : "no")
-                << " (is done ptr valid), the ptr is " << state.is_done_ptr
-                << "\n";
 
       if (state.is_done_ptr) {
         *state.is_done_ptr = true;
@@ -66,15 +60,9 @@ public:
     }
   };
 
-  static int id;
-  int myid{};
   EvTask(Handle h) : handle(h) {
     is_done_ptr = std::make_unique<bool>();
     ret_code_ptr = std::make_unique<int>();
-
-    myid = id++;
-    std::cout << "evtask id " << myid << " with is done ptr " << is_done_ptr
-              << "\n";
 
     auto &state = h.promise().state;
     state.is_done_ptr = is_done_ptr.get();
@@ -82,8 +70,6 @@ public:
   }
 
   CommunicationChannel *start() {
-    std::cout << (*is_done_ptr ? "yes" : "no") << " (is done?) 3 " << myid
-              << "\n";
     if (started_coro) {
       std::cerr << "The coroutine was already started, this may be discarding "
                    "some data passed via await\n";
@@ -91,17 +77,10 @@ public:
     }
 
     started_coro = true;
-    std::cout << (*is_done_ptr ? "yes" : "no") << " (is done?) 4 " << myid
-              << "\n";
 
     auto &state = handle.promise().state;
     auto &com_channel = state.com_data;
-    std::cout << (*is_done_ptr ? "yes" : "no") << " (is done?) 5 " << myid
-              << "\n";
     handle.resume();
-    std::cout << (*is_done_ptr ? "yes" : "no") << " (is done?) 6 " << myid
-              << "\n";
-    std::cout << is_done_ptr << "\n";
 
     if (*is_done_ptr) {
       std::cerr << "Cannot communicate with the coroutine as it has finished "
@@ -150,16 +129,10 @@ public:
 
   // these below are what makes this task awaitable
   bool await_ready() const noexcept {
-    std::cout << (*is_done_ptr ? "yes" : "no") << " (is done?) 1 " << myid
-              << "\n";
-
     return false;
   };
 
   void await_suspend(Handle other_handle) {
-    std::cout << (*is_done_ptr ? "yes" : "no") << " (is done?) 2 " << myid
-              << "\n";
-
     // if the coroutine hasn't started upon co_awaiting, do that first
     if (!started_coro) {
       start();
@@ -176,9 +149,6 @@ public:
     awaiter_handle = other_handle;
   }
   int await_resume() {
-    std::cout << (*is_done_ptr ? "yes" : "no") << " (is done?) 7 " << myid
-              << "\n";
-
     return *ret_code_ptr;
   }
 
