@@ -6,6 +6,7 @@
 
 #include <coroutine>
 #include <iostream>
+#include <memory>
 #include <vector>
 
 class EvTask {
@@ -15,6 +16,8 @@ public:
 
 private:
   bool started_coro{};
+  std::unique_ptr<bool> is_done_ptr{};
+  std::unique_ptr<int> ret_code_ptr{};
   Handle handle{};
 
 public:
@@ -22,21 +25,36 @@ public:
     struct {
       std::exception_ptr exception_ptr{};
       CommunicationChannel com_data{};
-      std::vector<std::coroutine_handle<>> awaiter_handles{};
-      int ret_code{};
+      std::coroutine_handle<> awaiter_handle{};
+      int *ret_code_ptr{};
+      bool *is_done_ptr{};
     } state;
 
     EvTask get_return_object() { return EvTask{Handle::from_promise(*this)}; }
 
     std::suspend_always initial_suspend() noexcept { return {}; }
     std::suspend_never final_suspend() noexcept {
-      for (auto &h : state.awaiter_handles) {
-        h.resume();
+      std::cout << "We are at the final suspend\n";
+
+      if (state.awaiter_handle) {
+        state.awaiter_handle.resume();
+      }
+
+      std::cout << (state.is_done_ptr ? "yes" : "no")
+                << " (is done ptr valid), the ptr is " << state.is_done_ptr
+                << "\n";
+
+      if (state.is_done_ptr) {
+        *state.is_done_ptr = true;
       }
       return {};
     }
 
-    void return_value(int ret_code = 0) { state.ret_code = ret_code; }
+    void return_value(int ret_code = 0) {
+      if (state.ret_code_ptr) {
+        *state.ret_code_ptr = ret_code;
+      }
+    }
 
     void unhandled_exception() {
       state.exception_ptr = std::current_exception();
@@ -48,9 +66,24 @@ public:
     }
   };
 
-  EvTask(Handle h) : handle(h) {}
+  static int id;
+  int myid{};
+  EvTask(Handle h) : handle(h) {
+    is_done_ptr = std::make_unique<bool>();
+    ret_code_ptr = std::make_unique<int>();
+
+    myid = id++;
+    std::cout << "evtask id " << myid << " with is done ptr " << is_done_ptr
+              << "\n";
+
+    auto &state = h.promise().state;
+    state.is_done_ptr = is_done_ptr.get();
+    state.ret_code_ptr = ret_code_ptr.get();
+  }
 
   CommunicationChannel *start() {
+    std::cout << (*is_done_ptr ? "yes" : "no") << " (is done?) 3 " << myid
+              << "\n";
     if (started_coro) {
       std::cerr << "The coroutine was already started, this may be discarding "
                    "some data passed via await\n";
@@ -58,10 +91,23 @@ public:
     }
 
     started_coro = true;
+    std::cout << (*is_done_ptr ? "yes" : "no") << " (is done?) 4 " << myid
+              << "\n";
 
     auto &state = handle.promise().state;
     auto &com_channel = state.com_data;
+    std::cout << (*is_done_ptr ? "yes" : "no") << " (is done?) 5 " << myid
+              << "\n";
     handle.resume();
+    std::cout << (*is_done_ptr ? "yes" : "no") << " (is done?) 6 " << myid
+              << "\n";
+    std::cout << is_done_ptr << "\n";
+
+    if (is_done()) {
+      std::cerr << "Cannot communicate with the coroutine as it has finished "
+                   "already\n";
+      return nullptr;
+    }
 
     if (state.exception_ptr) {
       std::rethrow_exception(state.exception_ptr);
@@ -98,29 +144,43 @@ public:
     return &com_channel;
   }
 
-  bool is_done() { return handle.done(); }
+  bool is_done() { return *is_done_ptr; }
 
-  explicit operator bool() { return is_done(); }
+  explicit operator bool() { return *is_done_ptr; }
 
   // these below are what makes this task awaitable
-  bool await_ready() const noexcept { return false; };
+  bool await_ready() const noexcept {
+    std::cout << (*is_done_ptr ? "yes" : "no") << " (is done?) 1 " << myid
+              << "\n";
+
+    return false;
+  };
 
   void await_suspend(Handle other_handle) {
+    std::cout << (*is_done_ptr ? "yes" : "no") << " (is done?) 2 " << myid
+              << "\n";
+
     // if the coroutine hasn't started upon co_awaiting, do that first
     if (!started_coro) {
       start();
     }
 
-    if (is_done()) { // in the off chance we're awaiting on a complete coroutine
+    // in the off chance we're awaiting on a complete coroutine
+    if (is_done()) {
       other_handle.resume();
       return;
     }
 
     auto &state = this->handle.promise().state;
-    auto &awaiter_handles = state.awaiter_handles;
-    awaiter_handles.push_back(other_handle);
+    auto &awaiter_handle = state.awaiter_handle;
+    awaiter_handle = other_handle;
   }
-  int await_resume() { return handle.promise().state.ret_code; }
+  int await_resume() {
+    std::cout << (*is_done_ptr ? "yes" : "no") << " (is done?) 7 " << myid
+              << "\n";
+
+    return *ret_code_ptr;
+  }
 };
 
 #endif
