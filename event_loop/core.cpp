@@ -9,6 +9,7 @@
 int EventManager::shared_ring_fd = -1;
 int EventManager::ring_instances{};
 std::mutex EventManager::init_mutex{};
+int EvTask::id = 0;
 
 struct RetrieveCurrentHandle {
   std::coroutine_handle<> handle;
@@ -37,7 +38,7 @@ void EventManager::start() {
   while (manager_life_state_ < DEAD) {
     // start all queued up coroutines, then empty the vector
     for (auto &coro : coroutines_to_start) {
-      coro.start();
+      coro->start();
     }
 
     coroutines_to_start.clear();
@@ -179,13 +180,7 @@ EvTask EventManager::kill_internal() {
 
 EvTask EventManager::kill() { co_return co_await kill_coro_task; }
 
-void EventManager::register_coro(EvTask &&coro) {
-  if (should_restrict_usage())
-    return;
-  coroutines_to_start.emplace_back(std::move(coro));
-}
-
-void EventManager::register_coro(EvTask &coro) {
+void EventManager::register_coro(EvTask *coro) {
   if (should_restrict_usage())
     return;
   coroutines_to_start.push_back(coro);

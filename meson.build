@@ -5,9 +5,9 @@ thread_dep = dependency('threads')
 
 general_source_files = ['event_loop/core.cpp', 'event_loop/io_ops.cpp']
 
-# sanitiser_args = ['-fsanitize=address']
+sanitiser_args = ['-fsanitize=address']
 # sanitiser_args = ['-fsanitize=undefined']
-sanitiser_args = []
+# sanitiser_args = []
 
 # libevent_manager = executable('event_manager', source_files, dependencies: [io_uring_dep, thread_dep])
 example_event_manager = executable(

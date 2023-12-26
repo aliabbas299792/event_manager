@@ -3,6 +3,7 @@
 #include "coroutine/io_awaitables.hpp"
 #include "coroutine/task.hpp"
 #include "event_loop/event_manager.hpp"
+#include <chrono>
 #include <coroutine>
 #include <cstdint>
 #include <cstring>
@@ -72,7 +73,9 @@ How many bytes were written: 499
 We killed the event manager and we're at the end
 )";
 
-std::stringstream OUTPUT{};
+std::stringstream string_output{};
+// #define OUTPUT string_output <<;
+#define OUTPUT std::cout
 
 const uint8_t *get_write_data(const std::string &str) {
   return reinterpret_cast<const uint8_t *>(str.data());
@@ -89,7 +92,28 @@ std::string indent_with_str(const std::string &str, const std::string &indent) {
   return out;
 }
 
+EvTask coro4() {
+  co_return 2;
+}
+
+EvTask coro3() {
+  co_return co_await coro4();
+}
+
+EvTask coro2() {
+  co_return co_await coro3();
+}
+
+EvTask coro1() {
+  co_return co_await coro2();
+}
+
+int num_currently_being_processed{};
+
 EvTask coro(EventManager *ev) {
+  std::cout << "at start\n";
+  std::cout << co_await coro1() << "\n";
+  std::cout << "just after that\n";
   auto filepath = "./test.txt";
 
   int fd = open(filepath, O_RDWR | O_CREAT);
@@ -99,6 +123,7 @@ EvTask coro(EventManager *ev) {
 
   co_await ev->read(fd, reinterpret_cast<uint8_t *>(buff), 2048);
   OUTPUT << "(*) Read this data:\n" << indent_with_str(buff, "> ") << "\n";
+  std::cout << co_await coro2() << "\n";
 
   co_await ev->close(fd);
   fd = open(filepath, O_RDWR | O_TRUNC);
@@ -110,15 +135,18 @@ EvTask coro(EventManager *ev) {
                                 the_grand_inquisitor.length());
   OUTPUT << "How many bytes were written: " << res.data.bytes_wrote << "\n\n";
 
+  std::cout << co_await coro3() << "\n";
   std::memset(buff, 0, 2048);
   co_await ev->read(fd, reinterpret_cast<uint8_t *>(buff), 2048);
   OUTPUT << "(*) Read this data:\n" << indent_with_str(buff, "> ") << "\n\n";
 
   co_await ev->close(fd);
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  if(--num_currently_being_processed == 0) {
+    co_await ev->kill();
+  }
 
-  co_await ev->kill();
+  // std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
   OUTPUT << "We killed the event manager and we're at the end\n";
   co_return 0;
@@ -126,10 +154,15 @@ EvTask coro(EventManager *ev) {
 
 int main() {
   EventManager ev(10);
-  auto coroTask = coro(&ev);
+  auto coroTask1 = coro(&ev);
+  auto coroTask2 = coro(&ev);
+  auto coroTask3 = coro(&ev);
+  auto coroTask4 = coro(&ev);
+  num_currently_being_processed = 4;
 
-  ev.register_coro(coroTask);
+  ev.register_coro(&coroTask1);
+  ev.register_coro(&coroTask2);
+  ev.register_coro(&coroTask3);
+  ev.register_coro(&coroTask4);
   ev.start();
-
-  std::cout << (OUTPUT.rdbuf()->str() == expected_output) << "\n";
 }
