@@ -82,7 +82,7 @@ public:
     auto &com_channel = state.com_data;
     handle.resume();
 
-    if (*is_done_ptr) {
+    if (is_done_ptr && *is_done_ptr) {
       std::cerr << "Cannot communicate with the coroutine as it has finished "
                    "already\n";
       return nullptr;
@@ -128,9 +128,7 @@ public:
   explicit operator bool() { return *is_done_ptr; }
 
   // these below are what makes this task awaitable
-  bool await_ready() const noexcept {
-    return false;
-  };
+  bool await_ready() const noexcept { return false; };
 
   void await_suspend(Handle other_handle) {
     // if the coroutine hasn't started upon co_awaiting, do that first
@@ -139,7 +137,7 @@ public:
     }
 
     // in the off chance we're awaiting on a complete coroutine
-    if (*is_done_ptr) {
+    if (is_done_ptr && *is_done_ptr) {
       other_handle.resume();
       return;
     }
@@ -149,11 +147,14 @@ public:
     awaiter_handle = other_handle;
   }
   int await_resume() {
-    return *ret_code_ptr;
+    if (ret_code_ptr) {
+      return *ret_code_ptr;
+    }
+    return -1;
   }
 
   ~EvTask() {
-    if(!*is_done_ptr) {
+    if (is_done_ptr && !*is_done_ptr) {
       auto &state = handle.promise().state;
       state.is_done_ptr = nullptr;
       state.ret_code_ptr = nullptr;

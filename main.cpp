@@ -152,18 +152,28 @@ EvTask coro(EventManager *ev) {
   co_return 0;
 }
 
+EvTask do_thing(EventManager *ev) {
+  auto task1 = coro(ev);
+  auto task2 = coro(ev);
+  co_await task1;
+  co_await task2;
+  co_return 4;
+}
+
 int main() {
   EventManager ev(10);
   auto coroTask1 = coro(&ev);
   auto coroTask2 = coro(&ev);
   auto coroTask3 = coro(&ev);
   auto coroTask4 = coro(&ev);
-  num_currently_being_processed = 4;
+  auto coroTask5 = do_thing(&ev);
+  num_currently_being_processed = 6;
 
   ev.register_coro(&coroTask1);
   ev.register_coro(&coroTask2);
   ev.register_coro(&coroTask3);
   ev.register_coro(&coroTask4);
+  ev.register_coro(&coroTask5);
   ev.start();
 
   std::cout << "We're at the end of the program\n";
