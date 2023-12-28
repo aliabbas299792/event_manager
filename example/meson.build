@@ -1,1 +1,0 @@
-executable('event_manager_example', 'example.cpp', dependencies: [libevent_manager_dep])
