@@ -1,0 +1,1 @@
+git ls-tree -r HEAD --name-only | grep -E "cpp|hpp" | xargs -I {} sh -c 'clang-format -i {}'
