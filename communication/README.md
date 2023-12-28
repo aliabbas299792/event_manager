@@ -14,10 +14,3 @@ This is a simple wrapper around `std::variant`, for getting data it resets the v
 
 ### communication_tests.cpp
 A bunch of simple sanity testing unit tests.
-
-## Adding more request types and response data types
-To add a new type, there are 3 modifications needed:
-1. Add a new enum request type representing the request in `communiation_types.hpp`
-2. Add a new data type which would store the response data you want in `response_packs.hpp`
-3. Add a new type trait specialisation for the enum value (i.e a new mapping from the enum to the data type)
-4. Add `RespDataTypeMap<RequestType::your_new_request_enum>` to the variant at the bottom (before the monostate)
