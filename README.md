@@ -121,7 +121,6 @@ case RequestType::READV: {
 # Todo
 1. Add in these operations:
   - `openat`
-  - `opendir`
   - `statx`
-  - `unlink`
-  - `rename`
+  - `unlinkat`
+  - `renameat`
