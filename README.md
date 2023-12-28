@@ -68,10 +68,6 @@ struct [/* operation name */]Awaitable : IOAwaitable<RequestType::[/* operation 
 };
 ```
 This will allow us to later do stuff like `co_await ev->[/* operation name */](...)`
-
-### In event_manager.hpp
-1. Firstly add a forward declaration for the awaitable you made above
-2. 
 ## In event_loop/event_manager.hpp
 1. Add a forward declaration for the awaitable you made above, we can't include it here since that file includes this file too
 2. Add an appropriate declaration to make use of the awaitable in the event manager, like this:
