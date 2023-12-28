@@ -42,8 +42,6 @@ template <RequestType Rt, typename DerivedAwaitable> struct IOAwaitable {
   EventManager *const ev;
   io_uring_sqe *const sqe;
 
-  bool make_submission{};
-
   bool await_ready() const noexcept {
     // if the initial return code is non zero then we have run into an error
     // and cannot proceed
@@ -56,11 +54,6 @@ template <RequestType Rt, typename DerivedAwaitable> struct IOAwaitable {
 
     static_cast<DerivedAwaitable *>(this)->prepare_sqring_op(handle, sqe);
     io_uring_sqe_set_data(sqe, &req_data);
-
-    if (!make_submission) {
-      handle.resume();
-      return;
-    }
 
     auto ret = ev->submit_queued_entries();
     if (ret < 1) { // since submit returns the number of entries submitted
@@ -76,11 +69,7 @@ template <RequestType Rt, typename DerivedAwaitable> struct IOAwaitable {
       return {.event_system_error = error_code, .error_num = error_num};
     }
 
-    if (!make_submission) {
-      return {};
-    }
-
-    auto val = channel->get_resp_data<Rt>();
+    auto val = channel->consume_resp_data<Rt>();
     if (!val.has_value()) {
       return {.event_system_error =
                   EventSystemError::SYSTEM_COMMUNICATION_CHANNEL_FAILURE,
@@ -89,8 +78,8 @@ template <RequestType Rt, typename DerivedAwaitable> struct IOAwaitable {
     return {.data = val.value()};
   }
 
-  IOAwaitable(EventManager *ev, bool make_submission = false)
-      : ev(ev), sqe(ev->get_uring_sqe()), make_submission(make_submission) {
+  IOAwaitable(EventManager *ev)
+      : ev(ev), sqe(ev->get_uring_sqe()) {
     if (sqe == nullptr) {
       error_code = EventSystemError::SUBMISSION_QUEUE_FULL;
     }
@@ -106,9 +95,8 @@ struct ReadAwaitable : IOAwaitable<RequestType::READ, ReadAwaitable> {
                        0);
   }
 
-  ReadAwaitable(int fd, uint8_t *buff, size_t length, EventManager *ev,
-                bool make_submission = true)
-      : IOAwaitable(ev, make_submission) {
+  ReadAwaitable(int fd, uint8_t *buff, size_t length, EventManager *ev)
+      : IOAwaitable(ev) {
     auto &read_data = req_data.specific_data.read_data;
     read_data = {fd, buff, length};
   }
@@ -124,9 +112,8 @@ struct WriteAwaitable : IOAwaitable<RequestType::WRITE, WriteAwaitable> {
                         write_data.length, 0);
   }
 
-  WriteAwaitable(int fd, const uint8_t *buff, size_t length, EventManager *ev,
-                 bool make_submission = true)
-      : IOAwaitable(ev, make_submission) {
+  WriteAwaitable(int fd, const uint8_t *buff, size_t length, EventManager *ev)
+      : IOAwaitable(ev) {
     auto &write_data = req_data.specific_data.write_data;
     write_data = {fd, buff, length};
   }
@@ -141,8 +128,8 @@ struct CloseAwaitable : IOAwaitable<RequestType::CLOSE, CloseAwaitable> {
     io_uring_prep_close(sqe, close_data.fd);
   }
 
-  CloseAwaitable(int fd, EventManager *ev, bool make_submission = true)
-      : IOAwaitable(ev, make_submission) {
+  CloseAwaitable(int fd, EventManager *ev)
+      : IOAwaitable(ev) {
     auto &close_data = req_data.specific_data.close_data;
     close_data = {fd};
   }
@@ -158,9 +145,8 @@ struct ShutdownAwaitable
     io_uring_prep_shutdown(sqe, shutdown_data.fd, shutdown_data.how);
   }
 
-  ShutdownAwaitable(int fd, int how, EventManager *ev,
-                    bool make_submission = true)
-      : IOAwaitable(ev, make_submission) {
+  ShutdownAwaitable(int fd, int how, EventManager *ev)
+      : IOAwaitable(ev) {
     auto &shutdown_data = req_data.specific_data.shutdown_data;
     shutdown_data = {fd, how};
   }
@@ -175,9 +161,8 @@ struct ReadvAwaitable : IOAwaitable<RequestType::READV, ReadvAwaitable> {
     io_uring_prep_readv(sqe, readv_data.fd, readv_data.iovs, readv_data.num, 0);
   }
 
-  ReadvAwaitable(int fd, struct iovec *iovs, size_t num, EventManager *ev,
-                 bool make_submission = true)
-      : IOAwaitable(ev, make_submission) {
+  ReadvAwaitable(int fd, struct iovec *iovs, size_t num, EventManager *ev)
+      : IOAwaitable(ev) {
     auto &readv_data = req_data.specific_data.readv_data;
     readv_data = {fd, iovs, num};
   }
@@ -193,9 +178,8 @@ struct WritevAwaitable : IOAwaitable<RequestType::WRITEV, WritevAwaitable> {
                          0);
   }
 
-  WritevAwaitable(int fd, struct iovec *iovs, size_t num, EventManager *ev,
-                  bool make_submission = true)
-      : IOAwaitable(ev, make_submission) {
+  WritevAwaitable(int fd, struct iovec *iovs, size_t num, EventManager *ev)
+      : IOAwaitable(ev) {
     auto &writev_data = req_data.specific_data.writev_data;
     writev_data = {fd, iovs, num};
   }
@@ -212,8 +196,8 @@ struct AcceptAwaitable : IOAwaitable<RequestType::ACCEPT, AcceptAwaitable> {
   }
 
   AcceptAwaitable(int sockfd, sockaddr *addr, socklen_t *addrlen,
-                  EventManager *ev, bool make_submission = true)
-      : IOAwaitable(ev, make_submission) {
+                  EventManager *ev)
+      : IOAwaitable(ev) {
     auto &accept_data = req_data.specific_data.accept_data;
     accept_data = {sockfd, addr, addrlen};
   }
@@ -230,8 +214,8 @@ struct ConnectAwaitable : IOAwaitable<RequestType::CONNECT, ConnectAwaitable> {
   }
 
   ConnectAwaitable(int sockfd, const sockaddr *addr, socklen_t addrlen,
-                   EventManager *ev, bool make_submission = true)
-      : IOAwaitable(ev, make_submission) {
+                   EventManager *ev)
+      : IOAwaitable(ev) {
     auto &connect_data = req_data.specific_data.connect_data;
     connect_data = {sockfd, addr, addrlen};
   }
