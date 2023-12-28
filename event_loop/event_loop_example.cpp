@@ -27,52 +27,6 @@ const std::string lorem_ipsum =
     "Fusce ac mattis eros, aliquet fringilla tellus. Quisque mauris mauris,\n"
     "dapibus nec orci et, lobortis tincidunt mauris.";
 
-const std::string the_grand_inquisitor =
-    "Upon my word, man is created weaker and more base than you supposed! Can\n"
-    "he, can he perform the deeds of which you are capable? In respecting him\n"
-    "so much you acted as though you had ceased to have compassion for him,\n"
-    "because you demanded too much of him—and yet who was this? The very one\n"
-    "you had loved more than yourself! Had you respected him less you would\n"
-    "have demanded of him less, and that would have been closer to love, for\n"
-    "his burden would have been lighter. He is weak and dishonourable.";
-
-const std::string expected_output = R"((*) Read this data:
-> Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean ultricies
-> ex sit amet orci tincidunt, a viverra sem suscipit. Phasellus non quam
-> bibendum, molestie enim vel, placerat nibh. Mauris elementum, nisi et
-> fringilla auctor, velit justo porttitor neque, ut viverra neque magna
-> quis urna. Mauris eu libero lacinia, pulvinar purus nec, dapibus mi.
-> Aliquam id accumsan nunc, vitae molestie diam. Proin eget aliquet orci,
-> vitae pretium ante. Proin libero augue, vulputate eget iaculis vel,
-> ultricies at velit. Phasellus euismod nisl vitae lacus scelerisque
-> imperdiet sit amet vitae mi. Quisque rutrum leo et placerat iaculis.
-> Fusce ac mattis eros, aliquet fringilla tellus. Quisque mauris mauris,
-> dapibus nec orci et, lobortis tincidunt mauris.
-
-Closed the old fd, the new fd is 4
-
-(*) Writing:
-+ Upon my word, man is created weaker and more base than you supposed! Can
-+ he, can he perform the deeds of which you are capable? In respecting him
-+ so much you acted as though you had ceased to have compassion for him,
-+ because you demanded too much of him—and yet who was this? The very one
-+ you had loved more than yourself! Had you respected him less you would
-+ have demanded of him less, and that would have been closer to love, for
-+ his burden would have been lighter. He is weak and dishonourable.
-How many bytes were written: 499
-
-(*) Read this data:
-> Upon my word, man is created weaker and more base than you supposed! Can
-> he, can he perform the deeds of which you are capable? In respecting him
-> so much you acted as though you had ceased to have compassion for him,
-> because you demanded too much of him—and yet who was this? The very one
-> you had loved more than yourself! Had you respected him less you would
-> have demanded of him less, and that would have been closer to love, for
-> his burden would have been lighter. He is weak and dishonourable.
-
-We killed the event manager and we're at the end
-)";
-
 std::stringstream string_output{};
 #define OUTPUT string_output
 // #define OUTPUT std::cout
@@ -116,23 +70,6 @@ EvTask coro(EventManager *ev) {
   co_await ev->read(fd, reinterpret_cast<uint8_t *>(buff), 2048);
   OUTPUT << "(*) Read this data:\n" << indent_with_str(buff, "> ") << "\n";
   std::cout << co_await coro2() << "\n";
-
-  // co_await ev->close(fd);
-  // fd = open(filepath, O_RDWR | O_TRUNC);
-  // OUTPUT << "\nClosed the old fd, the new fd is " << fd << "\n\n";
-
-  // OUTPUT << "(*) Writing:\n"
-  //        << indent_with_str(the_grand_inquisitor, "+ ") << "\n";
-  // auto res = co_await ev->write(fd, get_write_data(the_grand_inquisitor),
-  //                               the_grand_inquisitor.length());
-  // OUTPUT << "How many bytes were written: " << res.data.bytes_wrote <<
-  // "\n\n";
-
-  // std::memset(buff, 0, 2048);
-  // co_await ev->read(fd, reinterpret_cast<uint8_t *>(buff), 2048);
-  // OUTPUT << "(*) Read this data:\n" << indent_with_str(buff, "> ") << "\n\n";
-
-  // co_await ev->close(fd);
 
   int fd1 = open("example1.txt", O_RDWR | O_CREAT);
   int fd2 = open("example2.txt", O_RDWR | O_CREAT);
@@ -219,7 +156,5 @@ int main() {
   ev.register_coro(&coroTask5);
   ev.start();
 
-  // std::cout << (OUTPUT.rdbuf()->str() == expected_output) << "\n";
-  // std::cout << OUTPUT.str();
   std::cout << "We're at the end of the program\n";
 }
