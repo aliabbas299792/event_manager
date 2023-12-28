@@ -1,5 +1,5 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
-#include "vendor/doctest/doctest.h"
+#include "vendor/doctest/doctest/doctest.h"
 
 #include "communication/communication_channel.hpp"
 #include "communication/communication_types.hpp"

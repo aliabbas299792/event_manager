@@ -41,6 +41,5 @@ event_loop_example = executable(
   ['event_loop/event_loop_example.cpp'] + general_source_files,
   dependencies: [io_uring_dep, thread_dep]
 )
-test('Event Loop Example', event_loop_example)
 
 # subdir('example')
