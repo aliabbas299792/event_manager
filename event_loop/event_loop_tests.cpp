@@ -131,7 +131,7 @@ TEST_CASE("Testing variety of event loop capabilities") {
   EventManager ev(10);
   auto coroTask = coro(&ev);
 
-  ev.register_coro(coroTask);
+  ev.register_coro(&coroTask);
   ev.start();
 
   REQUIRE(OUTPUT.rdbuf()->str() == expected_output);

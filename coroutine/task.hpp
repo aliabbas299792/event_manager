@@ -8,6 +8,7 @@
 
 #include <coroutine>
 #include <iostream>
+#include <memory>
 #include <vector>
 
 class EvTask {
@@ -17,6 +18,8 @@ public:
 
 private:
   bool started_coro{};
+  std::unique_ptr<bool> is_done_ptr{};
+  std::unique_ptr<int> ret_code_ptr{};
   Handle handle{};
 
 public:
@@ -24,8 +27,10 @@ public:
     struct {
       std::exception_ptr exception_ptr{};
       CommunicationChannel com_data{};
-      std::vector<std::coroutine_handle<>> awaiter_handles{};
-      int ret_code{};
+      std::coroutine_handle<> awaiter_handle{};
+      int *ret_code_ptr{};
+      bool *is_done_ptr{};
+      
       std::vector<OperationParameterPackVariant> queue_operation_requests{};
     } state;
 
@@ -33,13 +38,21 @@ public:
 
     std::suspend_always initial_suspend() noexcept { return {}; }
     std::suspend_never final_suspend() noexcept {
-      for (auto &h : state.awaiter_handles) {
-        h.resume();
+      if (state.awaiter_handle) {
+        state.awaiter_handle.resume();
+      }
+
+      if (state.is_done_ptr) {
+        *state.is_done_ptr = true;
       }
       return {};
     }
 
-    void return_value(int ret_code = 0) { state.ret_code = ret_code; }
+    void return_value(int ret_code = 0) {
+      if (state.ret_code_ptr) {
+        *state.ret_code_ptr = ret_code;
+      }
+    }
 
     void unhandled_exception() {
       state.exception_ptr = std::current_exception();
@@ -51,7 +64,14 @@ public:
     }
   };
 
-  EvTask(Handle h) : handle(h) {}
+  EvTask(Handle h) : handle(h) {
+    is_done_ptr = std::make_unique<bool>();
+    ret_code_ptr = std::make_unique<int>();
+
+    auto &state = h.promise().state;
+    state.is_done_ptr = is_done_ptr.get();
+    state.ret_code_ptr = ret_code_ptr.get();
+  }
 
   CommunicationChannel *start() {
     if (started_coro) {
@@ -65,6 +85,12 @@ public:
     auto &state = handle.promise().state;
     auto &com_channel = state.com_data;
     handle.resume();
+
+    if (is_done_ptr && *is_done_ptr) {
+      std::cerr << "Cannot communicate with the coroutine as it has finished "
+                   "already\n";
+      return nullptr;
+    }
 
     if (state.exception_ptr) {
       std::rethrow_exception(state.exception_ptr);
@@ -101,9 +127,9 @@ public:
     return &com_channel;
   }
 
-  bool is_done() { return handle.done(); }
+  bool is_done() { return *is_done_ptr; }
 
-  explicit operator bool() { return is_done(); }
+  explicit operator bool() { return *is_done_ptr; }
 
   // these below are what makes this task awaitable
   bool await_ready() const noexcept { return false; };
@@ -114,16 +140,30 @@ public:
       start();
     }
 
-    if (is_done()) { // in the off chance we're awaiting on a complete coroutine
+    // in the off chance we're awaiting on a complete coroutine
+    if (is_done_ptr && *is_done_ptr) {
       other_handle.resume();
       return;
     }
 
     auto &state = this->handle.promise().state;
-    auto &awaiter_handles = state.awaiter_handles;
-    awaiter_handles.push_back(other_handle);
+    auto &awaiter_handle = state.awaiter_handle;
+    awaiter_handle = other_handle;
   }
-  int await_resume() { return handle.promise().state.ret_code; }
+  int await_resume() {
+    if (ret_code_ptr) {
+      return *ret_code_ptr;
+    }
+    return -1;
+  }
+
+  ~EvTask() {
+    if (is_done_ptr && !*is_done_ptr) {
+      auto &state = handle.promise().state;
+      state.is_done_ptr = nullptr;
+      state.ret_code_ptr = nullptr;
+    }
+  }
 };
 
 #endif

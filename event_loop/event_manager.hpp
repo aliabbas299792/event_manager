@@ -79,7 +79,7 @@ class EventManager {
 
   io_uring ring{};
 
-  std::vector<EvTask> coroutines_to_start{};
+  std::vector<EvTask*> coroutines_to_start{};
 
   void await_message();
   void event_handler(int res, RequestData *req_data);
@@ -96,8 +96,7 @@ public:
   // in the event loop and emptied, and each coroutine has .start() called on
   // it, so it relies on the coroutines not starting immediately (i.e
   // std::suspend_always initial_suspend())
-  void register_coro(EvTask &&coro);
-  void register_coro(EvTask &coro);
+  void register_coro(EvTask *coro);
 
   EventManager(size_t queue_depth);
 
