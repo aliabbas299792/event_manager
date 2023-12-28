@@ -5,6 +5,7 @@
 
 struct GenericResponsePack {
   int error_num{};
+  int fd{};
 };
 
 struct ReadResponsePack : GenericResponsePack {

@@ -74,8 +74,8 @@ We killed the event manager and we're at the end
 )";
 
 std::stringstream string_output{};
-// #define OUTPUT string_output <<;
-#define OUTPUT std::cout
+#define OUTPUT string_output
+// #define OUTPUT std::cout
 
 const uint8_t *get_write_data(const std::string &str) {
   return reinterpret_cast<const uint8_t *>(str.data());
@@ -92,21 +92,13 @@ std::string indent_with_str(const std::string &str, const std::string &indent) {
   return out;
 }
 
-EvTask coro4() {
-  co_return 2;
-}
+EvTask coro4() { co_return 2; }
 
-EvTask coro3() {
-  co_return co_await coro4();
-}
+EvTask coro3() { co_return co_await coro4(); }
 
-EvTask coro2() {
-  co_return co_await coro3();
-}
+EvTask coro2() { co_return co_await coro3(); }
 
-EvTask coro1() {
-  co_return co_await coro2();
-}
+EvTask coro1() { co_return co_await coro2(); }
 
 int num_currently_being_processed{};
 
@@ -125,30 +117,55 @@ EvTask coro(EventManager *ev) {
   OUTPUT << "(*) Read this data:\n" << indent_with_str(buff, "> ") << "\n";
   std::cout << co_await coro2() << "\n";
 
-  co_await ev->close(fd);
-  fd = open(filepath, O_RDWR | O_TRUNC);
-  OUTPUT << "\nClosed the old fd, the new fd is " << fd << "\n\n";
+  // co_await ev->close(fd);
+  // fd = open(filepath, O_RDWR | O_TRUNC);
+  // OUTPUT << "\nClosed the old fd, the new fd is " << fd << "\n\n";
 
-  OUTPUT << "(*) Writing:\n"
-         << indent_with_str(the_grand_inquisitor, "+ ") << "\n";
-  auto res = co_await ev->write(fd, get_write_data(the_grand_inquisitor),
-                                the_grand_inquisitor.length());
-  OUTPUT << "How many bytes were written: " << res.data.bytes_wrote << "\n\n";
+  // OUTPUT << "(*) Writing:\n"
+  //        << indent_with_str(the_grand_inquisitor, "+ ") << "\n";
+  // auto res = co_await ev->write(fd, get_write_data(the_grand_inquisitor),
+  //                               the_grand_inquisitor.length());
+  // OUTPUT << "How many bytes were written: " << res.data.bytes_wrote <<
+  // "\n\n";
+
+  // std::memset(buff, 0, 2048);
+  // co_await ev->read(fd, reinterpret_cast<uint8_t *>(buff), 2048);
+  // OUTPUT << "(*) Read this data:\n" << indent_with_str(buff, "> ") << "\n\n";
+
+  // co_await ev->close(fd);
+
+  int fd1 = open("example1.txt", O_RDWR | O_CREAT);
+  int fd2 = open("example2.txt", O_RDWR | O_CREAT);
+  int fd3 = open("example3.txt", O_RDWR | O_CREAT);
+  int fd4 = open("example4.txt", O_RDWR | O_CREAT);
+  int fd5 = open("example5.txt", O_RDWR | O_CREAT);
+  auto queue = ev->make_request_queue();
+  queue.queue_write(fd1, get_write_data(lorem_ipsum), lorem_ipsum.length());
+  queue.queue_write(fd2, get_write_data(lorem_ipsum), lorem_ipsum.length());
+  queue.queue_write(fd3, get_write_data(lorem_ipsum), lorem_ipsum.length());
+  queue.queue_write(fd4, get_write_data(lorem_ipsum), lorem_ipsum.length());
+  queue.queue_write(fd5, get_write_data(lorem_ipsum), lorem_ipsum.length());
+
+  co_await ev->submit_and_wait(
+      queue, [](RequestType req_type, CommunicationChannel *channel) {
+        auto data = channel->consume_resp_data<RequestType::WRITE>();
+        std::cout << "[main] Wrote " << data->bytes_wrote << " bytes for fd " << data->fd << "\n";
+        
+      });
+
+  std::cout << "after submit and wait\n";
 
   std::cout << co_await coro3() << "\n";
   std::memset(buff, 0, 2048);
   co_await ev->read(fd, reinterpret_cast<uint8_t *>(buff), 2048);
   OUTPUT << "(*) Read this data:\n" << indent_with_str(buff, "> ") << "\n\n";
 
-  co_await ev->close(fd);
-
-  if(--num_currently_being_processed == 0) {
+  if (--num_currently_being_processed == 0) {
+    std::cout << "We killed the event manager\n";
     co_await ev->kill();
   }
 
-  // std::this_thread::sleep_for(std::chrono::milliseconds(50));
-
-  OUTPUT << "We killed the event manager and we're at the end\n";
+  std::cout << "we're at the end\n";
   co_return 0;
 }
 
@@ -176,5 +193,7 @@ int main() {
   ev.register_coro(&coroTask5);
   ev.start();
 
+  // std::cout << (OUTPUT.rdbuf()->str() == expected_output) << "\n";
+  // std::cout << OUTPUT.str();
   std::cout << "We're at the end of the program\n";
 }

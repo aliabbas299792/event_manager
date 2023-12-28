@@ -69,7 +69,7 @@ template <RequestType Rt, typename DerivedAwaitable> struct IOAwaitable {
       return {.event_system_error = error_code, .error_num = error_num};
     }
 
-    auto val = channel->get_resp_data<Rt>();
+    auto val = channel->consume_resp_data<Rt>();
     if (!val.has_value()) {
       return {.event_system_error =
                   EventSystemError::SYSTEM_COMMUNICATION_CHANNEL_FAILURE,
@@ -78,7 +78,8 @@ template <RequestType Rt, typename DerivedAwaitable> struct IOAwaitable {
     return {.data = val.value()};
   }
 
-  IOAwaitable(EventManager *ev) : ev(ev), sqe(ev->get_uring_sqe()) {
+  IOAwaitable(EventManager *ev)
+      : ev(ev), sqe(ev->get_uring_sqe()) {
     if (sqe == nullptr) {
       error_code = EventSystemError::SUBMISSION_QUEUE_FULL;
     }
@@ -127,7 +128,8 @@ struct CloseAwaitable : IOAwaitable<RequestType::CLOSE, CloseAwaitable> {
     io_uring_prep_close(sqe, close_data.fd);
   }
 
-  CloseAwaitable(int fd, EventManager *ev) : IOAwaitable(ev) {
+  CloseAwaitable(int fd, EventManager *ev)
+      : IOAwaitable(ev) {
     auto &close_data = req_data.specific_data.close_data;
     close_data = {fd};
   }
@@ -143,7 +145,8 @@ struct ShutdownAwaitable
     io_uring_prep_shutdown(sqe, shutdown_data.fd, shutdown_data.how);
   }
 
-  ShutdownAwaitable(int fd, int how, EventManager *ev) : IOAwaitable(ev) {
+  ShutdownAwaitable(int fd, int how, EventManager *ev)
+      : IOAwaitable(ev) {
     auto &shutdown_data = req_data.specific_data.shutdown_data;
     shutdown_data = {fd, how};
   }

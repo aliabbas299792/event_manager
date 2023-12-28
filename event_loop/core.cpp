@@ -10,16 +10,6 @@ int EventManager::shared_ring_fd = -1;
 int EventManager::ring_instances{};
 std::mutex EventManager::init_mutex{};
 
-struct RetrieveCurrentHandle {
-  std::coroutine_handle<> handle;
-  bool await_ready() noexcept { return false; }
-  void await_suspend(std::coroutine_handle<> h) noexcept {
-    handle = h;
-    handle.resume();
-  }
-  std::coroutine_handle<> await_resume() noexcept { return handle; }
-};
-
 // for stuff like submissions, repeat up to MAX_ITER times,
 // and then fail with a message
 constexpr const int MAX_ITER = 1000;
@@ -207,7 +197,8 @@ void EventManager::event_handler(int res, RequestData *req_data) {
     } else {
       data = {.bytes_read = res, .buff = specific_data.read_data.buffer};
     }
-    promise.set_resp_data<RequestType::READ>(std::move(data));
+    data.fd = specific_data.read_data.fd;
+    promise.publish_resp_data<RequestType::READ>(std::move(data));
     req_data->handle.resume();
     break;
   }
@@ -218,7 +209,8 @@ void EventManager::event_handler(int res, RequestData *req_data) {
     } else {
       data = {.bytes_wrote = res};
     }
-    promise.set_resp_data<RequestType::WRITE>(std::move(data));
+    data.fd = specific_data.write_data.fd;
+    promise.publish_resp_data<RequestType::WRITE>(std::move(data));
     req_data->handle.resume();
     break;
   }
@@ -227,7 +219,8 @@ void EventManager::event_handler(int res, RequestData *req_data) {
     if (res < 0) {
       data.error_num = errno;
     }
-    promise.set_resp_data<RequestType::CLOSE>(std::move(data));
+    data.fd = specific_data.close_data.fd;
+    promise.publish_resp_data<RequestType::CLOSE>(std::move(data));
     req_data->handle.resume();
     break;
   }
@@ -236,7 +229,8 @@ void EventManager::event_handler(int res, RequestData *req_data) {
     if (res < 0) {
       data.error_num = errno;
     }
-    promise.set_resp_data<RequestType::SHUTDOWN>(std::move(data));
+    data.fd = specific_data.shutdown_data.fd;
+    promise.publish_resp_data<RequestType::SHUTDOWN>(std::move(data));
     req_data->handle.resume();
     break;
   }
@@ -247,7 +241,8 @@ void EventManager::event_handler(int res, RequestData *req_data) {
     } else {
       data = {.bytes_read = res, .buff = specific_data.read_data.buffer};
     }
-    promise.set_resp_data<RequestType::READV>(std::move(data));
+    data.fd = specific_data.readv_data.fd;
+    promise.publish_resp_data<RequestType::READV>(std::move(data));
     req_data->handle.resume();
     break;
   }
@@ -258,7 +253,8 @@ void EventManager::event_handler(int res, RequestData *req_data) {
     } else {
       data = {.bytes_wrote = res};
     }
-    promise.set_resp_data<RequestType::WRITEV>(std::move(data));
+    data.fd = specific_data.writev_data.fd;
+    promise.publish_resp_data<RequestType::WRITEV>(std::move(data));
     req_data->handle.resume();
     break;
   }
@@ -269,7 +265,8 @@ void EventManager::event_handler(int res, RequestData *req_data) {
     } else {
       data = {.fd = res};
     }
-    promise.set_resp_data<RequestType::ACCEPT>(std::move(data));
+    data.fd = specific_data.accept_data.sockfd;
+    promise.publish_resp_data<RequestType::ACCEPT>(std::move(data));
     req_data->handle.resume();
     break;
   }
@@ -278,7 +275,8 @@ void EventManager::event_handler(int res, RequestData *req_data) {
     if (res < 0) {
       data.error_num = errno;
     }
-    promise.set_resp_data<RequestType::CONNECT>(std::move(data));
+    data.fd = specific_data.accept_data.sockfd;
+    promise.publish_resp_data<RequestType::CONNECT>(std::move(data));
     req_data->handle.resume();
     break;
   }
