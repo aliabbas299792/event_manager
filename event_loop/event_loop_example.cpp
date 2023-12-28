@@ -113,6 +113,18 @@ EvTask coro(EventManager *ev) {
         case RequestType::CONNECT: {
           break;
         }
+        case RequestType::OPENAT: {
+          break;
+        };
+        case RequestType::STATX: {
+          break;
+        };
+        case RequestType::UNLINKAT: {
+          break;
+        };
+        case RequestType::RENAMEAT: {
+          break;
+        };
         }
       });
 

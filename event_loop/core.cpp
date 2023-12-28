@@ -1,4 +1,6 @@
 #include "communication/communication_types.hpp"
+#include "communication/response_packs.hpp"
+#include "event_loop/parameter_packs.hpp"
 #include "event_loop/request_data.hpp"
 #include "event_manager.hpp"
 #include <cerrno>
@@ -277,6 +279,50 @@ void EventManager::event_handler(int res, RequestData *req_data) {
     }
     data.fd = specific_data.accept_data.sockfd;
     promise.publish_resp_data<RequestType::CONNECT>(std::move(data));
+    req_data->handle.resume();
+    break;
+  }
+  case RequestType::OPENAT: {
+    OpenatResponsePack data{};
+    if (res < 0) {
+      data.error_num = errno;
+    }
+    data.fd = res;
+    promise.publish_resp_data<RequestType::OPENAT>(std::move(data));
+    req_data->handle.resume();
+    break;
+  }
+  case RequestType::STATX: {
+    StatxResponsePack data{};
+    if (res < 0) {
+      data.error_num = errno;
+    }
+    data.pathname = specific_data.statx_data.pathname;
+    data.fd = -1; // fd is irrelevant for this operation
+    promise.publish_resp_data<RequestType::STATX>(std::move(data));
+    req_data->handle.resume();
+    break;
+  }
+  case RequestType::UNLINKAT: {
+    UnlinkatResponsePack data{};
+    if (res < 0) {
+      data.error_num = errno;
+    }
+    data.pathname = specific_data.unlinkat_data.pathname;
+    data.fd = -1; // fd is irrelevant for this operation
+    promise.publish_resp_data<RequestType::UNLINKAT>(std::move(data));
+    req_data->handle.resume();
+    break;
+  }
+  case RequestType::RENAMEAT: {
+    RenameatResponsePack data{};
+    if (res < 0) {
+      data.error_num = errno;
+    }
+    data.oldpathname = specific_data.renameat_data.oldpathname;
+    data.newpathname = specific_data.renameat_data.newpathname;
+    data.fd = -1; // fd is irrelevant for this operation
+    promise.publish_resp_data<RequestType::RENAMEAT>(std::move(data));
     req_data->handle.resume();
     break;
   }

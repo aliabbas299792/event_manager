@@ -57,10 +57,10 @@ struct [/* operation name */]Awaitable : IOAwaitable<RequestType::[/* operation 
     io_uring_prep_[/* operation name */](sqe, ...);
   }
 
-  [/* operation name */]Awaitable(int fd, struct iovec *iovs, size_t num, EventManager *ev)
+  [/* operation name */]Awaitable(... , EventManager *ev)
       : IOAwaitable(ev) {
     auto &[/* operation name */]_data = req_data.specific_data.[/* operation name */]_data;
-    [/* operation name */]_data = {fd, iovs, num};
+    [/* operation name */]_data = { ... };
   }
 
   // default initialiser
@@ -98,7 +98,7 @@ case RequestType::READV: {
 }
 ```
 ## In event_loop/core.cpp
-Add in a case for your operation in the `event_hanlder(...)` switch case, like this:
+Add in a case for your operation in the `event_handler(...)` switch case, like this:
 ```cpp
 case RequestType::READV: {
   ReadvResponsePack data{};
@@ -114,9 +114,5 @@ case RequestType::READV: {
 }
 ```
 
-# Todo
-1. Add in these operations:
-  - `openat`
-  - `statx`
-  - `unlinkat`
-  - `renameat`
+------------
+And then after all of these, make sure to update any visitor switch cases you may have to handle the new response types.

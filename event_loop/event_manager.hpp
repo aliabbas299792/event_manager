@@ -32,6 +32,10 @@ struct CloseAwaitable;
 struct ShutdownAwaitable;
 struct AcceptAwaitable;
 struct ConnectAwaitable;
+struct OpenatAwaitable;
+struct StatxAwaitable;
+struct UnlinkatAwaitable;
+struct RenameatAwaitable;
 
 struct GenericResponse {
   CommunicationChannel *channel{};
@@ -85,6 +89,13 @@ public:
   WritevAwaitable writev(int fd, struct iovec *iovs, size_t num);
   AcceptAwaitable accept(int sockfd, sockaddr *addr, socklen_t *addrlen);
   ConnectAwaitable connect(int sockfd, const sockaddr *addr, socklen_t addrlen);
+  OpenatAwaitable openat(int dirfd, const char *pathname, int flags,
+                         mode_t mode);
+  StatxAwaitable statx(int dirfd, const char *pathname, int flags,
+                       unsigned int mask, struct statx *statxbuf);
+  UnlinkatAwaitable unlinkat(int dirfd, const char *pathname, int flags);
+  RenameatAwaitable renameat(int olddirfd, const char *oldpathname,
+                             int newdirfd, const char *newpathname, int flags);
 
   RequestQueue make_request_queue();
   EvTask submit_and_wait(const RequestQueue &requests_vec,

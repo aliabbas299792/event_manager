@@ -36,4 +36,19 @@ struct AcceptResponsePack : GenericResponsePack {
 
 struct ConnectResponsePack : GenericResponsePack {};
 
+struct OpenatResponsePack : GenericResponsePack {};
+
+struct StatxResponsePack : GenericResponsePack {
+  const char *pathname{};
+};
+
+struct UnlinkatResponsePack : GenericResponsePack {
+  const char *pathname{};
+};
+
+struct RenameatResponsePack : GenericResponsePack {
+  const char *oldpathname{};
+  const char *newpathname{};
+};
+
 #endif

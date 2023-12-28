@@ -176,6 +176,18 @@ EvTask coro(EventManager *ev) {
         case RequestType::CONNECT: {
           break;
         }
+        case RequestType::OPENAT: {
+          break;
+        };
+        case RequestType::STATX: {
+          break;
+        };
+        case RequestType::UNLINKAT: {
+          break;
+        };
+        case RequestType::RENAMEAT: {
+          break;
+        };
         }
       });
 
@@ -203,20 +215,45 @@ EvTask do_thing(EventManager *ev) {
   co_return 4;
 }
 
+#include <dirent.h>
+
+EvTask example(EventManager *ev) {
+  DIR *dir = opendir("../");
+  int dfd = dirfd(dir);
+  auto resp = co_await ev->openat(dfd, "test.txt", O_RDWR, 0);
+  auto fd = resp.data.fd;
+  
+  char buff[2048]{};
+  co_await ev->read(fd, reinterpret_cast<uint8_t*>(buff), 2048);
+
+  std::cout << buff << "\n";
+
+  co_await ev->close(fd);
+
+  co_await ev->unlinkat(dfd, "test.txt", 0);
+
+  co_await ev->kill();
+  closedir(dir);
+  co_return 0;
+}
+
 int main() {
   EventManager ev(10);
-  auto coroTask1 = coro(&ev);
-  auto coroTask2 = coro(&ev);
-  auto coroTask3 = coro(&ev);
-  auto coroTask4 = coro(&ev);
-  auto coroTask5 = do_thing(&ev);
-  num_currently_being_processed = 6;
 
-  ev.register_coro(&coroTask1);
-  ev.register_coro(&coroTask2);
-  ev.register_coro(&coroTask3);
-  ev.register_coro(&coroTask4);
-  ev.register_coro(&coroTask5);
+  // auto coroTask1 = coro(&ev);
+  // auto coroTask2 = coro(&ev);
+  // auto coroTask3 = coro(&ev);
+  // auto coroTask4 = coro(&ev);
+  // auto coroTask5 = do_thing(&ev);
+  // num_currently_being_processed = 6;
+
+  // ev.register_coro(&coroTask1);
+  // ev.register_coro(&coroTask2);
+  // ev.register_coro(&coroTask3);
+  // ev.register_coro(&coroTask4);
+  // ev.register_coro(&coroTask5);
+  auto coro = example(&ev);
+  ev.register_coro(&coro);
   ev.start();
 
   // std::cout << (OUTPUT.rdbuf()->str() == expected_output) << "\n";

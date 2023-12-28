@@ -78,8 +78,7 @@ template <RequestType Rt, typename DerivedAwaitable> struct IOAwaitable {
     return {.data = val.value()};
   }
 
-  IOAwaitable(EventManager *ev)
-      : ev(ev), sqe(ev->get_uring_sqe()) {
+  IOAwaitable(EventManager *ev) : ev(ev), sqe(ev->get_uring_sqe()) {
     if (sqe == nullptr) {
       error_code = EventSystemError::SUBMISSION_QUEUE_FULL;
     }
@@ -128,8 +127,7 @@ struct CloseAwaitable : IOAwaitable<RequestType::CLOSE, CloseAwaitable> {
     io_uring_prep_close(sqe, close_data.fd);
   }
 
-  CloseAwaitable(int fd, EventManager *ev)
-      : IOAwaitable(ev) {
+  CloseAwaitable(int fd, EventManager *ev) : IOAwaitable(ev) {
     auto &close_data = req_data.specific_data.close_data;
     close_data = {fd};
   }
@@ -145,8 +143,7 @@ struct ShutdownAwaitable
     io_uring_prep_shutdown(sqe, shutdown_data.fd, shutdown_data.how);
   }
 
-  ShutdownAwaitable(int fd, int how, EventManager *ev)
-      : IOAwaitable(ev) {
+  ShutdownAwaitable(int fd, int how, EventManager *ev) : IOAwaitable(ev) {
     auto &shutdown_data = req_data.specific_data.shutdown_data;
     shutdown_data = {fd, how};
   }
@@ -222,6 +219,81 @@ struct ConnectAwaitable : IOAwaitable<RequestType::CONNECT, ConnectAwaitable> {
 
   // default initialiser
   ConnectAwaitable() : IOAwaitable(nullptr) {}
+};
+
+struct OpenatAwaitable : IOAwaitable<RequestType::OPENAT, OpenatAwaitable> {
+  void prepare_sqring_op(EvTask::Handle handle, io_uring_sqe *sqe) {
+    auto &openat_data = req_data.specific_data.openat_data;
+    io_uring_prep_openat(sqe, openat_data.dirfd, openat_data.pathname,
+                         openat_data.flags, openat_data.mode);
+  }
+
+  OpenatAwaitable(int dirfd, const char *pathname, int flags, mode_t mode,
+                  EventManager *ev)
+      : IOAwaitable(ev) {
+    auto &openat_data = req_data.specific_data.openat_data;
+    openat_data = {dirfd, pathname, flags, mode};
+  }
+
+  // default initialiser
+  OpenatAwaitable() : IOAwaitable(nullptr) {}
+};
+
+struct StatxAwaitable : IOAwaitable<RequestType::STATX, StatxAwaitable> {
+  void prepare_sqring_op(EvTask::Handle handle, io_uring_sqe *sqe) {
+    auto &statx_data = req_data.specific_data.statx_data;
+    io_uring_prep_statx(sqe, statx_data.dirfd, statx_data.pathname,
+                        statx_data.flags, statx_data.mask, statx_data.statxbuf);
+  }
+
+  StatxAwaitable(int dirfd, const char *pathname, int flags, unsigned int mask,
+                 struct statx *statxbuf, EventManager *ev)
+      : IOAwaitable(ev) {
+    auto &statx_data = req_data.specific_data.statx_data;
+    statx_data = {dirfd, pathname, flags, mask, statxbuf};
+  }
+
+  // default initialiser
+  StatxAwaitable() : IOAwaitable(nullptr) {}
+};
+
+struct UnlinkatAwaitable
+    : IOAwaitable<RequestType::UNLINKAT, UnlinkatAwaitable> {
+  void prepare_sqring_op(EvTask::Handle handle, io_uring_sqe *sqe) {
+    auto &unlinkat_data = req_data.specific_data.unlinkat_data;
+    io_uring_prep_unlinkat(sqe, unlinkat_data.dirfd, unlinkat_data.pathname,
+                           unlinkat_data.flags);
+  }
+
+  UnlinkatAwaitable(int dirfd, const char *pathname, int flags,
+                    EventManager *ev)
+      : IOAwaitable(ev) {
+    auto &unlinkat_data = req_data.specific_data.unlinkat_data;
+    unlinkat_data = {dirfd, pathname, flags};
+  }
+
+  // default initialiser
+  UnlinkatAwaitable() : IOAwaitable(nullptr) {}
+};
+
+struct RenameatAwaitable
+    : IOAwaitable<RequestType::RENAMEAT, RenameatAwaitable> {
+  void prepare_sqring_op(EvTask::Handle handle, io_uring_sqe *sqe) {
+    auto &renameat_data = req_data.specific_data.renameat_data;
+    io_uring_prep_renameat(sqe, renameat_data.olddirfd,
+                           renameat_data.oldpathname, renameat_data.newdirfd,
+                           renameat_data.newpathname, renameat_data.flags);
+  }
+
+  RenameatAwaitable(int olddirfd, const char *oldpathname, int newdirfd,
+                    const char *newpathname, int flags, EventManager *ev)
+      : IOAwaitable(ev) {
+    auto &renameat_data = req_data.specific_data.renameat_data;
+    renameat_data = {olddirfd, oldpathname, newdirfd, newpathname, flags};
+  }
+
+  // default initialiser
+  RenameatAwaitable() : IOAwaitable(nullptr) {}
 };
 
 #endif

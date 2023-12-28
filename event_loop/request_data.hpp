@@ -21,6 +21,10 @@ struct RequestData {
     WritevParameterPack writev_data;
     AcceptParameterPack accept_data;
     ConnectParameterPack connect_data;
+    OpenatParameterPack openat_data;
+    StatxParameterPack statx_data;
+    UnlinkatParameterPack unlinkat_data;
+    RenameatParameterPack renameat_data;
   } specific_data{};
 };
 

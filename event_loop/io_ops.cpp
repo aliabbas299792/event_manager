@@ -68,6 +68,33 @@ ConnectAwaitable EventManager::connect(int sockfd, const sockaddr *addr,
   return ConnectAwaitable{sockfd, addr, addrlen, this};
 }
 
+OpenatAwaitable EventManager::openat(int dirfd, const char *pathname, int flags,
+                                     mode_t mode) {
+  if (should_restrict_usage())
+    return {};
+  return OpenatAwaitable{dirfd, pathname, flags, mode, this};
+}
+StatxAwaitable EventManager::statx(int dirfd, const char *pathname, int flags,
+                                   unsigned int mask, struct statx *statxbuf) {
+  if (should_restrict_usage())
+    return {};
+  return StatxAwaitable{dirfd, pathname, flags, mask, statxbuf, this};
+}
+UnlinkatAwaitable EventManager::unlinkat(int dirfd, const char *pathname,
+                                         int flags) {
+  if (should_restrict_usage())
+    return {};
+  return UnlinkatAwaitable{dirfd, pathname, flags, this};
+}
+RenameatAwaitable EventManager::renameat(int olddirfd, const char *oldpathname,
+                                         int newdirfd, const char *newpathname,
+                                         int flags) {
+  if (should_restrict_usage())
+    return {};
+  return RenameatAwaitable{olddirfd,    oldpathname, newdirfd,
+                           newpathname, flags,       this};
+}
+
 RequestQueue EventManager::make_request_queue() { return RequestQueue{}; }
 
 EvTask EventManager::submit_and_wait(const RequestQueue &request_queue,
@@ -188,6 +215,58 @@ EvTask EventManager::submit_and_wait(const RequestQueue &request_queue,
       }
       break;
     }
+    case RequestType::OPENAT: {
+      auto *pack = std::get_if<OpenatParameterPack>(&req);
+      if (pack) {
+        specific_data.openat_data = {pack->dirfd, pack->pathname, pack->flags,
+                                     pack->mode};
+        io_uring_prep_openat(sqe, pack->dirfd, pack->pathname, pack->flags,
+                             pack->mode);
+      } else {
+        std::cerr << "There was an error in retrieving queued data\n";
+        co_return -1;
+      }
+      break;
+    }
+    case RequestType::STATX: {
+      auto *pack = std::get_if<StatxParameterPack>(&req);
+      if (pack) {
+        specific_data.statx_data = {pack->dirfd, pack->pathname, pack->flags,
+                                    pack->mask, pack->statxbuf};
+        io_uring_prep_statx(sqe, pack->dirfd, pack->pathname, pack->flags,
+                            pack->mask, pack->statxbuf);
+      } else {
+        std::cerr << "There was an error in retrieving queued data\n";
+        co_return -1;
+      }
+      break;
+    }
+    case RequestType::UNLINKAT: {
+      auto *pack = std::get_if<UnlinkatParameterPack>(&req);
+      if (pack) {
+        specific_data.unlinkat_data = {pack->dirfd, pack->pathname,
+                                       pack->flags};
+        io_uring_prep_unlinkat(sqe, pack->dirfd, pack->pathname, pack->flags);
+      } else {
+        std::cerr << "There was an error in retrieving queued data\n";
+        co_return -1;
+      }
+      break;
+    }
+    case RequestType::RENAMEAT: {
+      auto *pack = std::get_if<RenameatParameterPack>(&req);
+      if (pack) {
+        specific_data.renameat_data = {pack->olddirfd, pack->oldpathname,
+                                       pack->newdirfd, pack->newpathname,
+                                       pack->flags};
+        io_uring_prep_renameat(sqe, pack->olddirfd, pack->oldpathname,
+                               pack->newdirfd, pack->newpathname, pack->flags);
+      } else {
+        std::cerr << "There was an error in retrieving queued data\n";
+        co_return -1;
+      }
+      break;
+    } break;
     }
 
     io_uring_sqe_set_data(sqe, &req_data[i]);

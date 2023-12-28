@@ -2,64 +2,96 @@
 #define PARAMETER_PACKS_
 
 #include "communication/communication_types.hpp"
+#include "communication/response_packs.hpp"
 #include <cstdint>
+#include <liburing.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <variant>
 #include <vector>
 
 struct ReadParameterPack {
-  int fd;
-  uint8_t *buffer;
-  size_t length;
+  int fd{};
+  uint8_t *buffer{};
+  size_t length{};
 };
 
 struct WriteParameterPack {
-  int fd;
-  const uint8_t *buffer;
-  size_t length;
+  int fd{};
+  const uint8_t *buffer{};
+  size_t length{};
 };
 
 struct CloseParameterPack {
-  int fd;
+  int fd{};
 };
 
 struct ShutdownParameterPack {
-  int fd;
-  int how;
+  int fd{};
+  int how{};
 };
 
 struct ReadvParameterPack {
-  int fd;
-  struct iovec *iovs;
-  size_t num;
+  int fd{};
+  struct iovec *iovs{};
+  size_t num{};
 };
 
 struct WritevParameterPack {
-  int fd;
-  struct iovec *iovs;
-  size_t num;
+  int fd{};
+  struct iovec *iovs{};
+  size_t num{};
 };
 
 struct AcceptParameterPack {
-  int sockfd;
-  sockaddr *addr;
-  socklen_t *addrlen;
+  int sockfd{};
+  sockaddr *addr{};
+  socklen_t *addrlen{};
 };
 
 struct ConnectParameterPack {
-  int sockfd;
-  const sockaddr *addr;
-  socklen_t addrlen;
+  int sockfd{};
+  const sockaddr *addr{};
+  socklen_t addrlen{};
+};
+
+struct OpenatParameterPack {
+  int dirfd{};
+  const char *pathname{};
+  int flags{};
+  mode_t mode{};
+};
+
+struct StatxParameterPack {
+  int dirfd{};
+  const char *pathname{};
+  int flags{};
+  unsigned int mask{};
+  struct statx *statxbuf{};
+};
+
+struct UnlinkatParameterPack {
+  int dirfd{};
+  const char *pathname{};
+  int flags{};
+};
+
+struct RenameatParameterPack {
+  int olddirfd{};
+  const char *oldpathname{};
+  int newdirfd{};
+  const char *newpathname{};
+  int flags{};
 };
 
 using OperationParameterPackVariant =
     std::variant<ReadParameterPack, WriteParameterPack, CloseParameterPack,
                  ShutdownParameterPack, ReadvParameterPack, WritevParameterPack,
-                 AcceptParameterPack, ConnectParameterPack>;
+                 AcceptParameterPack, ConnectParameterPack, OpenatParameterPack,
+                 StatxParameterPack, UnlinkatParameterPack,
+                 RenameatParameterPack>;
 
-template <RequestType>
-struct RequestToParamPack;
+template <RequestType> struct RequestToParamPack;
 
 template <> struct RequestToParamPack<RequestType::READ> {
   using type = ReadParameterPack;
@@ -91,6 +123,22 @@ template <> struct RequestToParamPack<RequestType::ACCEPT> {
 
 template <> struct RequestToParamPack<RequestType::CONNECT> {
   using type = ConnectParameterPack;
+};
+
+template <> struct RequestToParamPack<RequestType::OPENAT> {
+  using type = OpenatParameterPack;
+};
+
+template <> struct RequestToParamPack<RequestType::STATX> {
+  using type = StatxParameterPack;
+};
+
+template <> struct RequestToParamPack<RequestType::UNLINKAT> {
+  using type = UnlinkatParameterPack;
+};
+
+template <> struct RequestToParamPack<RequestType::RENAMEAT> {
+  using type = RenameatParameterPack;
 };
 
 using RequestOpVec = std::vector<OperationParameterPackVariant>;
@@ -126,6 +174,26 @@ struct RequestQueue {
 
   void queue_connect(int sockfd, const sockaddr *addr, socklen_t addrlen) {
     req_vec.push_back(ConnectParameterPack{sockfd, addr, addrlen});
+  }
+
+  void queue_openat(int dirfd, const char *pathname, int flags, mode_t mode) {
+    req_vec.push_back(OpenatParameterPack{dirfd, pathname, flags, mode});
+  }
+
+  void queue_statx(int dirfd, const char *pathname, int flags,
+                   unsigned int mask, struct statx *statxbuf) {
+    req_vec.push_back(
+        StatxParameterPack{dirfd, pathname, flags, mask, statxbuf});
+  }
+
+  void queue_unlinkat(int dirfd, const char *pathname, int flags) {
+    req_vec.push_back(UnlinkatParameterPack{dirfd, pathname, flags});
+  }
+
+  void queue_renameat(int olddirfd, const char *oldpathname, int newdirfd,
+                      const char *newpathname, int flags) {
+    req_vec.push_back(RenameatParameterPack{olddirfd, oldpathname, newdirfd,
+                                            newpathname, flags});
   }
 };
 
