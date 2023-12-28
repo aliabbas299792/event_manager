@@ -109,7 +109,8 @@ EvTask EventManager::submit_and_wait(const RequestQueue &request_queue,
         std::cerr << "There was an error in retrieving queued data\n";
         co_return -1;
       }
-    } break;
+      break;
+    }
     case RequestType::WRITE: {
       auto *pack = std::get_if<WriteParameterPack>(&req);
       if (pack) {
@@ -119,7 +120,8 @@ EvTask EventManager::submit_and_wait(const RequestQueue &request_queue,
         std::cerr << "There was an error in retrieving queued data\n";
         co_return -1;
       }
-    } break;
+      break;
+    }
     case RequestType::CLOSE: {
       auto *pack = std::get_if<CloseParameterPack>(&req);
       if (pack) {
@@ -129,7 +131,8 @@ EvTask EventManager::submit_and_wait(const RequestQueue &request_queue,
         std::cerr << "There was an error in retrieving queued data\n";
         co_return -1;
       }
-    } break;
+      break;
+    }
     case RequestType::SHUTDOWN: {
       auto *pack = std::get_if<ShutdownParameterPack>(&req);
       if (pack) {
@@ -139,7 +142,8 @@ EvTask EventManager::submit_and_wait(const RequestQueue &request_queue,
         std::cerr << "There was an error in retrieving queued data\n";
         co_return -1;
       }
-    } break;
+      break;
+    }
     case RequestType::READV: {
       auto *pack = std::get_if<ReadvParameterPack>(&req);
       if (pack) {
@@ -149,7 +153,8 @@ EvTask EventManager::submit_and_wait(const RequestQueue &request_queue,
         std::cerr << "There was an error in retrieving queued data\n";
         co_return -1;
       }
-    } break;
+      break;
+    }
     case RequestType::WRITEV: {
       auto *pack = std::get_if<WritevParameterPack>(&req);
       if (pack) {
@@ -159,7 +164,8 @@ EvTask EventManager::submit_and_wait(const RequestQueue &request_queue,
         std::cerr << "There was an error in retrieving queued data\n";
         co_return -1;
       }
-    } break;
+      break;
+    }
     case RequestType::ACCEPT: {
       auto *pack = std::get_if<AcceptParameterPack>(&req);
       if (pack) {
@@ -169,7 +175,8 @@ EvTask EventManager::submit_and_wait(const RequestQueue &request_queue,
         std::cerr << "There was an error in retrieving queued data\n";
         co_return -1;
       }
-    } break;
+      break;
+    }
     case RequestType::CONNECT: {
       auto *pack = std::get_if<ConnectParameterPack>(&req);
       if (pack) {
@@ -179,7 +186,8 @@ EvTask EventManager::submit_and_wait(const RequestQueue &request_queue,
         std::cerr << "There was an error in retrieving queued data\n";
         co_return -1;
       }
-    } break;
+      break;
+    }
     }
 
     io_uring_sqe_set_data(sqe, &req_data[i]);
