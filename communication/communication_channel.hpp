@@ -12,7 +12,7 @@ private:
 
 public:
   template <RequestType Rt, typename RespType = RespDataTypeMap<Rt>>
-  CommunicationChannel &set_resp_data(RespType &&data) {
+  CommunicationChannel &publish_resp_data(RespType &&data) {
     constexpr const int ItemIndex = static_cast<std::size_t>(Rt);
     response_store_.emplace<ItemIndex>(std::forward<RespType>(data));
     return *this;
@@ -20,7 +20,7 @@ public:
 
   template <RequestType Rt, typename RespType = RespDataTypeMap<Rt>>
   [[nodiscard("Response data shouldn't be discarded")]] std::optional<RespType>
-  get_resp_data() {
+  consume_resp_data() {
     constexpr const int ItemIndex = static_cast<std::size_t>(Rt);
     if (auto data = std::get_if<ItemIndex>(&response_store_)) {
       auto ret_data = std::optional<RespType>(*data);
