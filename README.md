@@ -3,6 +3,9 @@ Simple liburing based library which uses coroutines for dealing with I/O.
 # Usage
 Example to print the output of a file `test.txt`:
 ```cpp
+#include "event_manager.hpp"
+#include <fcntl.h>
+
 EvTask coro(EventManager *ev) {
   // open a file and make a buffer to read into
   int fd = open("test.txt", O_RDWR);
@@ -21,7 +24,7 @@ EvTask coro(EventManager *ev) {
 
 int main() {
   const int queue_depth = 10; // i.e how many items may be in the internal queue before it needs to be flushed, max is 4096
-  EventManager ev{10};
+  EventManager ev{queue_depth};
 
   // make the coroutine task
   auto task = coro(&ev);
