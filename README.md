@@ -1,25 +1,60 @@
-# EventManager
+# Event Manager
+Simple liburing based library which uses coroutines for dealing with I/O.
+# Usage
+Example to print the output of a file `test.txt`:
+```cpp
+EvTask coro(EventManager *ev) {
+  // open a file and make a buffer to read into
+  int fd = open("test.txt", O_RDWR);
+  constexpr int size = 2048;
+  char buff[size]{};
+
+  // read some data and print it
+  co_await ev->read(fd, reinterpret_cast<uint8_t*>(buff), size);
+  std::cout << "Read:\n" << buff << "\n";
+
+  // close the file, and kill the event manager
+  co_await ev->close(fd);
+  co_await ev->kill();
+  co_return 0;
+}
+
+int main() {
+  const int queue_depth = 10; // i.e how many items may be in the internal queue before it needs to be flushed, max is 4096
+  EventManager ev{10};
+
+  // make the coroutine task
+  auto task = coro(&ev);
+  // register it with the system, which will run it once it has started
+  ev.register_coro(&task);
+  // start it
+  ev.start();
+}
+```
+`event_loop/event_manager.hpp` is relatively self documenting, and have a look at the tests and examples for more.
+# Codebase
+## EventManager class
 When registering a coroutine, you must ensure the coroutine object lives until the end of the execution of the coroutine, and it is your responsibility to ensure this is the case.
 
 i.e if you register a coroutine from an external connection, then you could spawn a coroutine but also pass a lambda which does the post processing (i.e removed the EvTask corresponding to it from whatever data structure you're using to manage incoming connections).
 
-## Queue Submission
+### Queue Submission
 You can make a queue with `EventManager::make_request_queue` and use those methods to effectively queue up a bunch of operations, and then you can submit them all at once, and set a callback for processing them using `EventManager::submit_and_wait`.
 
-# EvTask
+## EvTask class
 - You can use it for coroutines, and await on awaitable objects in a function with this return type
 - You can await on it, and it will return an integer
 - If you await on it, then the current coroutine will be suspended if the inner coroutine is suspended
   - This leads to a semblance of sequential execution for a stack of coroutine calls
 
-# Adding More Operations
+## Adding More Operations
 To add more operations, there are a few files you need to update:
-## In communication/
+### In communication/
 1. Add a new enum request type representing the request in `communiation_types.hpp`
 2. Add a new data type which would store the response data you want in `response_packs.hpp`
 3. Add a new type trait specialisation for the enum value (i.e a new mapping from the enum to the data type) in `communication_types.hpp`
 4. Add `RespDataTypeMap<RequestType::your_new_request_enum>` to the variant at the bottom (before the monostate) of `communication_types.hpp`
-## In event_loop/parameter_packs.hpp
+### In event_loop/parameter_packs.hpp
 1. Make a struct containing the parameters needed for your request, i.e for `readv`:
 ```cpp
 struct ReadvParameterPack {
@@ -41,14 +76,14 @@ void queue_readv(int fd, struct iovec *iovs, size_t num) {
   req_vec.push_back(ReadvParameterPack{fd, iovs, num});
 }
 ```
-## In event_loop/request_data.hpp
+### In event_loop/request_data.hpp
 Add another entry to the `specific_data` union, like:
 ```cpp
   ...
   ReadvParameterPack readv_data;
   ...
 ```
-## In coroutine/io_awaitables.hpp
+### In coroutine/io_awaitables.hpp
 You need to add a new awaitable for your request of the form below in this file:
 ```cpp
 struct [/* operation name */]Awaitable : IOAwaitable<RequestType::[/* operation name */], [/* operation name */]Awaitable> {
@@ -68,13 +103,13 @@ struct [/* operation name */]Awaitable : IOAwaitable<RequestType::[/* operation 
 };
 ```
 This will allow us to later do stuff like `co_await ev->[/* operation name */](...)`
-## In event_loop/event_manager.hpp
+### In event_loop/event_manager.hpp
 1. Add a forward declaration for the awaitable you made above, we can't include it here since that file includes this file too
 2. Add an appropriate declaration to make use of the awaitable in the event manager, like this:
 ```cpp
 ReadvAwaitable readv(int fd, struct iovec *iovs, size_t num);
 ```
-## In event_loop/io_ops.cpp
+### In event_loop/io_ops.cpp
 1. Define the operation you declared above like this:
 ```cpp
 ReadvAwaitable EventManager::readv(int fd, struct iovec *iovs, size_t num) {
@@ -97,7 +132,7 @@ case RequestType::READV: {
   break;
 }
 ```
-## In event_loop/core.cpp
+### In event_loop/core.cpp
 Add in a case for your operation in the `event_handler(...)` switch case, like this:
 ```cpp
 case RequestType::READV: {
