@@ -1,7 +1,7 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "vendor/doctest/doctest/doctest.h"
 
-#include "communication_channel.hpp"
+#include "event_manager.hpp"
 
 TEST_CASE("Testing response storing") {
   CommunicationChannel cc{};

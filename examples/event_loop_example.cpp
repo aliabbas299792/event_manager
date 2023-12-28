@@ -1,17 +1,7 @@
-#include "communication/communication_channel.hpp"
-#include "communication/communication_types.hpp"
-#include "coroutine/io_awaitables.hpp"
-#include "coroutine/task.hpp"
-#include "event_loop/event_manager.hpp"
-#include <chrono>
-#include <coroutine>
-#include <cstdint>
+#include "event_manager.hpp"
 #include <cstring>
 #include <fcntl.h>
-#include <iostream>
 #include <sstream>
-#include <thread>
-#include <variant>
 
 const std::string lorem_ipsum = R"(Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean ultricies
 ex sit amet orci tincidunt, a viverra sem suscipit. Phasellus non quam
