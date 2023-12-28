@@ -23,8 +23,7 @@ ReadAwaitable EventManager::read(int fd, uint8_t *buffer, size_t length) {
   return ReadAwaitable{fd, buffer, length, this};
 }
 
-WriteAwaitable EventManager::write(int fd, const uint8_t *buffer,
-                                   size_t length) {
+WriteAwaitable EventManager::write(int fd, const uint8_t *buffer, size_t length) {
   if (should_restrict_usage())
     return {};
   return WriteAwaitable{fd, buffer, length, this};
@@ -54,51 +53,44 @@ WritevAwaitable EventManager::writev(int fd, struct iovec *iovs, size_t num) {
   return WritevAwaitable{fd, iovs, num, this};
 }
 
-AcceptAwaitable EventManager::accept(int sockfd, sockaddr *addr,
-                                     socklen_t *addrlen) {
+AcceptAwaitable EventManager::accept(int sockfd, sockaddr *addr, socklen_t *addrlen) {
   if (should_restrict_usage())
     return {};
   return AcceptAwaitable{sockfd, addr, addrlen, this};
 }
 
-ConnectAwaitable EventManager::connect(int sockfd, const sockaddr *addr,
-                                       socklen_t addrlen) {
+ConnectAwaitable EventManager::connect(int sockfd, const sockaddr *addr, socklen_t addrlen) {
   if (should_restrict_usage())
     return {};
   return ConnectAwaitable{sockfd, addr, addrlen, this};
 }
 
-OpenatAwaitable EventManager::openat(int dirfd, const char *pathname, int flags,
-                                     mode_t mode) {
+OpenatAwaitable EventManager::openat(int dirfd, const char *pathname, int flags, mode_t mode) {
   if (should_restrict_usage())
     return {};
   return OpenatAwaitable{dirfd, pathname, flags, mode, this};
 }
-StatxAwaitable EventManager::statx(int dirfd, const char *pathname, int flags,
-                                   unsigned int mask, struct statx *statxbuf) {
+StatxAwaitable EventManager::statx(int dirfd, const char *pathname, int flags, unsigned int mask,
+                                   struct statx *statxbuf) {
   if (should_restrict_usage())
     return {};
   return StatxAwaitable{dirfd, pathname, flags, mask, statxbuf, this};
 }
-UnlinkatAwaitable EventManager::unlinkat(int dirfd, const char *pathname,
-                                         int flags) {
+UnlinkatAwaitable EventManager::unlinkat(int dirfd, const char *pathname, int flags) {
   if (should_restrict_usage())
     return {};
   return UnlinkatAwaitable{dirfd, pathname, flags, this};
 }
-RenameatAwaitable EventManager::renameat(int olddirfd, const char *oldpathname,
-                                         int newdirfd, const char *newpathname,
-                                         int flags) {
+RenameatAwaitable EventManager::renameat(int olddirfd, const char *oldpathname, int newdirfd,
+                                         const char *newpathname, int flags) {
   if (should_restrict_usage())
     return {};
-  return RenameatAwaitable{olddirfd,    oldpathname, newdirfd,
-                           newpathname, flags,       this};
+  return RenameatAwaitable{olddirfd, oldpathname, newdirfd, newpathname, flags, this};
 }
 
 RequestQueue EventManager::make_request_queue() { return RequestQueue{}; }
 
-EvTask EventManager::submit_and_wait(const RequestQueue &request_queue,
-                                     SubmitAndWaitHandler handler) {
+EvTask EventManager::submit_and_wait(const RequestQueue &request_queue, SubmitAndWaitHandler handler) {
   auto &requests_vec = request_queue.req_vec;
 
   auto ret = submit_queued_entries();
@@ -218,10 +210,8 @@ EvTask EventManager::submit_and_wait(const RequestQueue &request_queue,
     case RequestType::OPENAT: {
       auto *pack = std::get_if<OpenatParameterPack>(&req);
       if (pack) {
-        specific_data.openat_data = {pack->dirfd, pack->pathname, pack->flags,
-                                     pack->mode};
-        io_uring_prep_openat(sqe, pack->dirfd, pack->pathname, pack->flags,
-                             pack->mode);
+        specific_data.openat_data = {pack->dirfd, pack->pathname, pack->flags, pack->mode};
+        io_uring_prep_openat(sqe, pack->dirfd, pack->pathname, pack->flags, pack->mode);
       } else {
         std::cerr << "There was an error in retrieving queued data\n";
         co_return -1;
@@ -231,10 +221,8 @@ EvTask EventManager::submit_and_wait(const RequestQueue &request_queue,
     case RequestType::STATX: {
       auto *pack = std::get_if<StatxParameterPack>(&req);
       if (pack) {
-        specific_data.statx_data = {pack->dirfd, pack->pathname, pack->flags,
-                                    pack->mask, pack->statxbuf};
-        io_uring_prep_statx(sqe, pack->dirfd, pack->pathname, pack->flags,
-                            pack->mask, pack->statxbuf);
+        specific_data.statx_data = {pack->dirfd, pack->pathname, pack->flags, pack->mask, pack->statxbuf};
+        io_uring_prep_statx(sqe, pack->dirfd, pack->pathname, pack->flags, pack->mask, pack->statxbuf);
       } else {
         std::cerr << "There was an error in retrieving queued data\n";
         co_return -1;
@@ -244,8 +232,7 @@ EvTask EventManager::submit_and_wait(const RequestQueue &request_queue,
     case RequestType::UNLINKAT: {
       auto *pack = std::get_if<UnlinkatParameterPack>(&req);
       if (pack) {
-        specific_data.unlinkat_data = {pack->dirfd, pack->pathname,
-                                       pack->flags};
+        specific_data.unlinkat_data = {pack->dirfd, pack->pathname, pack->flags};
         io_uring_prep_unlinkat(sqe, pack->dirfd, pack->pathname, pack->flags);
       } else {
         std::cerr << "There was an error in retrieving queued data\n";
@@ -256,11 +243,10 @@ EvTask EventManager::submit_and_wait(const RequestQueue &request_queue,
     case RequestType::RENAMEAT: {
       auto *pack = std::get_if<RenameatParameterPack>(&req);
       if (pack) {
-        specific_data.renameat_data = {pack->olddirfd, pack->oldpathname,
-                                       pack->newdirfd, pack->newpathname,
+        specific_data.renameat_data = {pack->olddirfd, pack->oldpathname, pack->newdirfd, pack->newpathname,
                                        pack->flags};
-        io_uring_prep_renameat(sqe, pack->olddirfd, pack->oldpathname,
-                               pack->newdirfd, pack->newpathname, pack->flags);
+        io_uring_prep_renameat(sqe, pack->olddirfd, pack->oldpathname, pack->newdirfd, pack->newpathname,
+                               pack->flags);
       } else {
         std::cerr << "There was an error in retrieving queued data\n";
         co_return -1;

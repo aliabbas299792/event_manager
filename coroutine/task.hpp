@@ -55,9 +55,7 @@ public:
       }
     }
 
-    void unhandled_exception() {
-      state.exception_ptr = std::current_exception();
-    }
+    void unhandled_exception() { state.exception_ptr = std::current_exception(); }
 
     template <RequestType Rt, typename RespType = RespDataTypeMap<Rt>>
     void publish_resp_data(RespType &&data) {

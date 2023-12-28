@@ -58,8 +58,7 @@ void EventManager::await_message() {
   }
 }
 
-EventManager::EventManager(size_t queue_depth)
-    : kill_coro_task(kill_internal()) {
+EventManager::EventManager(size_t queue_depth) : kill_coro_task(kill_internal()) {
   std::scoped_lock<std::mutex> lock{init_mutex};
 
   // uses a shared asynchronous backend for all threads
@@ -137,8 +136,7 @@ EvTask EventManager::kill_internal() {
     co_return -1;
   }
 
-  io_uring_prep_cancel(sqe, nullptr,
-                       IORING_ASYNC_CANCEL_ANY | IORING_ASYNC_CANCEL_ALL);
+  io_uring_prep_cancel(sqe, nullptr, IORING_ASYNC_CANCEL_ANY | IORING_ASYNC_CANCEL_ALL);
 
   iter = 0;
   while (ring.sq.sqe_tail - ring.sq.sqe_head != 0 && iter++ < MAX_ITER) {

@@ -13,28 +13,26 @@
 #include <thread>
 #include <variant>
 
-const std::string lorem_ipsum =
-    "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean "
-    "ultricies\n"
-    "ex sit amet orci tincidunt, a viverra sem suscipit. Phasellus non quam\n"
-    "bibendum, molestie enim vel, placerat nibh. Mauris elementum, nisi et\n"
-    "fringilla auctor, velit justo porttitor neque, ut viverra neque magna\n"
-    "quis urna. Mauris eu libero lacinia, pulvinar purus nec, dapibus mi.\n"
-    "Aliquam id accumsan nunc, vitae molestie diam. Proin eget aliquet orci,\n"
-    "vitae pretium ante. Proin libero augue, vulputate eget iaculis vel,\n"
-    "ultricies at velit. Phasellus euismod nisl vitae lacus scelerisque\n"
-    "imperdiet sit amet vitae mi. Quisque rutrum leo et placerat iaculis.\n"
-    "Fusce ac mattis eros, aliquet fringilla tellus. Quisque mauris mauris,\n"
-    "dapibus nec orci et, lobortis tincidunt mauris.";
+const std::string lorem_ipsum = R"(Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean ultricies
+ex sit amet orci tincidunt, a viverra sem suscipit. Phasellus non quam
+bibendum, molestie enim vel, placerat nibh. Mauris elementum, nisi et
+fringilla auctor, velit justo porttitor neque, ut viverra neque magna
+quis urna. Mauris eu libero lacinia, pulvinar purus nec, dapibus mi.
+Aliquam id accumsan nunc, vitae molestie diam. Proin eget aliquet orci,
+vitae pretium ante. Proin libero augue, vulputate eget iaculis vel,
+ultricies at velit. Phasellus euismod nisl vitae lacus scelerisque
+imperdiet sit amet vitae mi. Quisque rutrum leo et placerat iaculis.
+Fusce ac mattis eros, aliquet fringilla tellus. Quisque mauris mauris,
+dapibus nec orci et, lobortis tincidunt mauris.)";
 
 const std::string the_grand_inquisitor =
-    "Upon my word, man is created weaker and more base than you supposed! Can\n"
-    "he, can he perform the deeds of which you are capable? In respecting him\n"
-    "so much you acted as though you had ceased to have compassion for him,\n"
-    "because you demanded too much of him—and yet who was this? The very one\n"
-    "you had loved more than yourself! Had you respected him less you would\n"
-    "have demanded of him less, and that would have been closer to love, for\n"
-    "his burden would have been lighter. He is weak and dishonourable.";
+    R"(Upon my word, man is created weaker and more base than you supposed! Can
+he, can he perform the deeds of which you are capable? In respecting him
+so much you acted as though you had ceased to have compassion for him,
+because you demanded too much of him—and yet who was this? The very one
+you had loved more than yourself! Had you respected him less you would
+have demanded of him less, and that would have been closer to love, for
+his burden would have been lighter. He is weak and dishonourable.)";
 
 const std::string expected_output = R"((*) Read this data:
 > Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean ultricies
@@ -146,50 +144,48 @@ EvTask coro(EventManager *ev) {
   queue.queue_write(fd4, get_write_data(lorem_ipsum), lorem_ipsum.length());
   queue.queue_write(fd5, get_write_data(lorem_ipsum), lorem_ipsum.length());
 
-  co_await ev->submit_and_wait(
-      queue, [](RequestType req_type, CommunicationChannel *channel) {
-        switch (req_type) {
-        case RequestType::READ: {
-          break;
-        }
-        case RequestType::WRITE: {
-          auto data = channel->consume_resp_data<RequestType::WRITE>();
-          std::cout << "[main] Wrote " << data->bytes_wrote << " bytes for fd "
-                    << data->fd << "\n";
-          break;
-        }
-        case RequestType::CLOSE: {
-          break;
-        }
-        case RequestType::SHUTDOWN: {
-          break;
-        }
-        case RequestType::READV: {
-          break;
-        }
-        case RequestType::WRITEV: {
-          break;
-        }
-        case RequestType::ACCEPT: {
-          break;
-        }
-        case RequestType::CONNECT: {
-          break;
-        }
-        case RequestType::OPENAT: {
-          break;
-        };
-        case RequestType::STATX: {
-          break;
-        };
-        case RequestType::UNLINKAT: {
-          break;
-        };
-        case RequestType::RENAMEAT: {
-          break;
-        };
-        }
-      });
+  co_await ev->submit_and_wait(queue, [](RequestType req_type, CommunicationChannel *channel) {
+    switch (req_type) {
+    case RequestType::READ: {
+      break;
+    }
+    case RequestType::WRITE: {
+      auto data = channel->consume_resp_data<RequestType::WRITE>();
+      std::cout << "[main] Wrote " << data->bytes_wrote << " bytes for fd " << data->fd << "\n";
+      break;
+    }
+    case RequestType::CLOSE: {
+      break;
+    }
+    case RequestType::SHUTDOWN: {
+      break;
+    }
+    case RequestType::READV: {
+      break;
+    }
+    case RequestType::WRITEV: {
+      break;
+    }
+    case RequestType::ACCEPT: {
+      break;
+    }
+    case RequestType::CONNECT: {
+      break;
+    }
+    case RequestType::OPENAT: {
+      break;
+    };
+    case RequestType::STATX: {
+      break;
+    };
+    case RequestType::UNLINKAT: {
+      break;
+    };
+    case RequestType::RENAMEAT: {
+      break;
+    };
+    }
+  });
 
   std::cout << "after submit and wait\n";
 
@@ -222,9 +218,9 @@ EvTask example(EventManager *ev) {
   int dfd = dirfd(dir);
   auto resp = co_await ev->openat(dfd, "test.txt", O_RDWR, 0);
   auto fd = resp.data.fd;
-  
+
   char buff[2048]{};
-  co_await ev->read(fd, reinterpret_cast<uint8_t*>(buff), 2048);
+  co_await ev->read(fd, reinterpret_cast<uint8_t *>(buff), 2048);
 
   std::cout << buff << "\n";
 

@@ -19,8 +19,7 @@
 #include "event_loop/request_data.hpp"
 #include "parameter_packs.hpp"
 
-using SubmitAndWaitHandler =
-    std::function<void(RequestType, CommunicationChannel *)>;
+using SubmitAndWaitHandler = std::function<void(RequestType, CommunicationChannel *)>;
 
 // forward declare the awaitable return types and request data
 struct RequestData;
@@ -40,9 +39,7 @@ struct RenameatAwaitable;
 struct GenericResponse {
   CommunicationChannel *channel{};
   bool await_ready() const noexcept { return false; }
-  void await_suspend(EvTask::Handle h) {
-    channel = &h.promise().state.com_data;
-  }
+  void await_suspend(EvTask::Handle h) { channel = &h.promise().state.com_data; }
   CommunicationChannel *await_resume() { return channel; }
 };
 
@@ -89,17 +86,14 @@ public:
   WritevAwaitable writev(int fd, struct iovec *iovs, size_t num);
   AcceptAwaitable accept(int sockfd, sockaddr *addr, socklen_t *addrlen);
   ConnectAwaitable connect(int sockfd, const sockaddr *addr, socklen_t addrlen);
-  OpenatAwaitable openat(int dirfd, const char *pathname, int flags,
-                         mode_t mode);
-  StatxAwaitable statx(int dirfd, const char *pathname, int flags,
-                       unsigned int mask, struct statx *statxbuf);
+  OpenatAwaitable openat(int dirfd, const char *pathname, int flags, mode_t mode);
+  StatxAwaitable statx(int dirfd, const char *pathname, int flags, unsigned int mask, struct statx *statxbuf);
   UnlinkatAwaitable unlinkat(int dirfd, const char *pathname, int flags);
-  RenameatAwaitable renameat(int olddirfd, const char *oldpathname,
-                             int newdirfd, const char *newpathname, int flags);
+  RenameatAwaitable renameat(int olddirfd, const char *oldpathname, int newdirfd, const char *newpathname,
+                             int flags);
 
   RequestQueue make_request_queue();
-  EvTask submit_and_wait(const RequestQueue &requests_vec,
-                         SubmitAndWaitHandler handler);
+  EvTask submit_and_wait(const RequestQueue &requests_vec, SubmitAndWaitHandler handler);
 };
 
 #endif

@@ -15,28 +15,26 @@
 #include <thread>
 #include <variant>
 
-const std::string lorem_ipsum =
-    "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean "
-    "ultricies\n"
-    "ex sit amet orci tincidunt, a viverra sem suscipit. Phasellus non quam\n"
-    "bibendum, molestie enim vel, placerat nibh. Mauris elementum, nisi et\n"
-    "fringilla auctor, velit justo porttitor neque, ut viverra neque magna\n"
-    "quis urna. Mauris eu libero lacinia, pulvinar purus nec, dapibus mi.\n"
-    "Aliquam id accumsan nunc, vitae molestie diam. Proin eget aliquet orci,\n"
-    "vitae pretium ante. Proin libero augue, vulputate eget iaculis vel,\n"
-    "ultricies at velit. Phasellus euismod nisl vitae lacus scelerisque\n"
-    "imperdiet sit amet vitae mi. Quisque rutrum leo et placerat iaculis.\n"
-    "Fusce ac mattis eros, aliquet fringilla tellus. Quisque mauris mauris,\n"
-    "dapibus nec orci et, lobortis tincidunt mauris.";
+const std::string lorem_ipsum = R"(Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean ultricies
+ex sit amet orci tincidunt, a viverra sem suscipit. Phasellus non quam
+bibendum, molestie enim vel, placerat nibh. Mauris elementum, nisi et
+fringilla auctor, velit justo porttitor neque, ut viverra neque magna
+quis urna. Mauris eu libero lacinia, pulvinar purus nec, dapibus mi.
+Aliquam id accumsan nunc, vitae molestie diam. Proin eget aliquet orci,
+vitae pretium ante. Proin libero augue, vulputate eget iaculis vel,
+ultricies at velit. Phasellus euismod nisl vitae lacus scelerisque
+imperdiet sit amet vitae mi. Quisque rutrum leo et placerat iaculis.
+Fusce ac mattis eros, aliquet fringilla tellus. Quisque mauris mauris,
+dapibus nec orci et, lobortis tincidunt mauris.)";
 
 const std::string the_grand_inquisitor =
-    "Upon my word, man is created weaker and more base than you supposed! Can\n"
-    "he, can he perform the deeds of which you are capable? In respecting him\n"
-    "so much you acted as though you had ceased to have compassion for him,\n"
-    "because you demanded too much of him—and yet who was this? The very one\n"
-    "you had loved more than yourself! Had you respected him less you would\n"
-    "have demanded of him less, and that would have been closer to love, for\n"
-    "his burden would have been lighter. He is weak and dishonourable.";
+    R"(Upon my word, man is created weaker and more base than you supposed! Can
+he, can he perform the deeds of which you are capable? In respecting him
+so much you acted as though you had ceased to have compassion for him,
+because you demanded too much of him—and yet who was this? The very one
+you had loved more than yourself! Had you respected him less you would
+have demanded of him less, and that would have been closer to love, for
+his burden would have been lighter. He is weak and dishonourable.)";
 
 const std::string expected_output = R"((*) Read this data:
 > Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean ultricies
@@ -107,10 +105,8 @@ EvTask coro(EventManager *ev) {
   fd = open(filepath, O_RDWR | O_TRUNC);
   OUTPUT << "\nClosed the old fd, the new fd is " << fd << "\n\n";
 
-  OUTPUT << "(*) Writing:\n"
-         << indent_with_str(the_grand_inquisitor, "+ ") << "\n";
-  auto res = co_await ev->write(fd, get_write_data(the_grand_inquisitor),
-                                the_grand_inquisitor.length());
+  OUTPUT << "(*) Writing:\n" << indent_with_str(the_grand_inquisitor, "+ ") << "\n";
+  auto res = co_await ev->write(fd, get_write_data(the_grand_inquisitor), the_grand_inquisitor.length());
   OUTPUT << "How many bytes were written: " << res.data.bytes_wrote << "\n\n";
 
   std::memset(buff, 0, 2048);
