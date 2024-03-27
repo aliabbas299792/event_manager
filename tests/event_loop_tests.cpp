@@ -39,8 +39,6 @@ const std::string expected_output = R"((*) Read this data:
 > Fusce ac mattis eros, aliquet fringilla tellus. Quisque mauris mauris,
 > dapibus nec orci et, lobortis tincidunt mauris.
 
-Closed the old fd, the new fd is 4
-
 (*) Writing:
 + Upon my word, man is created weaker and more base than you supposed! Can
 + he, can he perform the deeds of which you are capable? In respecting him
@@ -83,7 +81,7 @@ std::string indent_with_str(const std::string &str, const std::string &indent) {
 EvTask coro(EventManager *ev) {
   auto filepath = "./test.txt";
 
-  int fd = open(filepath, O_RDWR | O_CREAT);
+  int fd = open(filepath, O_RDWR | O_CREAT, 0666);
 
   char buff[2048]{};
   co_await ev->write(fd, get_write_data(lorem_ipsum), lorem_ipsum.length());
@@ -93,9 +91,8 @@ EvTask coro(EventManager *ev) {
 
   co_await ev->close(fd);
   fd = open(filepath, O_RDWR | O_TRUNC);
-  OUTPUT << "\nClosed the old fd, the new fd is " << fd << "\n\n";
 
-  OUTPUT << "(*) Writing:\n" << indent_with_str(the_grand_inquisitor, "+ ") << "\n";
+  OUTPUT << "\n(*) Writing:\n" << indent_with_str(the_grand_inquisitor, "+ ") << "\n";
   auto res = co_await ev->write(fd, get_write_data(the_grand_inquisitor), the_grand_inquisitor.length());
   OUTPUT << "How many bytes were written: " << res.data.bytes_wrote << "\n\n";
 
