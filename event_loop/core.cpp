@@ -197,7 +197,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
     } else {
       data = {.bytes_read = res, .buff = specific_data.read_data.buffer};
     }
-    data.fd = specific_data.read_data.fd;
+    data.req_fd = specific_data.read_data.fd;
     promise.publish_resp_data<RequestType::READ>(std::move(data));
     req_data->handle.resume();
     break;
@@ -209,7 +209,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
     } else {
       data = {.bytes_wrote = res};
     }
-    data.fd = specific_data.write_data.fd;
+    data.req_fd = specific_data.write_data.fd;
     promise.publish_resp_data<RequestType::WRITE>(std::move(data));
     req_data->handle.resume();
     break;
@@ -219,7 +219,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
     if (res < 0) {
       data.error_num = errno;
     }
-    data.fd = specific_data.close_data.fd;
+    data.req_fd = specific_data.close_data.fd;
     promise.publish_resp_data<RequestType::CLOSE>(std::move(data));
     req_data->handle.resume();
     break;
@@ -229,7 +229,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
     if (res < 0) {
       data.error_num = errno;
     }
-    data.fd = specific_data.shutdown_data.fd;
+    data.req_fd = specific_data.shutdown_data.fd;
     promise.publish_resp_data<RequestType::SHUTDOWN>(std::move(data));
     req_data->handle.resume();
     break;
@@ -241,7 +241,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
     } else {
       data = {.bytes_read = res, .buff = specific_data.read_data.buffer};
     }
-    data.fd = specific_data.readv_data.fd;
+    data.req_fd = specific_data.readv_data.fd;
     promise.publish_resp_data<RequestType::READV>(std::move(data));
     req_data->handle.resume();
     break;
@@ -253,7 +253,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
     } else {
       data = {.bytes_wrote = res};
     }
-    data.fd = specific_data.writev_data.fd;
+    data.req_fd = specific_data.writev_data.fd;
     promise.publish_resp_data<RequestType::WRITEV>(std::move(data));
     req_data->handle.resume();
     break;
@@ -265,7 +265,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
     } else {
       data = {.fd = res};
     }
-    data.fd = specific_data.accept_data.sockfd;
+    data.req_fd = specific_data.accept_data.sockfd;
     promise.publish_resp_data<RequestType::ACCEPT>(std::move(data));
     req_data->handle.resume();
     break;
@@ -275,7 +275,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
     if (res < 0) {
       data.error_num = errno;
     }
-    data.fd = specific_data.accept_data.sockfd;
+    data.req_fd = specific_data.accept_data.sockfd;
     promise.publish_resp_data<RequestType::CONNECT>(std::move(data));
     req_data->handle.resume();
     break;
@@ -285,7 +285,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
     if (res < 0) {
       data.error_num = errno;
     }
-    data.fd = res;
+    data.req_fd = res;
     promise.publish_resp_data<RequestType::OPENAT>(std::move(data));
     req_data->handle.resume();
     break;
@@ -296,7 +296,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
       data.error_num = errno;
     }
     data.pathname = specific_data.statx_data.pathname;
-    data.fd = -1; // fd is irrelevant for this operation
+    data.req_fd = -1; // fd is irrelevant for this operation
     promise.publish_resp_data<RequestType::STATX>(std::move(data));
     req_data->handle.resume();
     break;
@@ -307,7 +307,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
       data.error_num = errno;
     }
     data.pathname = specific_data.unlinkat_data.pathname;
-    data.fd = -1; // fd is irrelevant for this operation
+    data.req_fd = -1; // fd is irrelevant for this operation
     promise.publish_resp_data<RequestType::UNLINKAT>(std::move(data));
     req_data->handle.resume();
     break;
@@ -319,7 +319,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
     }
     data.oldpathname = specific_data.renameat_data.oldpathname;
     data.newpathname = specific_data.renameat_data.newpathname;
-    data.fd = -1; // fd is irrelevant for this operation
+    data.req_fd = -1; // fd is irrelevant for this operation
     promise.publish_resp_data<RequestType::RENAMEAT>(std::move(data));
     req_data->handle.resume();
     break;

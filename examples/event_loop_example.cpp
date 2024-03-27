@@ -78,7 +78,7 @@ EvTask coro(EventManager *ev) {
     }
     case RequestType::WRITE: {
       auto data = channel->consume_resp_data<RequestType::WRITE>();
-      std::cout << "[main] Wrote " << data->bytes_wrote << " bytes for fd " << data->fd << "\n";
+      std::cout << "[main] Wrote " << data->bytes_wrote << " bytes for fd " << data->req_fd << "\n";
       break;
     }
     case RequestType::CLOSE: {

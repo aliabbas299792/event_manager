@@ -12,7 +12,7 @@ EvTask example(EventManager *ev) {
   DIR *dir = opendir("../");
   int dfd = dirfd(dir);
   auto resp = co_await ev->openat(dfd, "test.txt", O_RDWR, 0);
-  auto fd = resp.data.fd;
+  auto fd = resp.data.req_fd;
 
   char buff[2048]{};
   co_await ev->read(fd, reinterpret_cast<uint8_t *>(buff), 2048);
