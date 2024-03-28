@@ -26,10 +26,8 @@ int main() {
   const int queue_depth = 10; // i.e how many items may be in the internal queue before it needs to be flushed, max is 4096
   EventManager ev{queue_depth};
 
-  // make the coroutine task
-  auto task = coro(&ev);
   // register it with the system, which will run it once it has started
-  ev.register_coro(&task);
+  ev.register_coro(coro, &ev);
   // start it
   ev.start();
 }
@@ -37,9 +35,9 @@ int main() {
 `event_loop/event_manager.hpp` is relatively self documenting, and have a look at the tests and examples for more.
 # Codebase
 ## EventManager class
-When registering a coroutine, you must ensure the coroutine object lives until the end of the execution of the coroutine, and it is your responsibility to ensure this is the case.
+When registering a coroutine, you can do one of 3 things: 1) construct the coroutine and std::move it to the event manager via register_coro, 2) use the other definition for register_coro, and just pass in the function and its arguments i.e `ev->register_coro(coroFn, arg1, arg2, arg3)` or 3) just construct it like this `ev->register_coro(coroFn(arg1, arg2, arg3))`
 
-i.e if you register a coroutine from an external connection, then you could spawn a coroutine but also pass a lambda which does the post processing (i.e removed the EvTask corresponding to it from whatever data structure you're using to manage incoming connections).
+The coroutine is completely managed by the event manager (it's also started by it, but it should be fine to move in an already started one as well), and once it finishes it is cleaned up in the future if necessary.
 
 ### Queue Submission
 You can make a queue with `EventManager::make_request_queue` and use those methods to effectively queue up a bunch of operations, and then you can submit them all at once, and set a callback for processing them using `EventManager::submit_and_wait`.
@@ -141,7 +139,7 @@ Add in a case for your operation in the `event_handler(...)` switch case, like t
 case RequestType::READV: {
   ReadvResponsePack data{};
   if (res < 0) {
-    data.error_num = errno;
+    data.error_num = -res; // -res since errno isn't used for io_uring
   } else {
     data = {.bytes_read = res, .buff = specific_data.read_data.buffer};
   }
