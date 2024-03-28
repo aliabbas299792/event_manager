@@ -1,4 +1,6 @@
+#include "coroutine/io_awaitables.hpp"
 #include "event_manager.hpp"
+#include <cstring>
 #include <dirent.h>
 #include <fcntl.h>
 
@@ -11,7 +13,16 @@ print the output, then delete the file
 EvTask example(EventManager *ev) {
   DIR *dir = opendir("../");
   int dfd = dirfd(dir);
-  auto resp = co_await ev->openat(dfd, "test.txt", O_RDWR, 0);
+  std::string file_name = "test.txt";
+  auto resp = co_await ev->openat(dfd, file_name.c_str(), O_RDWR, 0);
+
+    
+  if(resp.data.error_num != 0) {
+    std::cerr << "There was an error in opening the file " << file_name << " in the parent directory: " << strerror(resp.data.error_num) << "\n";
+    co_await ev->kill();
+    co_return -1;
+  }
+  
   auto fd = resp.data.req_fd;
 
   char buff[2048]{};
@@ -30,8 +41,8 @@ EvTask example(EventManager *ev) {
 
 int main() {
   EventManager ev(10);
-  auto coro = example(&ev);
-  ev.register_coro(&coro);
+  // register it with the system, which will run it once it has started
+  ev.register_coro(example, &ev);
   ev.start();
   std::cout << "We're at the end of the program\n";
 }

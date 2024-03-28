@@ -10,6 +10,8 @@
 
 struct RequestData {
   EvTask::Handle handle{};
+  uint64_t coro_idx{}; // index in the managed coroutines vector in the event manager
+  bool *coro_finished{}; // pointer to a field in a task_status object managed as a unique ptr
   RequestType req_type{};
 
   union {

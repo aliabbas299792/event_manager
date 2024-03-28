@@ -27,13 +27,6 @@ void EventManager::start() {
 
   manager_life_state_ = LivingState::LIVING;
   while (manager_life_state_ < DEAD) {
-    // start all queued up coroutines, then empty the vector
-    for (auto &coro : coroutines_to_start) {
-      coro->start();
-    }
-
-    coroutines_to_start.clear();
-
     await_message();
   }
 }
@@ -169,11 +162,6 @@ EvTask EventManager::kill_internal() {
 
 EvTask EventManager::kill() { co_return co_await kill_coro_task; }
 
-void EventManager::register_coro(EvTask *coro) {
-  if (should_restrict_usage())
-    return;
-  coroutines_to_start.push_back(coro);
-}
 
 void EventManager::event_handler(int res, RequestData *req_data) {
   // don't have anything to process for requests with no data
@@ -193,7 +181,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
   case RequestType::READ: {
     ReadResponsePack data{};
     if (res < 0) {
-      data.error_num = errno;
+      data.error_num = -res;
     } else {
       data = {.bytes_read = res, .buff = specific_data.read_data.buffer};
     }
@@ -205,7 +193,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
   case RequestType::WRITE: {
     WriteResponsePack data{};
     if (res < 0) {
-      data.error_num = errno;
+      data.error_num = -res;
     } else {
       data = {.bytes_wrote = res};
     }
@@ -217,7 +205,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
   case RequestType::CLOSE: {
     CloseResponsePack data{};
     if (res < 0) {
-      data.error_num = errno;
+      data.error_num = -res;
     }
     data.req_fd = specific_data.close_data.fd;
     promise.publish_resp_data<RequestType::CLOSE>(std::move(data));
@@ -227,7 +215,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
   case RequestType::SHUTDOWN: {
     ShutdownResponsePack data{};
     if (res < 0) {
-      data.error_num = errno;
+      data.error_num = -res;
     }
     data.req_fd = specific_data.shutdown_data.fd;
     promise.publish_resp_data<RequestType::SHUTDOWN>(std::move(data));
@@ -237,7 +225,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
   case RequestType::READV: {
     ReadvResponsePack data{};
     if (res < 0) {
-      data.error_num = errno;
+      data.error_num = -res;
     } else {
       data = {.bytes_read = res, .buff = specific_data.read_data.buffer};
     }
@@ -249,7 +237,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
   case RequestType::WRITEV: {
     WritevResponsePack data{};
     if (res < 0) {
-      data.error_num = errno;
+      data.error_num = -res;
     } else {
       data = {.bytes_wrote = res};
     }
@@ -261,7 +249,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
   case RequestType::ACCEPT: {
     AcceptResponsePack data{};
     if (res < 0) {
-      data.error_num = errno;
+      data.error_num = -res;
     } else {
       data = {.fd = res};
     }
@@ -273,7 +261,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
   case RequestType::CONNECT: {
     ConnectResponsePack data{};
     if (res < 0) {
-      data.error_num = errno;
+      data.error_num = -res;
     }
     data.req_fd = specific_data.accept_data.sockfd;
     promise.publish_resp_data<RequestType::CONNECT>(std::move(data));
@@ -283,7 +271,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
   case RequestType::OPENAT: {
     OpenatResponsePack data{};
     if (res < 0) {
-      data.error_num = errno;
+      data.error_num = -res;
     }
     data.req_fd = res;
     promise.publish_resp_data<RequestType::OPENAT>(std::move(data));
@@ -293,7 +281,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
   case RequestType::STATX: {
     StatxResponsePack data{};
     if (res < 0) {
-      data.error_num = errno;
+      data.error_num = -res;
     }
     data.pathname = specific_data.statx_data.pathname;
     data.req_fd = -1; // fd is irrelevant for this operation
@@ -304,7 +292,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
   case RequestType::UNLINKAT: {
     UnlinkatResponsePack data{};
     if (res < 0) {
-      data.error_num = errno;
+      data.error_num = -res;
     }
     data.pathname = specific_data.unlinkat_data.pathname;
     data.req_fd = -1; // fd is irrelevant for this operation
@@ -315,7 +303,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
   case RequestType::RENAMEAT: {
     RenameatResponsePack data{};
     if (res < 0) {
-      data.error_num = errno;
+      data.error_num = -res;
     }
     data.oldpathname = specific_data.renameat_data.oldpathname;
     data.newpathname = specific_data.renameat_data.newpathname;
@@ -324,6 +312,14 @@ void EventManager::event_handler(int res, RequestData *req_data) {
     req_data->handle.resume();
     break;
   }
+  }
+
+  // since the tasks final_suspend returns std::suspend_never
+  // then req_data->handle.done() is undefined (as handle.done() is only
+  // valid for suspended coroutines), so we use our own flags
+  if(!req_data->handle || promise.is_done()) {
+    // free the index if the coroutine has finished
+    managed_coroutines_freed_idxs.insert(req_data->coro_idx);
   }
 }
 

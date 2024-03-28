@@ -1,15 +1,13 @@
 #ifndef EV_TASK_
 #define EV_TASK_
 
-#include "event_loop/parameter_packs.hpp"
-
 #include "communication/communication_channel.hpp"
 #include "communication/communication_types.hpp"
 
 #include <coroutine>
 #include <iostream>
 #include <memory>
-#include <vector>
+#include <optional>
 
 struct task_status {
   bool handler_done{};
@@ -33,6 +31,8 @@ public:
       CommunicationChannel com_data{};
       std::coroutine_handle<> awaiter_handle{};
       task_status *task_status_ptr{};
+
+      uint64_t metadata{}; // custom user provided metadata
     } state;
 
     EvTask get_return_object() { return EvTask{Handle::from_promise(*this)}; }
@@ -61,6 +61,13 @@ public:
     void publish_resp_data(RespType &&data) {
       state.com_data.publish_resp_data<Rt>(std::forward<RespType>(data));
     }
+
+    bool is_done() {
+      if (state.task_status_ptr) {
+        return state.task_status_ptr->handler_done;
+      }
+      return false;
+    }
   };
 
   EvTask(Handle h) : handle(h) {
@@ -68,6 +75,56 @@ public:
 
     auto &state = h.promise().state;
     state.task_status_ptr = task_status_ptr.get();
+  }
+
+  EvTask(EvTask &&other)
+      : started_coro(other.started_coro), task_status_ptr(std::move(other.task_status_ptr)),
+        handle(std::move(other.handle)) {
+    other.task_status_ptr = {};
+    other.handle = {};
+    other.started_coro = false;
+
+    handle.promise().state.task_status_ptr = task_status_ptr.get();
+  }
+
+  EvTask &operator=(EvTask &&other) {
+    if (this == &other) {
+      return *this;
+    }
+
+    // handle.done() is undefined if the coroutine is not suspended, and since we don't suspend at
+    // final_suspend, so we use our own flag
+    if (handle && !task_status_ptr->handler_done) {
+      handle.destroy();
+    }
+
+    handle = std::move(other.handle);
+    task_status_ptr = std::move(other.task_status_ptr);
+    started_coro = other.started_coro;
+
+    handle.promise().state.task_status_ptr = task_status_ptr.get();
+
+    other.task_status_ptr = nullptr;
+    other.handle = {};
+    other.started_coro = false;
+
+    return *this;
+  }
+
+  int set_coro_metadata(uint64_t metadata) {
+    if (!handle) {
+      return -1; // unable to set it as the handle is invalid
+    }
+
+    handle.promise().state.metadata = metadata;
+    return 0;
+  }
+
+  std::optional<uint64_t> get_coro_metadata() {
+    if (!handle) {
+      return std::nullopt;
+    }
+    return std::make_optional(handle.promise().state.metadata);
   }
 
   CommunicationChannel *start() {

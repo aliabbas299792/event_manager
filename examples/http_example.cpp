@@ -1,5 +1,5 @@
+#include "coroutine/io_awaitables.hpp"
 #include "event_loop/event_manager.hpp"
-#include "event_manager.hpp"
 #include <cstring>
 #include <fcntl.h>
 #include <netdb.h>
@@ -89,8 +89,15 @@ EvTask send_hello_world(EventManager *ev, int user_fd) {
   std::string content = "Hello World!\r\n";
   std::string data = headers_p1 + std::to_string(content.length()) + headers_p2 + content;
   std::cout << data.data() << "\nwas the buffer\n";
-  co_return (co_await ev->write(user_fd, reinterpret_cast<uint8_t *>(data.data()), data.length()))
-      .data.bytes_wrote;
+
+  auto write_resp = co_await ev->write(user_fd, reinterpret_cast<uint8_t *>(data.data()), data.length());
+
+  if(write_resp.error_num != 0 || write_resp.event_system_error != EventSystemError::NO_ERROR || write_resp.data.error_num != 0) {
+    std::cerr << "There was an error in handling the request for fd " << user_fd << "\n";
+    co_return -1;
+  }
+
+  co_return (co_await ev->close(user_fd)).data.error_num;
 }
 
 EvTask coro(EventManager *ev) {
@@ -99,10 +106,9 @@ EvTask coro(EventManager *ev) {
   while (true) {
     sockaddr addr{};
     socklen_t addrlen = sizeof(addr);
-
     int fd = (co_await ev->accept(listener_fd, &addr, &addrlen)).data.fd;
-    std::cout << "Wrote: " << co_await send_hello_world(ev, fd) << "\n";
-    std::cout << "Close code: " << (co_await ev->close(fd)).data.error_num << "\n";
+    
+    ev->register_coro(send_hello_world, ev, fd);
   }
 
   co_await ev->close(listener_fd);
@@ -119,10 +125,8 @@ int main() {
   std::cout << "starting program\n";
   EventManager ev{queue_depth};
 
-  // make the coroutine task
-  auto task = coro(&ev);
   // register it with the system, which will run it once it has started
-  ev.register_coro(&task);
+  ev.register_coro(coro(&ev));
   // start it
   ev.start();
 }

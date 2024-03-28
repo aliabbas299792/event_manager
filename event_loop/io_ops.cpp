@@ -256,7 +256,6 @@ EvTask EventManager::submit_and_wait(const RequestQueue &request_queue, SubmitAn
     }
 
     io_uring_sqe_set_data(sqe, &req_data[i]);
-    std::cout << req_data[i].specific_data.write_data.fd << "\n";
   }
 
   // how many are currently being processed

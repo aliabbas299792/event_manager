@@ -52,6 +52,10 @@ template <RequestType Rt, typename DerivedAwaitable> struct IOAwaitable {
     channel = &handle.promise().state.com_data;
     req_data.handle = handle; // just got the handle, so set it
 
+    // we're using the metadata to store the vector index
+    req_data.coro_idx = handle.promise().state.metadata;
+    req_data.coro_finished = &handle.promise().state.task_status_ptr->handler_done;
+
     static_cast<DerivedAwaitable *>(this)->prepare_sqring_op(handle, sqe);
     io_uring_sqe_set_data(sqe, &req_data);
 

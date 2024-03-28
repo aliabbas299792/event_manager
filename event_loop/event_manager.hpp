@@ -1,7 +1,6 @@
 #ifndef EVENT_MANAGER_
 #define EVENT_MANAGER_
 
-#include <coroutine>
 #include <cstddef>
 #include <functional>
 #include <liburing.h>
@@ -9,12 +8,11 @@
 #include <mutex>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <variant>
+#include <set>
 #include <vector>
 
 #include "communication/communication_channel.hpp"
 #include "communication/communication_types.hpp"
-#include "communication/response_packs.hpp"
 #include "coroutine/task.hpp"
 #include "event_loop/request_data.hpp"
 #include "parameter_packs.hpp"
@@ -53,7 +51,8 @@ class EventManager {
 
   io_uring ring{};
 
-  std::vector<EvTask *> coroutines_to_start{};
+  std::vector<EvTask> managed_coroutines{};
+  std::set<int> managed_coroutines_freed_idxs{};
 
   void await_message();
   void event_handler(int res, RequestData *req_data);
@@ -66,11 +65,30 @@ class EventManager {
 public:
   EvTask kill();
 
-  // registering the coroutine puts it in a vector, the vector is looped through
-  // in the event loop and emptied, and each coroutine has start() called on
-  // it, so it relies on the coroutines not starting immediately (i.e
-  // std::suspend_always initial_suspend())
-  void register_coro(EvTask *coro);
+  // register a coroutine by passing in the coroutine function and its parameters
+  template<typename CoroFn, typename ...Args>
+  void register_coro(CoroFn fn, Args&& ...args) {
+    auto coro = fn(std::forward<Args>(args)...);
+    this->register_coro(std::move(coro));
+  }
+
+  // register a coroutine by moving in a previously constructed coroutine
+  void register_coro(EvTask &&coro) {
+    coro.start(); // start it in case it hasn't been started yet
+
+    uint64_t selected_idx = 0;
+    if(managed_coroutines_freed_idxs.size() != 0) {
+      selected_idx = *managed_coroutines_freed_idxs.begin();
+      managed_coroutines_freed_idxs.erase(selected_idx);
+      managed_coroutines[selected_idx] = std::move(coro);
+    } else {
+      managed_coroutines.push_back(std::move(coro));
+      selected_idx = managed_coroutines.size() - 1;
+    }
+
+    // we are storing the index in the vector as metadata
+    managed_coroutines[selected_idx].set_coro_metadata(selected_idx);
+  }
 
   EventManager(size_t queue_depth);
 

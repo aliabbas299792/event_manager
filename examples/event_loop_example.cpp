@@ -46,7 +46,7 @@ int num_currently_being_processed{};
 
 EvTask coro(EventManager *ev) {
   std::cout << "at start\n";
-  std::cout << co_await coro1() << "\n";
+  std::cout << co_await coro1() << " (coro1 response)\n";
   std::cout << "just after that\n";
   auto filepath = "./test.txt";
 
@@ -57,13 +57,13 @@ EvTask coro(EventManager *ev) {
 
   co_await ev->read(fd, reinterpret_cast<uint8_t *>(buff), 2048);
   OUTPUT << "(*) Read this data:\n" << indent_with_str(buff, "> ") << "\n";
-  std::cout << co_await coro2() << "\n";
+  std::cout << co_await coro2() << " (coro2 response)\n";
 
-  int fd1 = open("example1.txt", O_RDWR | O_CREAT);
-  int fd2 = open("example2.txt", O_RDWR | O_CREAT);
-  int fd3 = open("example3.txt", O_RDWR | O_CREAT);
-  int fd4 = open("example4.txt", O_RDWR | O_CREAT);
-  int fd5 = open("example5.txt", O_RDWR | O_CREAT);
+  int fd1 = open("example1.txt", O_RDWR | O_CREAT, 0666);
+  int fd2 = open("example2.txt", O_RDWR | O_CREAT, 0666);
+  int fd3 = open("example3.txt", O_RDWR | O_CREAT, 0666);
+  int fd4 = open("example4.txt", O_RDWR | O_CREAT, 0666);
+  int fd5 = open("example5.txt", O_RDWR | O_CREAT, 0666);
   auto queue = ev->make_request_queue();
   queue.queue_write(fd1, get_write_data(lorem_ipsum), lorem_ipsum.length());
   queue.queue_write(fd2, get_write_data(lorem_ipsum), lorem_ipsum.length());
@@ -116,7 +116,7 @@ EvTask coro(EventManager *ev) {
 
   std::cout << "after submit and wait\n";
 
-  std::cout << co_await coro3() << "\n";
+  std::cout << co_await coro3() << " (coro3 response)\n";
   std::memset(buff, 0, 2048);
   co_await ev->read(fd, reinterpret_cast<uint8_t *>(buff), 2048);
   OUTPUT << "(*) Read this data:\n" << indent_with_str(buff, "> ") << "\n\n";
@@ -125,6 +125,7 @@ EvTask coro(EventManager *ev) {
     std::cout << "We killed the event manager\n";
     co_await ev->kill();
   }
+  std::cout << num_currently_being_processed << " is num being processed\n";
 
   std::cout << "we're at the end\n";
   co_return 0;
@@ -140,18 +141,15 @@ EvTask do_thing(EventManager *ev) {
 
 int main() {
   EventManager ev(10);
-  auto coroTask1 = coro(&ev);
-  auto coroTask2 = coro(&ev);
-  auto coroTask3 = coro(&ev);
-  auto coroTask4 = coro(&ev);
-  auto coroTask5 = do_thing(&ev);
-  num_currently_being_processed = 6;
+  num_currently_being_processed = 5; // we intend to set off 5 coroutines
 
-  ev.register_coro(&coroTask1);
-  ev.register_coro(&coroTask2);
-  ev.register_coro(&coroTask3);
-  ev.register_coro(&coroTask4);
-  ev.register_coro(&coroTask5);
+  ev.register_coro(coro, &ev);
+  ev.register_coro(coro, &ev);
+  ev.register_coro(coro(&ev));
+  ev.register_coro(coro(&ev));
+
+  auto coroTask = coro(&ev);
+  ev.register_coro(std::move(coroTask));
   ev.start();
 
   std::cout << "We're at the end of the program\n";
