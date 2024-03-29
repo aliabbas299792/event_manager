@@ -259,7 +259,7 @@ EvTask EventManager::submit_and_wait(const RequestQueue &request_queue, SubmitAn
   }
 
   // how many are currently being processed
-  auto num_submitted = ret;
+  size_t num_submitted = ret;
 
   // how many are still queued for submission
   auto num_queued = ring.sq.sqe_tail - ring.sq.sqe_head;
@@ -275,7 +275,7 @@ EvTask EventManager::submit_and_wait(const RequestQueue &request_queue, SubmitAn
       num_queued -= ret;
     }
 
-    for (int i = 0; i < num_submitted; i++) {
+    for (size_t i = 0; i < num_submitted; i++) {
       auto channel = co_await GenericResponse{};
       auto response_type = channel->response_store_current_type();
       handler(response_type, channel);

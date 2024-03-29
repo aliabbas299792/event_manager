@@ -42,15 +42,15 @@ EvTask coro2() { co_return co_await coro3(); }
 
 EvTask coro1() { co_return co_await coro2(); }
 
-int num_currently_being_processed{};
+size_t num_currently_being_processed{};
 
 EvTask coro(EventManager *ev) {
   std::cout << "at start\n";
   std::cout << co_await coro1() << " (coro1 response)\n";
   std::cout << "just after that\n";
-  auto filepath = "./test.txt";
+  auto file_name = "./test.txt";
 
-  int fd = open(filepath, O_RDWR | O_CREAT);
+  int fd = open(file_name, O_RDWR | O_CREAT, 0666);
 
   char buff[2048]{};
   co_await ev->write(fd, get_write_data(lorem_ipsum), lorem_ipsum.length());

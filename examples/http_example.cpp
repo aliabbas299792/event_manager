@@ -1,4 +1,5 @@
 #include "coroutine/io_awaitables.hpp"
+#include "errors.hpp"
 #include "event_loop/event_manager.hpp"
 #include <cstring>
 #include <fcntl.h>
@@ -8,16 +9,16 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
-constexpr const int BACKLOG = 10;
+constexpr const size_t BACKLOG = 10;
 
 void fatal_error(std::string error_message) {
   perror(std::string("Fatal Error: " + error_message).c_str());
   exit(1);
 }
 
-int setup_listener(int port) {
+int setup_listener(uint16_t port) {
   int listener_fd;
-  int yes = 1;
+  uint8_t yes = 1;
   addrinfo hints, *server_info, *traverser;
 
   std::memset(&hints, 0, sizeof(hints));
@@ -44,18 +45,18 @@ int setup_listener(int port) {
     if (setsockopt(listener_fd, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(yes)) == -1)
       fatal_error("setsockopt SO_KEEPALIVE");
 
-    int keep_idle = 1000; // The time (in seconds) the connection needs to remain idle before TCP starts
+    size_t keep_idle = 1000; // The time (in seconds) the connection needs to remain idle before TCP starts
                           // sending keepalive probes, if the socket option SO_KEEPALIVE has been set on this
                           // socket.  This option should not be used in code intended to be portable.
     if (setsockopt(listener_fd, IPPROTO_TCP, TCP_KEEPIDLE, &keep_idle, sizeof(keep_idle)) == -1)
       fatal_error("setsockopt TCP_KEEPIDLE");
 
-    int keep_interval = 1000; // The time (in seconds) between individual keepalive probes. This option should
+    size_t keep_interval = 1000; // The time (in seconds) between individual keepalive probes. This option should
                               // not be used in code intended to be portable.
     if (setsockopt(listener_fd, IPPROTO_TCP, TCP_KEEPINTVL, &keep_interval, sizeof(keep_interval)) == -1)
       fatal_error("setsockopt TCP_KEEPINTVL");
 
-    int keep_count = 10; // The maximum number of keepalive probes TCP should send before dropping the
+    size_t keep_count = 10; // The maximum number of keepalive probes TCP should send before dropping the
                          // connection.  This option should not be used in code intended to be portable.
     if (setsockopt(listener_fd, IPPROTO_TCP, TCP_KEEPCNT, &keep_count, sizeof(keep_count)) == -1)
       fatal_error("setsockopt TCP_KEEPCNT");
@@ -120,7 +121,7 @@ void signal_callback_handler(int signum) { printf("Caught signal SIGPIPE %d\n", 
 
 int main() {
   signal(SIGPIPE, signal_callback_handler);
-  const int queue_depth =
+  const size_t queue_depth =
       10; // i.e how many items may be in the internal queue before it needs to be flushed, max is 4096
   std::cout << "starting program\n";
   EventManager ev{queue_depth};

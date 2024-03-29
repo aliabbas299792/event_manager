@@ -47,12 +47,12 @@ class EventManager {
 
   static std::mutex init_mutex;
   static int shared_ring_fd;
-  static int ring_instances;
+  static size_t ring_instances;
 
   io_uring ring{};
 
   std::vector<EvTask> managed_coroutines{};
-  std::set<int> managed_coroutines_freed_idxs{};
+  std::set<size_t> managed_coroutines_freed_idxs{};
 
   void await_message();
   void event_handler(int res, RequestData *req_data);

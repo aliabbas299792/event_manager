@@ -1,6 +1,7 @@
 #ifndef RESPONSE_PACK_
 #define RESPONSE_PACK_
 
+#include <cstddef>
 #include <cstdint>
 
 struct GenericResponsePack {
@@ -9,12 +10,12 @@ struct GenericResponsePack {
 };
 
 struct ReadResponsePack : GenericResponsePack {
-  int bytes_read{};
+  size_t bytes_read{};
   uint8_t *buff{};
 };
 
 struct WriteResponsePack : GenericResponsePack {
-  int bytes_wrote{};
+  size_t bytes_wrote{};
 };
 
 struct CloseResponsePack : GenericResponsePack {};
@@ -22,12 +23,12 @@ struct CloseResponsePack : GenericResponsePack {};
 struct ShutdownResponsePack : GenericResponsePack {};
 
 struct ReadvResponsePack : GenericResponsePack {
-  int bytes_read{};
+  size_t bytes_read{};
   uint8_t *buff{};
 };
 
 struct WritevResponsePack : GenericResponsePack {
-  int bytes_wrote{};
+  size_t bytes_wrote{};
 };
 
 struct AcceptResponsePack : GenericResponsePack {

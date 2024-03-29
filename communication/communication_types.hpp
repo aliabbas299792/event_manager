@@ -2,7 +2,6 @@
 #define RESPONSE_TYPE_
 
 #include <cstddef>
-#include <cstdint>
 #include <variant>
 
 #include "response_packs.hpp"
@@ -23,33 +22,33 @@ enum class RequestType : std::size_t {
 };
 
 // default unspecialised
-template <RequestType T> struct ResponseDataTypes { using Type = std::nullptr_t; };
+template <RequestType T> struct ResponseDataTypes { using type = std::nullptr_t; };
 
-template <> struct ResponseDataTypes<RequestType::READ> { using Type = ReadResponsePack; };
+template <> struct ResponseDataTypes<RequestType::READ> { using type = ReadResponsePack; };
 
-template <> struct ResponseDataTypes<RequestType::WRITE> { using Type = WriteResponsePack; };
+template <> struct ResponseDataTypes<RequestType::WRITE> { using type = WriteResponsePack; };
 
-template <> struct ResponseDataTypes<RequestType::CLOSE> { using Type = CloseResponsePack; };
+template <> struct ResponseDataTypes<RequestType::CLOSE> { using type = CloseResponsePack; };
 
-template <> struct ResponseDataTypes<RequestType::SHUTDOWN> { using Type = ShutdownResponsePack; };
+template <> struct ResponseDataTypes<RequestType::SHUTDOWN> { using type = ShutdownResponsePack; };
 
-template <> struct ResponseDataTypes<RequestType::READV> { using Type = ReadvResponsePack; };
+template <> struct ResponseDataTypes<RequestType::READV> { using type = ReadvResponsePack; };
 
-template <> struct ResponseDataTypes<RequestType::WRITEV> { using Type = WritevResponsePack; };
+template <> struct ResponseDataTypes<RequestType::WRITEV> { using type = WritevResponsePack; };
 
-template <> struct ResponseDataTypes<RequestType::ACCEPT> { using Type = AcceptResponsePack; };
+template <> struct ResponseDataTypes<RequestType::ACCEPT> { using type = AcceptResponsePack; };
 
-template <> struct ResponseDataTypes<RequestType::CONNECT> { using Type = ConnectResponsePack; };
+template <> struct ResponseDataTypes<RequestType::CONNECT> { using type = ConnectResponsePack; };
 
-template <> struct ResponseDataTypes<RequestType::OPENAT> { using Type = OpenatResponsePack; };
+template <> struct ResponseDataTypes<RequestType::OPENAT> { using type = OpenatResponsePack; };
 
-template <> struct ResponseDataTypes<RequestType::STATX> { using Type = StatxResponsePack; };
+template <> struct ResponseDataTypes<RequestType::STATX> { using type = StatxResponsePack; };
 
-template <> struct ResponseDataTypes<RequestType::UNLINKAT> { using Type = UnlinkatResponsePack; };
+template <> struct ResponseDataTypes<RequestType::UNLINKAT> { using type = UnlinkatResponsePack; };
 
-template <> struct ResponseDataTypes<RequestType::RENAMEAT> { using Type = RenameatResponsePack; };
+template <> struct ResponseDataTypes<RequestType::RENAMEAT> { using type = RenameatResponsePack; };
 
-template <RequestType Rt> using RespDataTypeMap = typename ResponseDataTypes<Rt>::Type;
+template <RequestType Rt> using RespDataTypeMap = typename ResponseDataTypes<Rt>::type;
 
 using ResponseVariant =
     std::variant<RespDataTypeMap<RequestType::READ>, RespDataTypeMap<RequestType::WRITE>,

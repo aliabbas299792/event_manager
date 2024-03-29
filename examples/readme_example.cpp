@@ -14,7 +14,7 @@ EvTask coro(EventManager *ev) {
     co_return -1;
   }
 
-  constexpr int size = 2048;
+  constexpr size_t size = 2048;
   char buff[size]{};
 
   // read some data and print it
@@ -28,7 +28,7 @@ EvTask coro(EventManager *ev) {
 }
 
 int main() {
-  const int queue_depth = 10; // i.e how many items may be in the internal queue before it needs to be flushed, max is 4096
+  const size_t queue_depth = 10; // i.e how many items may be in the internal queue before it needs to be flushed, max is 4096
   EventManager ev{queue_depth};
 
   // register it with the system, which will run it once it has started

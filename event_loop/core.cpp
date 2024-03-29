@@ -9,12 +9,12 @@
 #include <liburing.h>
 
 int EventManager::shared_ring_fd = -1;
-int EventManager::ring_instances{};
+size_t EventManager::ring_instances{};
 std::mutex EventManager::init_mutex{};
 
 // for stuff like submissions, repeat up to MAX_ITER times,
 // and then fail with a message
-constexpr const int MAX_ITER = 1000;
+constexpr const size_t MAX_ITER = 1000;
 
 void EventManager::start() {
   if (manager_life_state_ >= LivingState::LIVING) {
@@ -106,7 +106,7 @@ EvTask EventManager::kill_internal() {
   manager_life_state_ = LivingState::DYING;
 
   // flush the submission queue
-  int iter = 0;
+  size_t iter = 0;
   while (ring.sq.sqe_tail - ring.sq.sqe_head != 0 && iter++ < MAX_ITER) {
     submit_queued_entries();
   }
@@ -183,7 +183,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
     if (res < 0) {
       data.error_num = -res;
     } else {
-      data = {.bytes_read = res, .buff = specific_data.read_data.buffer};
+      data = {.bytes_read = static_cast<size_t>(res), .buff = specific_data.read_data.buffer};
     }
     data.req_fd = specific_data.read_data.fd;
     promise.publish_resp_data<RequestType::READ>(std::move(data));
@@ -195,7 +195,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
     if (res < 0) {
       data.error_num = -res;
     } else {
-      data = {.bytes_wrote = res};
+      data = {.bytes_wrote = static_cast<size_t>(res)};
     }
     data.req_fd = specific_data.write_data.fd;
     promise.publish_resp_data<RequestType::WRITE>(std::move(data));
@@ -227,7 +227,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
     if (res < 0) {
       data.error_num = -res;
     } else {
-      data = {.bytes_read = res, .buff = specific_data.read_data.buffer};
+      data = {.bytes_read = static_cast<size_t>(res), .buff = specific_data.read_data.buffer};
     }
     data.req_fd = specific_data.readv_data.fd;
     promise.publish_resp_data<RequestType::READV>(std::move(data));
@@ -239,7 +239,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
     if (res < 0) {
       data.error_num = -res;
     } else {
-      data = {.bytes_wrote = res};
+      data = {.bytes_wrote = static_cast<size_t>(res)};
     }
     data.req_fd = specific_data.writev_data.fd;
     promise.publish_resp_data<RequestType::WRITEV>(std::move(data));
