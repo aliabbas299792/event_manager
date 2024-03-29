@@ -262,7 +262,7 @@ EvTask EventManager::submit_and_wait(const RequestQueue &request_queue, SubmitAn
   size_t num_submitted = ret;
 
   // how many are still queued for submission
-  auto num_queued = ring.sq.sqe_tail - ring.sq.sqe_head;
+  auto num_queued = _ring.sq.sqe_tail - _ring.sq.sqe_head;
 
   while (num_submitted != 0 || num_queued != 0) {
     while (num_queued != 0 && num_submitted == 0) {

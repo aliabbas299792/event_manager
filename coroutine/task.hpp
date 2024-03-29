@@ -9,7 +9,7 @@
 #include <memory>
 #include <optional>
 
-struct task_status {
+struct TaskStatus {
   bool handler_done{};
   int ret_code{};
 };
@@ -20,9 +20,9 @@ public:
   using Handle = std::coroutine_handle<promise_type>;
 
 private:
-  bool started_coro{};
-  std::unique_ptr<task_status> task_status_ptr{};
-  Handle handle{};
+  bool _started_coro{};
+  std::unique_ptr<TaskStatus> _task_status_ptr{};
+  Handle _handle{};
 
 public:
   struct promise_type {
@@ -30,7 +30,7 @@ public:
       std::exception_ptr exception_ptr{};
       CommunicationChannel com_data{};
       std::coroutine_handle<> awaiter_handle{};
-      task_status *task_status_ptr{};
+      TaskStatus *task_status_ptr{};
 
       uint64_t metadata{}; // custom user provided metadata
     } state;
@@ -70,21 +70,21 @@ public:
     }
   };
 
-  EvTask(Handle h) : handle(h) {
-    task_status_ptr = std::make_unique<task_status>();
+  EvTask(Handle h) : _handle(h) {
+    _task_status_ptr = std::make_unique<TaskStatus>();
 
     auto &state = h.promise().state;
-    state.task_status_ptr = task_status_ptr.get();
+    state.task_status_ptr = _task_status_ptr.get();
   }
 
   EvTask(EvTask &&other)
-      : started_coro(other.started_coro), task_status_ptr(std::move(other.task_status_ptr)),
-        handle(std::move(other.handle)) {
-    other.task_status_ptr = {};
-    other.handle = {};
-    other.started_coro = false;
+      : _started_coro(other._started_coro), _task_status_ptr(std::move(other._task_status_ptr)),
+        _handle(std::move(other._handle)) {
+    other._task_status_ptr = {};
+    other._handle = {};
+    other._started_coro = false;
 
-    handle.promise().state.task_status_ptr = task_status_ptr.get();
+    _handle.promise().state.task_status_ptr = _task_status_ptr.get();
   }
 
   EvTask &operator=(EvTask &&other) {
@@ -94,53 +94,53 @@ public:
 
     // handle.done() is undefined if the coroutine is not suspended, and since we don't suspend at
     // final_suspend, so we use our own flag
-    if (handle && !task_status_ptr->handler_done) {
-      handle.destroy();
+    if (_handle && !_task_status_ptr->handler_done) {
+      _handle.destroy();
     }
 
-    handle = std::move(other.handle);
-    task_status_ptr = std::move(other.task_status_ptr);
-    started_coro = other.started_coro;
+    _handle = std::move(other._handle);
+    _task_status_ptr = std::move(other._task_status_ptr);
+    _started_coro = other._started_coro;
 
-    handle.promise().state.task_status_ptr = task_status_ptr.get();
+    _handle.promise().state.task_status_ptr = _task_status_ptr.get();
 
-    other.task_status_ptr = nullptr;
-    other.handle = {};
-    other.started_coro = false;
+    other._task_status_ptr = nullptr;
+    other._handle = {};
+    other._started_coro = false;
 
     return *this;
   }
 
   int set_coro_metadata(uint64_t metadata) {
-    if (!handle) {
+    if (!_handle) {
       return -1; // unable to set it as the handle is invalid
     }
 
-    handle.promise().state.metadata = metadata;
+    _handle.promise().state.metadata = metadata;
     return 0;
   }
 
   std::optional<uint64_t> get_coro_metadata() {
-    if (!handle) {
+    if (!_handle) {
       return std::nullopt;
     }
-    return std::make_optional(handle.promise().state.metadata);
+    return std::make_optional(_handle.promise().state.metadata);
   }
 
   CommunicationChannel *start() {
-    if (started_coro) {
+    if (_started_coro) {
       std::cerr << "The coroutine was already started, this may be discarding "
                    "some data passed via await\n";
       return nullptr;
     }
 
-    started_coro = true;
+    _started_coro = true;
 
-    auto &state = handle.promise().state;
+    auto &state = _handle.promise().state;
     auto &com_channel = state.com_data;
-    handle.resume();
+    _handle.resume();
 
-    if (task_status_ptr && task_status_ptr->handler_done) {
+    if (_task_status_ptr && _task_status_ptr->handler_done) {
       std::cerr << "Cannot communicate with the coroutine as it has finished "
                    "already\n";
       return nullptr;
@@ -153,25 +153,25 @@ public:
     return &com_channel;
   }
 
-  void resume() { handle.resume(); }
+  void resume() { _handle.resume(); }
 
   template <RequestType RespT, typename ParamType = RespDataTypeMap<RespT>>
   CommunicationChannel *resume(ParamType resp_data) {
-    if (!started_coro) {
+    if (!_started_coro) {
       std::cerr << "We may be passing data to the coroutine which it won't "
                    "read since it hasn't started yet\n";
-      started_coro = true;
+      _started_coro = true;
     }
 
     // Called outside the coroutine with the response data you'd like to send to
     // pass to the coroutine (if any)
     // After the coroutine pauses again (at point X) then we may have a request
     // from it
-    auto &state = handle.promise().state;
+    auto &state = _handle.promise().state;
     auto &com_channel = state.com_data;
 
     com_channel.publish_resp_data<RespT>(resp_data);
-    handle.resume();
+    _handle.resume();
     // point X
 
     if (state.exception_ptr) {
@@ -181,7 +181,7 @@ public:
     return &com_channel;
   }
 
-  bool is_done() { return task_status_ptr->handler_done; }
+  bool is_done() { return _task_status_ptr->handler_done; }
 
   explicit operator bool() { return is_done(); }
 
@@ -190,30 +190,30 @@ public:
 
   void await_suspend(Handle other_handle) {
     // if the coroutine hasn't started upon co_awaiting, do that first
-    if (!started_coro) {
+    if (!_started_coro) {
       start();
     }
 
     // in the off chance we're awaiting on a complete coroutine
-    if (task_status_ptr && task_status_ptr->handler_done) {
+    if (_task_status_ptr && _task_status_ptr->handler_done) {
       other_handle.resume();
       return;
     }
 
-    auto &state = this->handle.promise().state;
+    auto &state = this->_handle.promise().state;
     auto &awaiter_handle = state.awaiter_handle;
     awaiter_handle = other_handle;
   }
   int await_resume() {
-    if (task_status_ptr) {
-      return task_status_ptr->ret_code;
+    if (_task_status_ptr) {
+      return _task_status_ptr->ret_code;
     }
     return -1;
   }
 
   ~EvTask() {
-    if (task_status_ptr && !task_status_ptr->handler_done) {
-      handle.promise().state.task_status_ptr = nullptr;
+    if (_task_status_ptr && !_task_status_ptr->handler_done) {
+      _handle.promise().state.task_status_ptr = nullptr;
     }
   }
 };

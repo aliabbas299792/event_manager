@@ -32,13 +32,13 @@ template <RequestType Rt, typename DerivedAwaitable> struct IOAwaitable {
   RequestData req_data{};
 
   ErrorCodes error{};
-  EventManager *const ev;
-  io_uring_sqe *const sqe;
+  EventManager *const EV;
+  io_uring_sqe *const SQE;
 
   bool await_ready() const noexcept {
     // if the initial return code is non zero then we have run into an error
     // and cannot proceed
-    return isThereAnError(error);
+    return is_there_an_error(error);
   }
 
   void await_suspend(EvTask::Handle handle) {
@@ -49,13 +49,13 @@ template <RequestType Rt, typename DerivedAwaitable> struct IOAwaitable {
     req_data.coro_idx = handle.promise().state.metadata;
     req_data.coro_finished = &handle.promise().state.task_status_ptr->handler_done;
 
-    static_cast<DerivedAwaitable *>(this)->prepare_sqring_op(handle, sqe);
-    io_uring_sqe_set_data(sqe, &req_data);
+    static_cast<DerivedAwaitable *>(this)->prepare_sqring_op(handle, SQE);
+    io_uring_sqe_set_data(SQE, &req_data);
 
-    auto ret = ev->submit_queued_entries();
+    auto ret = EV->submit_queued_entries();
     if (ret < 1) { // since submit returns the number of entries submitted
       std::cerr << "io_uring_submit failed\n";
-      error = setErrorFromNum<ErrorType::LIBURING_SUBMISSION_ERR_ERRNO>(error, -ret);
+      error = set_error_from_num<ErrorType::LIBURING_SUBMISSION_ERR_ERRNO>(error, -ret);
       handle.resume();
     }
   }
@@ -63,29 +63,29 @@ template <RequestType Rt, typename DerivedAwaitable> struct IOAwaitable {
   IOResponse<RespDataTypeMap<Rt>> await_resume() {
     ErrorCodes error = this->error;
 
-    if (isThereAnError(error)) {
+    if (is_there_an_error(error)) {
       return {.error = error};
     }
 
     auto val = channel->consume_resp_data<Rt>();
     if (!val.has_value()) {
-      auto setError = setErrorFromEnum<ErrorType::EVENT_MANAGER_ERR>(
+      auto set_error = set_error_from_enum<ErrorType::EVENT_MANAGER_ERR>(
           error, EventManagerErrors::SYSTEM_COMMUNICATION_CHANNEL_FAILURE);
-      return {.error = setError};
+      return {.error = set_error};
     }
 
     auto data = val.value();
 
     if (data.error_num != 0) {
-      auto setError = setErrorFromNum<ErrorType::OPERATION_ERR_ERRNO>(error, -data.error_num);
-      return {.error = setError, .data = data};
+      auto set_error = set_error_from_num<ErrorType::OPERATION_ERR_ERRNO>(error, -data.error_num);
+      return {.error = set_error, .data = data};
     }
 
     return {.data = data};
   }
 
-  IOAwaitable(EventManager *ev) : ev(ev), sqe(ev->get_uring_sqe()) {
-    if (sqe == nullptr) {
+  IOAwaitable(EventManager *ev) : EV(ev), SQE(ev->get_uring_sqe()) {
+    if (SQE == nullptr) {
       error = EventManagerErrors::SUBMISSION_QUEUE_FULL;
     }
 

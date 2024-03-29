@@ -6,9 +6,9 @@
 #include <liburing.h>
 #include <liburing/io_uring.h>
 #include <mutex>
+#include <set>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <set>
 #include <vector>
 
 #include "communication/communication_channel.hpp"
@@ -43,31 +43,30 @@ struct GenericResponse {
 
 class EventManager {
   enum LivingState { NOT_STARTED, LIVING, DYING, DEAD };
-  LivingState manager_life_state_{};
+  LivingState _manager_life_state{};
 
   static std::mutex init_mutex;
   static int shared_ring_fd;
   static size_t ring_instances;
 
-  io_uring ring{};
+  io_uring _ring{};
 
-  std::vector<EvTask> managed_coroutines{};
-  std::set<size_t> managed_coroutines_freed_idxs{};
+  std::vector<EvTask> _managed_coroutines{};
+  std::set<size_t> _managed_coroutines_freed_idxs{};
 
   void await_message();
   void event_handler(int res, RequestData *req_data);
 
-  std::size_t in_flight_requests{};
+  std::size_t _in_flight_requests{};
   bool should_restrict_usage();
-  EvTask kill_coro_task;
+  EvTask _kill_coro_task;
   EvTask kill_internal();
 
 public:
   EvTask kill();
 
   // register a coroutine by passing in the coroutine function and its parameters
-  template<typename CoroFn, typename ...Args>
-  void register_coro(CoroFn fn, Args&& ...args) {
+  template <typename CoroFn, typename... Args> void register_coro(CoroFn fn, Args &&...args) {
     auto coro = fn(std::forward<Args>(args)...);
     this->register_coro(std::move(coro));
   }
@@ -77,17 +76,17 @@ public:
     coro.start(); // start it in case it hasn't been started yet
 
     uint64_t selected_idx = 0;
-    if(managed_coroutines_freed_idxs.size() != 0) {
-      selected_idx = *managed_coroutines_freed_idxs.begin();
-      managed_coroutines_freed_idxs.erase(selected_idx);
-      managed_coroutines[selected_idx] = std::move(coro);
+    if (_managed_coroutines_freed_idxs.size() != 0) {
+      selected_idx = *_managed_coroutines_freed_idxs.begin();
+      _managed_coroutines_freed_idxs.erase(selected_idx);
+      _managed_coroutines[selected_idx] = std::move(coro);
     } else {
-      managed_coroutines.push_back(std::move(coro));
-      selected_idx = managed_coroutines.size() - 1;
+      _managed_coroutines.push_back(std::move(coro));
+      selected_idx = _managed_coroutines.size() - 1;
     }
 
     // we are storing the index in the vector as metadata
-    managed_coroutines[selected_idx].set_coro_metadata(selected_idx);
+    _managed_coroutines[selected_idx].set_coro_metadata(selected_idx);
   }
 
   EventManager(size_t queue_depth);

@@ -1,1 +1,2 @@
+git ls-tree -r HEAD --name-only | grep -E "cpp|hpp" | xargs -I {} sh -c 'clang-tidy {} -p ./build --fix-errors'
 git ls-tree -r HEAD --name-only | grep -E "cpp|hpp" | xargs -I {} sh -c 'clang-format -i {}'

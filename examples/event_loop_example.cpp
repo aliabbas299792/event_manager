@@ -3,7 +3,7 @@
 #include <fcntl.h>
 #include <sstream>
 
-const std::string lorem_ipsum = R"(Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean ultricies
+const std::string LOREM_IPSUM = R"(Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean ultricies
 ex sit amet orci tincidunt, a viverra sem suscipit. Phasellus non quam
 bibendum, molestie enim vel, placerat nibh. Mauris elementum, nisi et
 fringilla auctor, velit justo porttitor neque, ut viverra neque magna
@@ -25,9 +25,9 @@ const uint8_t *get_write_data(const std::string &str) {
 
 std::string indent_with_str(const std::string &str, const std::string &indent) {
   std::string out{indent};
-  for (const char c : str) {
-    out += c;
-    if (c == '\n') {
+  for (const char C : str) {
+    out += C;
+    if (C == '\n') {
       out += indent;
     }
   }
@@ -53,7 +53,7 @@ EvTask coro(EventManager *ev) {
   int fd = open(file_name, O_RDWR | O_CREAT, 0666);
 
   char buff[2048]{};
-  co_await ev->write(fd, get_write_data(lorem_ipsum), lorem_ipsum.length());
+  co_await ev->write(fd, get_write_data(LOREM_IPSUM), LOREM_IPSUM.length());
 
   co_await ev->read(fd, reinterpret_cast<uint8_t *>(buff), 2048);
   OUTPUT << "(*) Read this data:\n" << indent_with_str(buff, "> ") << "\n";
@@ -65,11 +65,11 @@ EvTask coro(EventManager *ev) {
   int fd4 = open("example4.txt", O_RDWR | O_CREAT, 0666);
   int fd5 = open("example5.txt", O_RDWR | O_CREAT, 0666);
   auto queue = ev->make_request_queue();
-  queue.queue_write(fd1, get_write_data(lorem_ipsum), lorem_ipsum.length());
-  queue.queue_write(fd2, get_write_data(lorem_ipsum), lorem_ipsum.length());
-  queue.queue_write(fd3, get_write_data(lorem_ipsum), lorem_ipsum.length());
-  queue.queue_write(fd4, get_write_data(lorem_ipsum), lorem_ipsum.length());
-  queue.queue_write(fd5, get_write_data(lorem_ipsum), lorem_ipsum.length());
+  queue.queue_write(fd1, get_write_data(LOREM_IPSUM), LOREM_IPSUM.length());
+  queue.queue_write(fd2, get_write_data(LOREM_IPSUM), LOREM_IPSUM.length());
+  queue.queue_write(fd3, get_write_data(LOREM_IPSUM), LOREM_IPSUM.length());
+  queue.queue_write(fd4, get_write_data(LOREM_IPSUM), LOREM_IPSUM.length());
+  queue.queue_write(fd5, get_write_data(LOREM_IPSUM), LOREM_IPSUM.length());
 
   co_await ev->submit_and_wait(queue, [](RequestType req_type, CommunicationChannel *channel) {
     switch (req_type) {
@@ -148,8 +148,8 @@ int main() {
   ev.register_coro(coro(&ev));
   ev.register_coro(coro(&ev));
 
-  auto coroTask = coro(&ev);
-  ev.register_coro(std::move(coroTask));
+  auto coro_task = coro(&ev);
+  ev.register_coro(std::move(coro_task));
   ev.start();
 
   std::cout << "We're at the end of the program\n";

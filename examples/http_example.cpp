@@ -93,23 +93,23 @@ EvTask send_hello_world(EventManager *ev, int user_fd) {
 
   auto write_resp = co_await ev->write(user_fd, reinterpret_cast<uint8_t *>(data.data()), data.length());
 
-  if (isThereAnError(write_resp.error)) {
+  if (is_there_an_error(write_resp.error)) {
     std::cerr << "There was an error in handling the request for fd " << user_fd << "\n";
     co_return -1;
   }
 
   auto close_resp = co_await ev->close(user_fd);
 
-  if (isThereAnError(close_resp.error)) {
+  if (is_there_an_error(close_resp.error)) {
     std::cerr << "There was an error in handling the close request for fd " << user_fd << "\n";
     std::string err_str{};
     size_t error_number{};
-    switch (getErrorType(close_resp.error)) {
+    switch (get_error_type(close_resp.error)) {
     case ErrorType::NO_ERR:
       break;
     case ErrorType::EVENT_MANAGER_ERR: {
       err_str = "There was an error with the event manager: ";
-      auto err_num = getContainedErrorCode<ErrorType::EVENT_MANAGER_ERR>(close_resp.error)
+      auto err_num = get_contained_error_code<ErrorType::EVENT_MANAGER_ERR>(close_resp.error)
                          .value_or(EventManagerErrors::UNKNOWN_ERROR);
       error_number = static_cast<size_t>(err_num);
       switch (err_num) {
@@ -127,7 +127,7 @@ EvTask send_hello_world(EventManager *ev, int user_fd) {
     }
     case ErrorType::LIBURING_SUBMISSION_ERR_ERRNO: {
       // default to a permission error
-      auto err_num = getContainedErrorCode<ErrorType::LIBURING_SUBMISSION_ERR_ERRNO>(close_resp.error)
+      auto err_num = get_contained_error_code<ErrorType::LIBURING_SUBMISSION_ERR_ERRNO>(close_resp.error)
                          .value_or(Errnos::UNKNOWN_ERROR);
       error_number = static_cast<size_t>(err_num);
       err_str = strerror(static_cast<int>(err_num));
@@ -135,7 +135,7 @@ EvTask send_hello_world(EventManager *ev, int user_fd) {
     }
     case ErrorType::OPERATION_ERR_ERRNO: {
       // default to a permission error
-      auto err_num = getContainedErrorCode<ErrorType::OPERATION_ERR_ERRNO>(close_resp.error)
+      auto err_num = get_contained_error_code<ErrorType::OPERATION_ERR_ERRNO>(close_resp.error)
                          .value_or(Errnos::UNKNOWN_ERROR);
       error_number = static_cast<size_t>(err_num);
       err_str = strerror(static_cast<int>(err_num));
@@ -170,10 +170,10 @@ void signal_callback_handler(int signum) { printf("Caught signal SIGPIPE %d\n", 
 
 int main() {
   signal(SIGPIPE, signal_callback_handler);
-  const size_t queue_depth =
+  const size_t QUEUE_DEPTH =
       10; // i.e how many items may be in the internal queue before it needs to be flushed, max is 4096
   std::cout << "starting program\n";
-  EventManager ev{queue_depth};
+  EventManager ev{QUEUE_DEPTH};
 
   // register it with the system, which will run it once it has started
   ev.register_coro(coro(&ev));

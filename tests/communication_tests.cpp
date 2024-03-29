@@ -47,92 +47,92 @@ TEST_CASE("Testing response storing") {
     // This test checks if 1) storing the value works 2) retrieving it works and
     // 3) the buffer is emptied after retrieval
     {
-      constexpr auto Rt = RequestType::READ;
+      constexpr auto RT = RequestType::READ;
 
-      RespDataTypeMap<Rt> default_value{};
-      cc.publish_resp_data<Rt>(default_value);
-      auto ret = cc.consume_resp_data<Rt>();
-
-      REQUIRE(ret.has_value());
-      REQUIRE(ret.value().bytes_read == default_value.bytes_read);
-      REQUIRE(!cc.consume_resp_data<Rt>().has_value());
-    }
-    {
-      constexpr auto Rt = RequestType::WRITE;
-
-      RespDataTypeMap<Rt> default_value{};
-      cc.publish_resp_data<Rt>(default_value);
-      auto ret = cc.consume_resp_data<Rt>();
-
-      REQUIRE(ret.has_value());
-      REQUIRE(ret.value().bytes_wrote == default_value.bytes_wrote);
-      REQUIRE(!cc.consume_resp_data<Rt>().has_value());
-    }
-    {
-      constexpr auto Rt = RequestType::CLOSE;
-
-      RespDataTypeMap<Rt> default_value{};
-      cc.publish_resp_data<Rt>(default_value);
-      auto ret = cc.consume_resp_data<Rt>();
-
-      REQUIRE(ret.has_value());
-      REQUIRE(ret.value().error_num == default_value.error_num);
-      REQUIRE(!cc.consume_resp_data<Rt>().has_value());
-    }
-    {
-      constexpr auto Rt = RequestType::SHUTDOWN;
-
-      RespDataTypeMap<Rt> default_value{};
-      cc.publish_resp_data<Rt>(default_value);
-      auto ret = cc.consume_resp_data<Rt>();
-
-      REQUIRE(ret.has_value());
-      REQUIRE(ret.value().error_num == default_value.error_num);
-      REQUIRE(!cc.consume_resp_data<Rt>().has_value());
-    }
-    {
-      constexpr auto Rt = RequestType::READV;
-
-      RespDataTypeMap<Rt> default_value{};
-      cc.publish_resp_data<Rt>(default_value);
-      auto ret = cc.consume_resp_data<Rt>();
+      RespDataTypeMap<RT> default_value{};
+      cc.publish_resp_data<RT>(default_value);
+      auto ret = cc.consume_resp_data<RT>();
 
       REQUIRE(ret.has_value());
       REQUIRE(ret.value().bytes_read == default_value.bytes_read);
-      REQUIRE(!cc.consume_resp_data<Rt>().has_value());
+      REQUIRE(!cc.consume_resp_data<RT>().has_value());
     }
     {
-      constexpr auto Rt = RequestType::WRITEV;
+      constexpr auto RT = RequestType::WRITE;
 
-      RespDataTypeMap<Rt> default_value{};
-      cc.publish_resp_data<Rt>(default_value);
-      auto ret = cc.consume_resp_data<Rt>();
+      RespDataTypeMap<RT> default_value{};
+      cc.publish_resp_data<RT>(default_value);
+      auto ret = cc.consume_resp_data<RT>();
 
       REQUIRE(ret.has_value());
       REQUIRE(ret.value().bytes_wrote == default_value.bytes_wrote);
-      REQUIRE(!cc.consume_resp_data<Rt>().has_value());
+      REQUIRE(!cc.consume_resp_data<RT>().has_value());
     }
     {
-      constexpr auto Rt = RequestType::ACCEPT;
+      constexpr auto RT = RequestType::CLOSE;
 
-      RespDataTypeMap<Rt> default_value{};
-      cc.publish_resp_data<Rt>(default_value);
-      auto ret = cc.consume_resp_data<Rt>();
+      RespDataTypeMap<RT> default_value{};
+      cc.publish_resp_data<RT>(default_value);
+      auto ret = cc.consume_resp_data<RT>();
 
       REQUIRE(ret.has_value());
       REQUIRE(ret.value().error_num == default_value.error_num);
-      REQUIRE(!cc.consume_resp_data<Rt>().has_value());
+      REQUIRE(!cc.consume_resp_data<RT>().has_value());
     }
     {
-      constexpr auto Rt = RequestType::CONNECT;
+      constexpr auto RT = RequestType::SHUTDOWN;
 
-      RespDataTypeMap<Rt> default_value{};
-      cc.publish_resp_data<Rt>(default_value);
-      auto ret = cc.consume_resp_data<Rt>();
+      RespDataTypeMap<RT> default_value{};
+      cc.publish_resp_data<RT>(default_value);
+      auto ret = cc.consume_resp_data<RT>();
 
       REQUIRE(ret.has_value());
       REQUIRE(ret.value().error_num == default_value.error_num);
-      REQUIRE(!cc.consume_resp_data<Rt>().has_value());
+      REQUIRE(!cc.consume_resp_data<RT>().has_value());
+    }
+    {
+      constexpr auto RT = RequestType::READV;
+
+      RespDataTypeMap<RT> default_value{};
+      cc.publish_resp_data<RT>(default_value);
+      auto ret = cc.consume_resp_data<RT>();
+
+      REQUIRE(ret.has_value());
+      REQUIRE(ret.value().bytes_read == default_value.bytes_read);
+      REQUIRE(!cc.consume_resp_data<RT>().has_value());
+    }
+    {
+      constexpr auto RT = RequestType::WRITEV;
+
+      RespDataTypeMap<RT> default_value{};
+      cc.publish_resp_data<RT>(default_value);
+      auto ret = cc.consume_resp_data<RT>();
+
+      REQUIRE(ret.has_value());
+      REQUIRE(ret.value().bytes_wrote == default_value.bytes_wrote);
+      REQUIRE(!cc.consume_resp_data<RT>().has_value());
+    }
+    {
+      constexpr auto RT = RequestType::ACCEPT;
+
+      RespDataTypeMap<RT> default_value{};
+      cc.publish_resp_data<RT>(default_value);
+      auto ret = cc.consume_resp_data<RT>();
+
+      REQUIRE(ret.has_value());
+      REQUIRE(ret.value().error_num == default_value.error_num);
+      REQUIRE(!cc.consume_resp_data<RT>().has_value());
+    }
+    {
+      constexpr auto RT = RequestType::CONNECT;
+
+      RespDataTypeMap<RT> default_value{};
+      cc.publish_resp_data<RT>(default_value);
+      auto ret = cc.consume_resp_data<RT>();
+
+      REQUIRE(ret.has_value());
+      REQUIRE(ret.value().error_num == default_value.error_num);
+      REQUIRE(!cc.consume_resp_data<RT>().has_value());
     }
   }
 }

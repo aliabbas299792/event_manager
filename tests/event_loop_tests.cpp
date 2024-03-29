@@ -5,7 +5,7 @@
 #include <fcntl.h>
 #include <thread>
 
-const std::string lorem_ipsum = R"(Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean ultricies
+const std::string LOREM_IPSUM = R"(Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean ultricies
 ex sit amet orci tincidunt, a viverra sem suscipit. Phasellus non quam
 bibendum, molestie enim vel, placerat nibh. Mauris elementum, nisi et
 fringilla auctor, velit justo porttitor neque, ut viverra neque magna
@@ -17,7 +17,7 @@ imperdiet sit amet vitae mi. Quisque rutrum leo et placerat iaculis.
 Fusce ac mattis eros, aliquet fringilla tellus. Quisque mauris mauris,
 dapibus nec orci et, lobortis tincidunt mauris.)";
 
-const std::string the_grand_inquisitor =
+const std::string THE_GRAND_INQUISITOR =
     R"(Upon my word, man is created weaker and more base than you supposed! Can
 he, can he perform the deeds of which you are capable? In respecting him
 so much you acted as though you had ceased to have compassion for him,
@@ -26,7 +26,7 @@ you had loved more than yourself! Had you respected him less you would
 have demanded of him less, and that would have been closer to love, for
 his burden would have been lighter. He is weak and dishonourable.)";
 
-const std::string expected_output = R"((*) Read this data:
+const std::string EXPECTED_OUTPUT = R"((*) Read this data:
 > Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean ultricies
 > ex sit amet orci tincidunt, a viverra sem suscipit. Phasellus non quam
 > bibendum, molestie enim vel, placerat nibh. Mauris elementum, nisi et
@@ -61,7 +61,7 @@ How many bytes were written: 499
 We killed the event manager and we're at the end
 )";
 
-std::stringstream OUTPUT{};
+std::stringstream output{};
 
 const uint8_t *get_write_data(const std::string &str) {
   return reinterpret_cast<const uint8_t *>(str.data());
@@ -69,9 +69,9 @@ const uint8_t *get_write_data(const std::string &str) {
 
 std::string indent_with_str(const std::string &str, const std::string &indent) {
   std::string out{indent};
-  for (const char c : str) {
-    out += c;
-    if (c == '\n') {
+  for (const char C : str) {
+    out += C;
+    if (C == '\n') {
       out += indent;
     }
   }
@@ -84,21 +84,21 @@ EvTask coro(EventManager *ev) {
   int fd = open(filepath, O_RDWR | O_CREAT, 0666);
 
   char buff[2048]{};
-  co_await ev->write(fd, get_write_data(lorem_ipsum), lorem_ipsum.length());
+  co_await ev->write(fd, get_write_data(LOREM_IPSUM), LOREM_IPSUM.length());
 
   co_await ev->read(fd, reinterpret_cast<uint8_t *>(buff), 2048);
-  OUTPUT << "(*) Read this data:\n" << indent_with_str(buff, "> ") << "\n";
+  output << "(*) Read this data:\n" << indent_with_str(buff, "> ") << "\n";
 
   co_await ev->close(fd);
   fd = open(filepath, O_RDWR | O_TRUNC);
 
-  OUTPUT << "\n(*) Writing:\n" << indent_with_str(the_grand_inquisitor, "+ ") << "\n";
-  auto res = co_await ev->write(fd, get_write_data(the_grand_inquisitor), the_grand_inquisitor.length());
-  OUTPUT << "How many bytes were written: " << res.data.bytes_wrote << "\n\n";
+  output << "\n(*) Writing:\n" << indent_with_str(THE_GRAND_INQUISITOR, "+ ") << "\n";
+  auto res = co_await ev->write(fd, get_write_data(THE_GRAND_INQUISITOR), THE_GRAND_INQUISITOR.length());
+  output << "How many bytes were written: " << res.data.bytes_wrote << "\n\n";
 
   std::memset(buff, 0, 2048);
   co_await ev->read(fd, reinterpret_cast<uint8_t *>(buff), 2048);
-  OUTPUT << "(*) Read this data:\n" << indent_with_str(buff, "> ") << "\n\n";
+  output << "(*) Read this data:\n" << indent_with_str(buff, "> ") << "\n\n";
 
   co_await ev->close(fd);
 
@@ -106,7 +106,7 @@ EvTask coro(EventManager *ev) {
 
   co_await ev->kill();
 
-  OUTPUT << "We killed the event manager and we're at the end\n";
+  output << "We killed the event manager and we're at the end\n";
   co_return 0;
 }
 
@@ -116,5 +116,5 @@ TEST_CASE("Testing variety of event loop capabilities") {
   ev.register_coro(coro(&ev));
   ev.start();
 
-  REQUIRE(OUTPUT.rdbuf()->str() == expected_output);
+  REQUIRE(output.rdbuf()->str() == EXPECTED_OUTPUT);
 }

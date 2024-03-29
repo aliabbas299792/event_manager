@@ -1,6 +1,5 @@
 #include "coroutine/io_awaitables.hpp"
 #include "errors.hpp"
-#include "event_manager.hpp"
 #include <cstring>
 #include <dirent.h>
 #include <fcntl.h>
@@ -17,9 +16,9 @@ EvTask example(EventManager *ev) {
   std::string file_name = "test.txt";
   auto resp = co_await ev->openat(dfd, file_name.c_str(), O_RDWR, 0);
 
-  if (isThereAnError(resp.error)) {
+  if (is_there_an_error(resp.error)) {
     std::string err_str{};
-    switch (getErrorType(resp.error)) {
+    switch (get_error_type(resp.error)) {
     case ErrorType::NO_ERR:
       break;
     case ErrorType::EVENT_MANAGER_ERR: {
@@ -27,14 +26,14 @@ EvTask example(EventManager *ev) {
       break;
     }
     case ErrorType::LIBURING_SUBMISSION_ERR_ERRNO: {
-      auto err_num = getContainedErrorCode<ErrorType::LIBURING_SUBMISSION_ERR_ERRNO>(resp.error)
+      auto err_num = get_contained_error_code<ErrorType::LIBURING_SUBMISSION_ERR_ERRNO>(resp.error)
                          .value_or(Errnos::UNKNOWN_ERROR);
       err_str = strerror(static_cast<int>(err_num));
       break;
     }
     case ErrorType::OPERATION_ERR_ERRNO: {
-      auto err_num =
-          getContainedErrorCode<ErrorType::OPERATION_ERR_ERRNO>(resp.error).value_or(Errnos::UNKNOWN_ERROR);
+      auto err_num = get_contained_error_code<ErrorType::OPERATION_ERR_ERRNO>(resp.error)
+                         .value_or(Errnos::UNKNOWN_ERROR);
       err_str = strerror(static_cast<int>(err_num));
       break;
     }
