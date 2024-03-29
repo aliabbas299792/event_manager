@@ -11,7 +11,7 @@
 
 struct TaskStatus {
   bool handler_done{};
-  int ret_code{};
+  uint64_t ret_code{};
 };
 
 class EvTask {
@@ -49,7 +49,7 @@ public:
       return {};
     }
 
-    void return_value(int ret_code = 0) {
+    void return_value(uint64_t ret_code = 0) {
       if (state.task_status_ptr) {
         state.task_status_ptr->ret_code = ret_code;
       }
@@ -204,7 +204,7 @@ public:
     auto &awaiter_handle = state.awaiter_handle;
     awaiter_handle = other_handle;
   }
-  int await_resume() {
+  uint64_t await_resume() {
     if (_task_status_ptr) {
       return _task_status_ptr->ret_code;
     }
