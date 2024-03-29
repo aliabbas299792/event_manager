@@ -33,6 +33,9 @@ int main() {
 }
 ```
 `event_loop/event_manager.hpp` is relatively self documenting, and have a look at the tests and examples for more.
+
+Note, it's fine to reinterpret cast in this case, as the char array will be completely unchanged by just changing the pointer type.
+
 # Codebase
 ## EventManager class
 When registering a coroutine, you can do one of 3 things: 1) construct the coroutine and std::move it to the event manager via register_coro, 2) use the other definition for register_coro, and just pass in the function and its arguments i.e `ev->register_coro(coroFn, arg1, arg2, arg3)` or 3) just construct it like this `ev->register_coro(coroFn(arg1, arg2, arg3))`
@@ -47,6 +50,9 @@ You can make a queue with `EventManager::make_request_queue` and use those metho
 - You can await on it, and it will return an integer
 - If you await on it, then the current coroutine will be suspended if the inner coroutine is suspended
   - This leads to a semblance of sequential execution for a stack of coroutine calls
+
+## Errors
+Errors are propagated back to the user using a `std::variant` - this can be accessed fairly easily, and there are some helper functions to aid use in `errors.hpp`. Further there are examples of how to use it in the `examples/` folder, with the most thorough one being in `http_example.cpp`.
 
 ## Adding More Operations
 To add more operations, there are a few files you need to update:
@@ -143,7 +149,7 @@ case RequestType::READV: {
   } else {
     data = {.bytes_read = res, .buff = specific_data.read_data.buffer};
   }
-  data.fd = specific_data.readv_data.fd;
+  data.req_fd = specific_data.readv_data.fd;
   promise.publish_resp_data<RequestType::READV>(std::move(data));
   req_data->handle.resume();
   break;
