@@ -11,6 +11,8 @@ print the output, then delete the file
 */
 
 EvTask example(EventManager *ev) {
+  using namespace ErrorProcessing;
+  
   DIR *dir = opendir("../");
   int dfd = dirfd(dir);
   std::string file_name = "test.txt";

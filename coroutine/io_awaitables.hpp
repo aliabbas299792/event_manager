@@ -38,7 +38,7 @@ template <RequestType Rt, typename DerivedAwaitable> struct IOAwaitable {
   bool await_ready() const noexcept {
     // if the initial return code is non zero then we have run into an error
     // and cannot proceed
-    return is_there_an_error(error);
+    return ErrorProcessing::is_there_an_error(error);
   }
 
   void await_suspend(EvTask::Handle handle) {
@@ -55,12 +55,13 @@ template <RequestType Rt, typename DerivedAwaitable> struct IOAwaitable {
     auto ret = EV->submit_queued_entries();
     if (ret < 1) { // since submit returns the number of entries submitted
       std::cerr << "io_uring_submit failed\n";
-      error = set_error_from_num<ErrorType::LIBURING_SUBMISSION_ERR_ERRNO>(error, -ret);
+      error = ErrorProcessing::set_error_from_num<ErrorType::LIBURING_SUBMISSION_ERR_ERRNO>(error, -ret);
       handle.resume();
     }
   }
 
   IOResponse<RespDataTypeMap<Rt>> await_resume() {
+    using namespace ErrorProcessing;
     ErrorCodes error = this->error;
 
     if (is_there_an_error(error)) {

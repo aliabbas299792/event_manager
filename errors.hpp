@@ -180,17 +180,27 @@ enum class Errnos : uint8_t {
 
 template <ErrorType> struct ErrorTypes;
 
-template <> struct ErrorTypes<ErrorType::NO_ERR> { using type = std::nullptr_t; };
+template <> struct ErrorTypes<ErrorType::NO_ERR> {
+  using type = std::nullptr_t;
+};
 
-template <> struct ErrorTypes<ErrorType::EVENT_MANAGER_ERR> { using type = EventManagerErrors; };
+template <> struct ErrorTypes<ErrorType::EVENT_MANAGER_ERR> {
+  using type = EventManagerErrors;
+};
 
-template <> struct ErrorTypes<ErrorType::LIBURING_SUBMISSION_ERR_ERRNO> { using type = Errnos; };
+template <> struct ErrorTypes<ErrorType::LIBURING_SUBMISSION_ERR_ERRNO> {
+  using type = Errnos;
+};
 
-template <> struct ErrorTypes<ErrorType::OPERATION_ERR_ERRNO> { using type = Errnos; };
+template <> struct ErrorTypes<ErrorType::OPERATION_ERR_ERRNO> {
+  using type = Errnos;
+};
 
 template <ErrorType Et> using ErrorTypeMap = typename ErrorTypes<Et>::type;
 
 using ErrorCodes = std::variant<std::nullptr_t, EventManagerErrors, Errnos, Errnos>;
+
+namespace ErrorProcessing {
 
 bool is_there_an_error(const ErrorCodes &error) {
   return static_cast<ErrorType>(error.index()) != ErrorType::NO_ERR;
@@ -221,4 +231,5 @@ std::optional<SetErrorType> get_contained_error_code(const ErrorCodes &error) {
   return std::nullopt;
 }
 
+} // namespace ErrorProcessing
 #endif
