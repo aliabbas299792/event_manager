@@ -46,18 +46,18 @@ int setup_listener(uint16_t port) {
       fatal_error("setsockopt SO_KEEPALIVE");
 
     size_t keep_idle = 1000; // The time (in seconds) the connection needs to remain idle before TCP starts
-                          // sending keepalive probes, if the socket option SO_KEEPALIVE has been set on this
-                          // socket.  This option should not be used in code intended to be portable.
+                             // sending keepalive probes, if the socket option SO_KEEPALIVE has been set on
+                             // this socket.  This option should not be used in code intended to be portable.
     if (setsockopt(listener_fd, IPPROTO_TCP, TCP_KEEPIDLE, &keep_idle, sizeof(keep_idle)) == -1)
       fatal_error("setsockopt TCP_KEEPIDLE");
 
-    size_t keep_interval = 1000; // The time (in seconds) between individual keepalive probes. This option should
-                              // not be used in code intended to be portable.
+    size_t keep_interval = 1000; // The time (in seconds) between individual keepalive probes. This option
+                                 // should not be used in code intended to be portable.
     if (setsockopt(listener_fd, IPPROTO_TCP, TCP_KEEPINTVL, &keep_interval, sizeof(keep_interval)) == -1)
       fatal_error("setsockopt TCP_KEEPINTVL");
 
     size_t keep_count = 10; // The maximum number of keepalive probes TCP should send before dropping the
-                         // connection.  This option should not be used in code intended to be portable.
+                            // connection.  This option should not be used in code intended to be portable.
     if (setsockopt(listener_fd, IPPROTO_TCP, TCP_KEEPCNT, &keep_count, sizeof(keep_count)) == -1)
       fatal_error("setsockopt TCP_KEEPCNT");
 
@@ -93,12 +93,61 @@ EvTask send_hello_world(EventManager *ev, int user_fd) {
 
   auto write_resp = co_await ev->write(user_fd, reinterpret_cast<uint8_t *>(data.data()), data.length());
 
-  if(write_resp.error_num != 0 || write_resp.event_system_error != EventSystemError::NO_ERROR || write_resp.data.error_num != 0) {
+  if (isThereAnError(write_resp.error)) {
     std::cerr << "There was an error in handling the request for fd " << user_fd << "\n";
     co_return -1;
   }
 
-  co_return (co_await ev->close(user_fd)).data.error_num;
+  auto close_resp = co_await ev->close(user_fd);
+
+  if (isThereAnError(close_resp.error)) {
+    std::cerr << "There was an error in handling the close request for fd " << user_fd << "\n";
+    std::string err_str{};
+    size_t error_number{};
+    switch (getErrorType(close_resp.error)) {
+    case ErrorType::NO_ERR:
+      break;
+    case ErrorType::EVENT_MANAGER_ERR: {
+      err_str = "There was an error with the event manager: ";
+      auto err_num = getContainedErrorCode<ErrorType::EVENT_MANAGER_ERR>(close_resp.error)
+                         .value_or(EventManagerErrors::UNKNOWN_ERROR);
+      error_number = static_cast<size_t>(err_num);
+      switch (err_num) {
+      case EventManagerErrors::UNKNOWN_ERROR:
+        err_str += "and we don't know what the error was\n";
+        break;
+      case EventManagerErrors::SUBMISSION_QUEUE_FULL:
+        err_str += "the submission queue was full\n";
+        break;
+      case EventManagerErrors::SYSTEM_COMMUNICATION_CHANNEL_FAILURE:
+        err_str += "the communication channels have failed us\n";
+        break;
+      }
+      break;
+    }
+    case ErrorType::LIBURING_SUBMISSION_ERR_ERRNO: {
+      // default to a permission error
+      auto err_num = getContainedErrorCode<ErrorType::LIBURING_SUBMISSION_ERR_ERRNO>(close_resp.error)
+                         .value_or(Errnos::UNKNOWN_ERROR);
+      error_number = static_cast<size_t>(err_num);
+      err_str = strerror(static_cast<int>(err_num));
+      break;
+    }
+    case ErrorType::OPERATION_ERR_ERRNO: {
+      // default to a permission error
+      auto err_num = getContainedErrorCode<ErrorType::OPERATION_ERR_ERRNO>(close_resp.error)
+                         .value_or(Errnos::UNKNOWN_ERROR);
+      error_number = static_cast<size_t>(err_num);
+      err_str = strerror(static_cast<int>(err_num));
+      break;
+    }
+    }
+
+    std::cerr << err_str << "\n";
+    co_return error_number;
+  }
+
+  co_return 0;
 }
 
 EvTask coro(EventManager *ev) {
@@ -108,7 +157,7 @@ EvTask coro(EventManager *ev) {
     sockaddr addr{};
     socklen_t addrlen = sizeof(addr);
     int fd = (co_await ev->accept(listener_fd, &addr, &addrlen)).data.fd;
-    
+
     ev->register_coro(send_hello_world, ev, fd);
   }
 

@@ -2,11 +2,13 @@
 #define IO_AWAITABLES_
 
 #include <bits/types/struct_iovec.h>
+#include <cstddef>
 #include <liburing.h>
 #include <sys/socket.h>
 
 #include "communication/communication_channel.hpp"
 #include "communication/communication_types.hpp"
+#include "errors.hpp"
 #include "event_loop/event_manager.hpp"
 #include "event_loop/request_data.hpp"
 #include "task.hpp"
@@ -17,19 +19,11 @@ CRTP is used to call them from the IOAwaitable, as this can significantly reduce
 code duplication
 */
 
-enum class EventSystemError : char {
-  NO_ERROR = 0,
-  SUBMISSION_QUEUE_FULL = -1,
-  SUBMIT_ERROR = -2,
-  SYSTEM_COMMUNICATION_CHANNEL_FAILURE = -3
-};
-
 template <typename Data> struct IOResponse {
   // event system errors include io_uring errors as well as errors for the
   // EventManager, like not being able to find data that was thought to have
   // been stored in the communication channel
-  EventSystemError event_system_error{};
-  int error_num{};
+  ErrorCodes error{};
   Data data{};
 };
 
@@ -37,15 +31,14 @@ template <RequestType Rt, typename DerivedAwaitable> struct IOAwaitable {
   CommunicationChannel *channel{};
   RequestData req_data{};
 
-  EventSystemError error_code{}; // return value of the function
-  int error_num{};               // errno
+  ErrorCodes error{};
   EventManager *const ev;
   io_uring_sqe *const sqe;
 
   bool await_ready() const noexcept {
     // if the initial return code is non zero then we have run into an error
     // and cannot proceed
-    return static_cast<int>(error_code) != 0;
+    return isThereAnError(error);
   }
 
   void await_suspend(EvTask::Handle handle) {
@@ -62,28 +55,38 @@ template <RequestType Rt, typename DerivedAwaitable> struct IOAwaitable {
     auto ret = ev->submit_queued_entries();
     if (ret < 1) { // since submit returns the number of entries submitted
       std::cerr << "io_uring_submit failed\n";
-      error_code = EventSystemError::SUBMIT_ERROR;
-      error_num = -ret;
+      error = setErrorFromNum<ErrorType::LIBURING_SUBMISSION_ERR_ERRNO>(error, -ret);
       handle.resume();
     }
   }
 
   IOResponse<RespDataTypeMap<Rt>> await_resume() {
-    if (static_cast<int>(error_code) != 0) {
-      return {.event_system_error = error_code, .error_num = error_num};
+    ErrorCodes error = this->error;
+
+    if (isThereAnError(error)) {
+      return {.error = error};
     }
 
     auto val = channel->consume_resp_data<Rt>();
     if (!val.has_value()) {
-      return {.event_system_error = EventSystemError::SYSTEM_COMMUNICATION_CHANNEL_FAILURE,
-              .error_num = error_num};
+      auto setError = setErrorFromEnum<ErrorType::EVENT_MANAGER_ERR>(
+          error, EventManagerErrors::SYSTEM_COMMUNICATION_CHANNEL_FAILURE);
+      return {.error = setError};
     }
-    return {.data = val.value()};
+
+    auto data = val.value();
+
+    if (data.error_num != 0) {
+      auto setError = setErrorFromNum<ErrorType::OPERATION_ERR_ERRNO>(error, -data.error_num);
+      return {.error = setError, .data = data};
+    }
+
+    return {.data = data};
   }
 
   IOAwaitable(EventManager *ev) : ev(ev), sqe(ev->get_uring_sqe()) {
     if (sqe == nullptr) {
-      error_code = EventSystemError::SUBMISSION_QUEUE_FULL;
+      error = EventManagerErrors::SUBMISSION_QUEUE_FULL;
     }
 
     req_data.req_type = Rt;
