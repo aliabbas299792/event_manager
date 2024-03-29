@@ -16,9 +16,9 @@ void fatal_error(std::string error_message) {
   exit(1);
 }
 
-int setup_listener(uint16_t port) {
+int setup_listener(int port) {
   int listener_fd;
-  uint8_t yes = 1;
+  int yes = 1;
   addrinfo hints, *server_info, *traverser;
 
   std::memset(&hints, 0, sizeof(hints));
@@ -45,19 +45,19 @@ int setup_listener(uint16_t port) {
     if (setsockopt(listener_fd, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(yes)) == -1)
       fatal_error("setsockopt SO_KEEPALIVE");
 
-    size_t keep_idle = 1000; // The time (in seconds) the connection needs to remain idle before TCP starts
-                             // sending keepalive probes, if the socket option SO_KEEPALIVE has been set on
-                             // this socket.  This option should not be used in code intended to be portable.
+    int keep_idle = 1000; // The time (in seconds) the connection needs to remain idle before TCP starts
+                          // sending keepalive probes, if the socket option SO_KEEPALIVE has been set on this
+                          // socket.  This option should not be used in code intended to be portable.
     if (setsockopt(listener_fd, IPPROTO_TCP, TCP_KEEPIDLE, &keep_idle, sizeof(keep_idle)) == -1)
       fatal_error("setsockopt TCP_KEEPIDLE");
 
-    size_t keep_interval = 1000; // The time (in seconds) between individual keepalive probes. This option
-                                 // should not be used in code intended to be portable.
+    int keep_interval = 1000; // The time (in seconds) between individual keepalive probes. This option should
+                              // not be used in code intended to be portable.
     if (setsockopt(listener_fd, IPPROTO_TCP, TCP_KEEPINTVL, &keep_interval, sizeof(keep_interval)) == -1)
       fatal_error("setsockopt TCP_KEEPINTVL");
 
-    size_t keep_count = 10; // The maximum number of keepalive probes TCP should send before dropping the
-                            // connection.  This option should not be used in code intended to be portable.
+    int keep_count = 10; // The maximum number of keepalive probes TCP should send before dropping the
+                         // connection.  This option should not be used in code intended to be portable.
     if (setsockopt(listener_fd, IPPROTO_TCP, TCP_KEEPCNT, &keep_count, sizeof(keep_count)) == -1)
       fatal_error("setsockopt TCP_KEEPCNT");
 
