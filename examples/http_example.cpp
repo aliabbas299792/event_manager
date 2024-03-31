@@ -84,7 +84,7 @@ int setup_listener(int port) {
 
 EvTask send_hello_world(EventManager *ev, int user_fd) {
   using namespace ErrorProcessing;
-  
+
   std::string headers_p1 = "HTTP/1.1 200 OK\r\n"
                            "Content-Type: text/html\r\n"
                            "Content-Length: ";

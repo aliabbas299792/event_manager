@@ -180,21 +180,13 @@ enum class Errnos : uint8_t {
 
 template <ErrorType> struct ErrorTypes;
 
-template <> struct ErrorTypes<ErrorType::NO_ERR> {
-  using type = std::nullptr_t;
-};
+template <> struct ErrorTypes<ErrorType::NO_ERR> { using type = std::nullptr_t; };
 
-template <> struct ErrorTypes<ErrorType::EVENT_MANAGER_ERR> {
-  using type = EventManagerErrors;
-};
+template <> struct ErrorTypes<ErrorType::EVENT_MANAGER_ERR> { using type = EventManagerErrors; };
 
-template <> struct ErrorTypes<ErrorType::LIBURING_SUBMISSION_ERR_ERRNO> {
-  using type = Errnos;
-};
+template <> struct ErrorTypes<ErrorType::LIBURING_SUBMISSION_ERR_ERRNO> { using type = Errnos; };
 
-template <> struct ErrorTypes<ErrorType::OPERATION_ERR_ERRNO> {
-  using type = Errnos;
-};
+template <> struct ErrorTypes<ErrorType::OPERATION_ERR_ERRNO> { using type = Errnos; };
 
 template <ErrorType Et> using ErrorTypeMap = typename ErrorTypes<Et>::type;
 
