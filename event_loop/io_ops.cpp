@@ -90,28 +90,15 @@ RenameatAwaitable EventManager::renameat(int olddirfd, const char *oldpathname, 
 
 RequestQueue EventManager::make_request_queue() { return RequestQueue{}; }
 
-EvTask EventManager::submit_and_wait(const RequestQueue &request_queue, SubmitAndWaitHandler handler) {
-  auto &requests_vec = request_queue.req_vec;
-
-  auto ret = submit_queued_entries();
-  if (ret < 0) {
-    co_return ret;
-  }
-
-  std::vector<RequestData> req_data{requests_vec.size()};
-  auto handle = co_await RetrieveCurrentHandle{};
-
-  for (std::size_t i = 0; i < requests_vec.size(); i++) {
-    auto &req = requests_vec[i];
+bool EventManager::process_single_generic_request(const OperationParameterPackVariant &req, RequestData &single_req, EvTask::Handle handle) {
     auto req_type = static_cast<RequestType>(req.index());
 
-    auto &single_req = req_data[i];
     auto sqe = get_uring_sqe();
 
     if (sqe == nullptr) {
       std::cerr << "There was an error in making a request (event manager "
                    "system error for queueing)\n";
-      co_return -1;
+      return false;
     }
 
     single_req.handle = handle;
@@ -126,7 +113,7 @@ EvTask EventManager::submit_and_wait(const RequestQueue &request_queue, SubmitAn
         io_uring_prep_read(sqe, pack->fd, pack->buffer, pack->length, 0);
       } else {
         std::cerr << "There was an error in retrieving queued data\n";
-        co_return -1;
+        return false;
       }
       break;
     }
@@ -137,7 +124,7 @@ EvTask EventManager::submit_and_wait(const RequestQueue &request_queue, SubmitAn
         io_uring_prep_write(sqe, pack->fd, pack->buffer, pack->length, 0);
       } else {
         std::cerr << "There was an error in retrieving queued data\n";
-        co_return -1;
+        return false;
       }
       break;
     }
@@ -148,7 +135,7 @@ EvTask EventManager::submit_and_wait(const RequestQueue &request_queue, SubmitAn
         io_uring_prep_close(sqe, pack->fd);
       } else {
         std::cerr << "There was an error in retrieving queued data\n";
-        co_return -1;
+        return false;
       }
       break;
     }
@@ -159,7 +146,7 @@ EvTask EventManager::submit_and_wait(const RequestQueue &request_queue, SubmitAn
         io_uring_prep_shutdown(sqe, pack->fd, pack->how);
       } else {
         std::cerr << "There was an error in retrieving queued data\n";
-        co_return -1;
+        return false;
       }
       break;
     }
@@ -170,7 +157,7 @@ EvTask EventManager::submit_and_wait(const RequestQueue &request_queue, SubmitAn
         io_uring_prep_readv(sqe, pack->fd, pack->iovs, pack->num, 0);
       } else {
         std::cerr << "There was an error in retrieving queued data\n";
-        co_return -1;
+        return false;
       }
       break;
     }
@@ -181,7 +168,7 @@ EvTask EventManager::submit_and_wait(const RequestQueue &request_queue, SubmitAn
         io_uring_prep_writev(sqe, pack->fd, pack->iovs, pack->num, 0);
       } else {
         std::cerr << "There was an error in retrieving queued data\n";
-        co_return -1;
+        return false;
       }
       break;
     }
@@ -192,7 +179,7 @@ EvTask EventManager::submit_and_wait(const RequestQueue &request_queue, SubmitAn
         io_uring_prep_accept(sqe, pack->sockfd, pack->addr, pack->addrlen, 0);
       } else {
         std::cerr << "There was an error in retrieving queued data\n";
-        co_return -1;
+        return false;
       }
       break;
     }
@@ -203,7 +190,7 @@ EvTask EventManager::submit_and_wait(const RequestQueue &request_queue, SubmitAn
         io_uring_prep_connect(sqe, pack->sockfd, pack->addr, pack->addrlen);
       } else {
         std::cerr << "There was an error in retrieving queued data\n";
-        co_return -1;
+        return false;
       }
       break;
     }
@@ -214,7 +201,7 @@ EvTask EventManager::submit_and_wait(const RequestQueue &request_queue, SubmitAn
         io_uring_prep_openat(sqe, pack->dirfd, pack->pathname, pack->flags, pack->mode);
       } else {
         std::cerr << "There was an error in retrieving queued data\n";
-        co_return -1;
+        return false;
       }
       break;
     }
@@ -225,7 +212,7 @@ EvTask EventManager::submit_and_wait(const RequestQueue &request_queue, SubmitAn
         io_uring_prep_statx(sqe, pack->dirfd, pack->pathname, pack->flags, pack->mask, pack->statxbuf);
       } else {
         std::cerr << "There was an error in retrieving queued data\n";
-        co_return -1;
+        return false;
       }
       break;
     }
@@ -236,7 +223,7 @@ EvTask EventManager::submit_and_wait(const RequestQueue &request_queue, SubmitAn
         io_uring_prep_unlinkat(sqe, pack->dirfd, pack->pathname, pack->flags);
       } else {
         std::cerr << "There was an error in retrieving queued data\n";
-        co_return -1;
+        return false;
       }
       break;
     }
@@ -249,13 +236,32 @@ EvTask EventManager::submit_and_wait(const RequestQueue &request_queue, SubmitAn
                                pack->flags);
       } else {
         std::cerr << "There was an error in retrieving queued data\n";
-        co_return -1;
+        return false;
       }
       break;
     } break;
     }
 
-    io_uring_sqe_set_data(sqe, &req_data[i]);
+    io_uring_sqe_set_data(sqe, &single_req);
+
+    return true;
+}
+
+EvTask EventManager::submit_and_wait(const RequestQueue &request_queue, SubmitAndWaitHandler handler) {
+  auto &requests_vec = request_queue.req_vec;
+
+  auto ret = submit_queued_entries();
+  if (ret < 0) {
+    co_return ret;
+  }
+
+  std::vector<RequestData> req_data{requests_vec.size()};
+  auto handle = co_await RetrieveCurrentHandle{};
+
+  for (std::size_t i = 0; i < requests_vec.size(); i++) {
+    auto &req = requests_vec[i];
+    auto &single_req = req_data[i];
+    process_single_generic_request(req, single_req, handle);
   }
 
   // how many are currently being processed

@@ -62,6 +62,7 @@ class EventManager {
   EvTask _kill_coro_task;
   EvTask kill_internal();
 
+  bool process_single_generic_request(const OperationParameterPackVariant &req, RequestData &single_req, EvTask::Handle handle);
 public:
   EvTask kill();
 
