@@ -190,7 +190,9 @@ template <> struct ErrorTypes<ErrorType::OPERATION_ERR_ERRNO> { using type = Err
 
 template <ErrorType Et> using ErrorTypeMap = typename ErrorTypes<Et>::type;
 
-using ErrorCodes = std::variant<std::nullptr_t, EventManagerErrors, Errnos, Errnos>;
+using ErrorCodes = std::variant<ErrorTypeMap<ErrorType::NO_ERR>, ErrorTypeMap<ErrorType::EVENT_MANAGER_ERR>,
+                                ErrorTypeMap<ErrorType::LIBURING_SUBMISSION_ERR_ERRNO>,
+                                ErrorTypeMap<ErrorType::OPERATION_ERR_ERRNO>>;
 
 namespace ErrorProcessing {
 
