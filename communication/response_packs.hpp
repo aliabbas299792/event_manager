@@ -11,7 +11,7 @@ struct GenericResponsePack {
 
 struct ReadResponsePack : GenericResponsePack {
   size_t bytes_read{};
-  uint8_t *buff{};
+  uint8_t* buff{};
 };
 
 struct WriteResponsePack : GenericResponsePack {
@@ -24,7 +24,7 @@ struct ShutdownResponsePack : GenericResponsePack {};
 
 struct ReadvResponsePack : GenericResponsePack {
   size_t bytes_read{};
-  uint8_t *buff{};
+  uint8_t* buff{};
 };
 
 struct WritevResponsePack : GenericResponsePack {
@@ -40,16 +40,16 @@ struct ConnectResponsePack : GenericResponsePack {};
 struct OpenatResponsePack : GenericResponsePack {};
 
 struct StatxResponsePack : GenericResponsePack {
-  const char *pathname{};
+  const char* pathname{};
 };
 
 struct UnlinkatResponsePack : GenericResponsePack {
-  const char *pathname{};
+  const char* pathname{};
 };
 
 struct RenameatResponsePack : GenericResponsePack {
-  const char *oldpathname{};
-  const char *newpathname{};
+  const char* oldpathname{};
+  const char* newpathname{};
 };
 
 #endif

@@ -2,7 +2,7 @@
 #include <cstdio>
 #include <fcntl.h>
 
-EvTask coro(EventManager *ev) {
+EvTask coro(EventManager* ev) {
   // open a file and make a buffer to read into
   std::string file_name = "test.txt";
   int fd = open(file_name.c_str(), O_RDWR);
@@ -18,7 +18,7 @@ EvTask coro(EventManager *ev) {
   char buff[SIZE]{};
 
   // read some data and print it
-  co_await ev->read(fd, reinterpret_cast<uint8_t *>(buff), SIZE);
+  co_await ev->read(fd, reinterpret_cast<uint8_t*>(buff), SIZE);
   std::cout << "Read:\n" << buff << "\n";
 
   // close the file, and kill the event manager
@@ -29,7 +29,7 @@ EvTask coro(EventManager *ev) {
 
 int main() {
   const size_t QUEUE_DEPTH =
-      10; // i.e how many items may be in the internal queue before it needs to be flushed, max is 4096
+      10;  // i.e how many items may be in the internal queue before it needs to be flushed, max is 4096
   EventManager ev{QUEUE_DEPTH};
 
   // register it with the system, which will run it once it has started

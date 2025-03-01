@@ -19,11 +19,11 @@ std::stringstream string_output{};
 #define OUTPUT string_output
 // #define OUTPUT std::cout
 
-const uint8_t *get_write_data(const std::string &str) {
-  return reinterpret_cast<const uint8_t *>(str.data());
+const uint8_t* get_write_data(const std::string& str) {
+  return reinterpret_cast<const uint8_t*>(str.data());
 }
 
-std::string indent_with_str(const std::string &str, const std::string &indent) {
+std::string indent_with_str(const std::string& str, const std::string& indent) {
   std::string out{indent};
   for (const char C : str) {
     out += C;
@@ -34,17 +34,25 @@ std::string indent_with_str(const std::string &str, const std::string &indent) {
   return out;
 }
 
-EvTask coro4() { co_return 2; }
+EvTask coro4() {
+  co_return 2;
+}
 
-EvTask coro3() { co_return co_await coro4(); }
+EvTask coro3() {
+  co_return co_await coro4();
+}
 
-EvTask coro2() { co_return co_await coro3(); }
+EvTask coro2() {
+  co_return co_await coro3();
+}
 
-EvTask coro1() { co_return co_await coro2(); }
+EvTask coro1() {
+  co_return co_await coro2();
+}
 
 size_t num_currently_being_processed{};
 
-EvTask coro(EventManager *ev) {
+EvTask coro(EventManager* ev) {
   std::cout << "at start\n";
   std::cout << co_await coro1() << " (coro1 response)\n";
   std::cout << "just after that\n";
@@ -55,7 +63,7 @@ EvTask coro(EventManager *ev) {
   char buff[2048]{};
   co_await ev->write(fd, get_write_data(LOREM_IPSUM), LOREM_IPSUM.length());
 
-  co_await ev->read(fd, reinterpret_cast<uint8_t *>(buff), 2048);
+  co_await ev->read(fd, reinterpret_cast<uint8_t*>(buff), 2048);
   OUTPUT << "(*) Read this data:\n" << indent_with_str(buff, "> ") << "\n";
   std::cout << co_await coro2() << " (coro2 response)\n";
 
@@ -71,7 +79,7 @@ EvTask coro(EventManager *ev) {
   queue.queue_write(fd4, get_write_data(LOREM_IPSUM), LOREM_IPSUM.length());
   queue.queue_write(fd5, get_write_data(LOREM_IPSUM), LOREM_IPSUM.length());
 
-  co_await ev->submit_and_wait(queue, [](RequestType req_type, CommunicationChannel *channel) {
+  co_await ev->submit_and_wait(queue, [](RequestType req_type, CommunicationChannel* channel) {
     switch (req_type) {
     case RequestType::READ: {
       break;
@@ -118,7 +126,7 @@ EvTask coro(EventManager *ev) {
 
   std::cout << co_await coro3() << " (coro3 response)\n";
   std::memset(buff, 0, 2048);
-  co_await ev->read(fd, reinterpret_cast<uint8_t *>(buff), 2048);
+  co_await ev->read(fd, reinterpret_cast<uint8_t*>(buff), 2048);
   OUTPUT << "(*) Read this data:\n" << indent_with_str(buff, "> ") << "\n\n";
 
   if (--num_currently_being_processed == 0) {
@@ -131,7 +139,7 @@ EvTask coro(EventManager *ev) {
   co_return 0;
 }
 
-EvTask do_thing(EventManager *ev) {
+EvTask do_thing(EventManager* ev) {
   auto task1 = coro(ev);
   auto task2 = coro(ev);
   co_await task1;
@@ -141,7 +149,7 @@ EvTask do_thing(EventManager *ev) {
 
 int main() {
   EventManager ev(10);
-  num_currently_being_processed = 5; // we intend to set off 5 coroutines
+  num_currently_being_processed = 5;  // we intend to set off 5 coroutines
 
   ev.register_coro(coro, &ev);
   ev.register_coro(coro, &ev);

@@ -63,11 +63,11 @@ We killed the event manager and we're at the end
 
 std::stringstream output{};
 
-const uint8_t *get_write_data(const std::string &str) {
-  return reinterpret_cast<const uint8_t *>(str.data());
+const uint8_t* get_write_data(const std::string& str) {
+  return reinterpret_cast<const uint8_t*>(str.data());
 }
 
-std::string indent_with_str(const std::string &str, const std::string &indent) {
+std::string indent_with_str(const std::string& str, const std::string& indent) {
   std::string out{indent};
   for (const char C : str) {
     out += C;
@@ -78,7 +78,7 @@ std::string indent_with_str(const std::string &str, const std::string &indent) {
   return out;
 }
 
-EvTask coro(EventManager *ev) {
+EvTask coro(EventManager* ev) {
   auto filepath = "./test.txt";
 
   int fd = open(filepath, O_RDWR | O_CREAT, 0666);
@@ -86,7 +86,7 @@ EvTask coro(EventManager *ev) {
   char buff[2048]{};
   co_await ev->write(fd, get_write_data(LOREM_IPSUM), LOREM_IPSUM.length());
 
-  co_await ev->read(fd, reinterpret_cast<uint8_t *>(buff), 2048);
+  co_await ev->read(fd, reinterpret_cast<uint8_t*>(buff), 2048);
   output << "(*) Read this data:\n" << indent_with_str(buff, "> ") << "\n";
 
   co_await ev->close(fd);
@@ -97,7 +97,7 @@ EvTask coro(EventManager *ev) {
   output << "How many bytes were written: " << res.data.bytes_wrote << "\n\n";
 
   std::memset(buff, 0, 2048);
-  co_await ev->read(fd, reinterpret_cast<uint8_t *>(buff), 2048);
+  co_await ev->read(fd, reinterpret_cast<uint8_t*>(buff), 2048);
   output << "(*) Read this data:\n" << indent_with_str(buff, "> ") << "\n\n";
 
   co_await ev->close(fd);

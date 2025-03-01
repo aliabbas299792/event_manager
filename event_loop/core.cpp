@@ -31,18 +31,18 @@ void EventManager::start() {
 }
 
 void EventManager::await_message() {
-  io_uring_cqe *cqe;
+  io_uring_cqe* cqe;
   int ret = io_uring_wait_cqe(&_ring, &cqe);
 
   if (ret < 0) {
     perror("io_uring_wait_cqe");
   }
 
-  auto req_data = reinterpret_cast<RequestData *>(io_uring_cqe_get_data(cqe));
+  auto req_data = reinterpret_cast<RequestData*>(io_uring_cqe_get_data(cqe));
   event_handler(cqe->res, req_data);
 
   io_uring_cqe_seen(&_ring, cqe);
-  _in_flight_requests--; // seen one request
+  _in_flight_requests--;  // seen one request
 
   // if the kill process has been started, then we must want an update
   if (_manager_life_state == LivingState::DYING) {
@@ -117,7 +117,7 @@ EvTask EventManager::kill_internal() {
   }
 
   // attempt to get an SQE
-  io_uring_sqe *sqe{};
+  io_uring_sqe* sqe{};
   iter = 0;
   while (sqe == nullptr && iter++ < MAX_ITER) {
     sqe = io_uring_get_sqe(&_ring);
@@ -159,17 +159,19 @@ EvTask EventManager::kill_internal() {
   co_return 0;
 };
 
-EvTask EventManager::kill() { co_return co_await _kill_coro_task; }
+EvTask EventManager::kill() {
+  co_return co_await _kill_coro_task;
+}
 
-void EventManager::event_handler(int res, RequestData *req_data) {
+void EventManager::event_handler(int res, RequestData* req_data) {
   // don't have anything to process for requests with no data
   // or if the handle is a nullptr, then there's nothing to resume
   if (req_data == nullptr || req_data->handle == nullptr) {
     return;
   }
 
-  auto &promise = req_data->handle.promise();
-  auto &specific_data = req_data->specific_data;
+  auto& promise = req_data->handle.promise();
+  auto& specific_data = req_data->specific_data;
 
   if (res < 0) {
     std::cerr << "\tio_uring request failure\n";
@@ -282,7 +284,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
       data.error_num = -res;
     }
     data.pathname = specific_data.statx_data.pathname;
-    data.req_fd = -1; // fd is irrelevant for this operation
+    data.req_fd = -1;  // fd is irrelevant for this operation
     promise.publish_resp_data<RequestType::STATX>(std::move(data));
     req_data->handle.resume();
     break;
@@ -293,7 +295,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
       data.error_num = -res;
     }
     data.pathname = specific_data.unlinkat_data.pathname;
-    data.req_fd = -1; // fd is irrelevant for this operation
+    data.req_fd = -1;  // fd is irrelevant for this operation
     promise.publish_resp_data<RequestType::UNLINKAT>(std::move(data));
     req_data->handle.resume();
     break;
@@ -305,7 +307,7 @@ void EventManager::event_handler(int res, RequestData *req_data) {
     }
     data.oldpathname = specific_data.renameat_data.oldpathname;
     data.newpathname = specific_data.renameat_data.newpathname;
-    data.req_fd = -1; // fd is irrelevant for this operation
+    data.req_fd = -1;  // fd is irrelevant for this operation
     promise.publish_resp_data<RequestType::RENAMEAT>(std::move(data));
     req_data->handle.resume();
     break;
@@ -339,7 +341,7 @@ int EventManager::submit_queued_entries() {
   return ret;
 }
 
-io_uring_sqe *EventManager::get_uring_sqe() {
+io_uring_sqe* EventManager::get_uring_sqe() {
   if (should_restrict_usage())
     return nullptr;
   return io_uring_get_sqe(&_ring);

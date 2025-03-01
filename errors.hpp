@@ -178,17 +178,31 @@ enum class Errnos : uint8_t {
   ERR_HWPOISON = 133, /* Memory page has hardware error */
 };
 
-template <ErrorType> struct ErrorTypes;
+template <ErrorType>
+struct ErrorTypes;
 
-template <> struct ErrorTypes<ErrorType::NO_ERR> { using type = std::nullptr_t; };
+template <>
+struct ErrorTypes<ErrorType::NO_ERR> {
+  using type = std::nullptr_t;
+};
 
-template <> struct ErrorTypes<ErrorType::EVENT_MANAGER_ERR> { using type = EventManagerErrors; };
+template <>
+struct ErrorTypes<ErrorType::EVENT_MANAGER_ERR> {
+  using type = EventManagerErrors;
+};
 
-template <> struct ErrorTypes<ErrorType::LIBURING_SUBMISSION_ERR_ERRNO> { using type = Errnos; };
+template <>
+struct ErrorTypes<ErrorType::LIBURING_SUBMISSION_ERR_ERRNO> {
+  using type = Errnos;
+};
 
-template <> struct ErrorTypes<ErrorType::OPERATION_ERR_ERRNO> { using type = Errnos; };
+template <>
+struct ErrorTypes<ErrorType::OPERATION_ERR_ERRNO> {
+  using type = Errnos;
+};
 
-template <ErrorType Et> using ErrorTypeMap = typename ErrorTypes<Et>::type;
+template <ErrorType Et>
+using ErrorTypeMap = typename ErrorTypes<Et>::type;
 
 using ErrorCodes = std::variant<ErrorTypeMap<ErrorType::NO_ERR>, ErrorTypeMap<ErrorType::EVENT_MANAGER_ERR>,
                                 ErrorTypeMap<ErrorType::LIBURING_SUBMISSION_ERR_ERRNO>,
@@ -196,7 +210,7 @@ using ErrorCodes = std::variant<ErrorTypeMap<ErrorType::NO_ERR>, ErrorTypeMap<Er
 
 namespace ErrorProcessing {
 
-bool is_there_an_error(const ErrorCodes &error) {
+bool is_there_an_error(const ErrorCodes& error) {
   return static_cast<ErrorType>(error.index()) != ErrorType::NO_ERR;
 }
 
@@ -214,10 +228,12 @@ ErrorCodes set_error_from_num(ErrorCodes error, int error_num) {
   return error;
 }
 
-ErrorType get_error_type(ErrorCodes &error) { return static_cast<ErrorType>(error.index()); }
+ErrorType get_error_type(ErrorCodes& error) {
+  return static_cast<ErrorType>(error.index());
+}
 
 template <ErrorType Et, typename SetErrorType = ErrorTypeMap<Et>>
-std::optional<SetErrorType> get_contained_error_code(const ErrorCodes &error) {
+std::optional<SetErrorType> get_contained_error_code(const ErrorCodes& error) {
   constexpr size_t INDEX = static_cast<size_t>(Et);
   if (auto data = std::get_if<INDEX>(&error)) {
     return *data;
@@ -225,5 +241,5 @@ std::optional<SetErrorType> get_contained_error_code(const ErrorCodes &error) {
   return std::nullopt;
 }
 
-} // namespace ErrorProcessing
+}  // namespace ErrorProcessing
 #endif

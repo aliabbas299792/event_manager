@@ -10,10 +10,10 @@ then this program will read the file,
 print the output, then delete the file
 */
 
-EvTask example(EventManager *ev) {
+EvTask example(EventManager* ev) {
   using namespace ErrorProcessing;
 
-  DIR *dir = opendir("../");
+  DIR* dir = opendir("../");
   int dfd = dirfd(dir);
   std::string file_name = "test.txt";
   auto resp = co_await ev->openat(dfd, file_name.c_str(), O_RDWR, 0);
@@ -49,7 +49,7 @@ EvTask example(EventManager *ev) {
   auto fd = resp.data.req_fd;
 
   char buff[2048]{};
-  co_await ev->read(fd, reinterpret_cast<uint8_t *>(buff), 2048);
+  co_await ev->read(fd, reinterpret_cast<uint8_t*>(buff), 2048);
 
   std::cout << buff << "\n";
 

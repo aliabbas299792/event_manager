@@ -9,21 +9,25 @@
 
 struct RetrieveCurrentHandle {
   EvTask::Handle handle;
-  bool await_ready() noexcept { return false; }
+  bool await_ready() noexcept {
+    return false;
+  }
   void await_suspend(EvTask::Handle h) noexcept {
     handle = h;
     handle.resume();
   }
-  EvTask::Handle await_resume() noexcept { return handle; }
+  EvTask::Handle await_resume() noexcept {
+    return handle;
+  }
 };
 
-ReadAwaitable EventManager::read(int fd, uint8_t *buffer, size_t length) {
+ReadAwaitable EventManager::read(int fd, uint8_t* buffer, size_t length) {
   if (should_restrict_usage())
     return {};
   return ReadAwaitable{fd, buffer, length, this};
 }
 
-WriteAwaitable EventManager::write(int fd, const uint8_t *buffer, size_t length) {
+WriteAwaitable EventManager::write(int fd, const uint8_t* buffer, size_t length) {
   if (should_restrict_usage())
     return {};
   return WriteAwaitable{fd, buffer, length, this};
@@ -41,57 +45,59 @@ ShutdownAwaitable EventManager::shutdown(int fd, int how) {
   return ShutdownAwaitable{fd, how, this};
 }
 
-ReadvAwaitable EventManager::readv(int fd, struct iovec *iovs, size_t num) {
+ReadvAwaitable EventManager::readv(int fd, struct iovec* iovs, size_t num) {
   if (should_restrict_usage())
     return {};
   return ReadvAwaitable{fd, iovs, num, this};
 }
 
-WritevAwaitable EventManager::writev(int fd, struct iovec *iovs, size_t num) {
+WritevAwaitable EventManager::writev(int fd, struct iovec* iovs, size_t num) {
   if (should_restrict_usage())
     return {};
   return WritevAwaitable{fd, iovs, num, this};
 }
 
-AcceptAwaitable EventManager::accept(int sockfd, sockaddr *addr, socklen_t *addrlen) {
+AcceptAwaitable EventManager::accept(int sockfd, sockaddr* addr, socklen_t* addrlen) {
   if (should_restrict_usage())
     return {};
   return AcceptAwaitable{sockfd, addr, addrlen, this};
 }
 
-ConnectAwaitable EventManager::connect(int sockfd, const sockaddr *addr, socklen_t addrlen) {
+ConnectAwaitable EventManager::connect(int sockfd, const sockaddr* addr, socklen_t addrlen) {
   if (should_restrict_usage())
     return {};
   return ConnectAwaitable{sockfd, addr, addrlen, this};
 }
 
-OpenatAwaitable EventManager::openat(int dirfd, const char *pathname, int flags, mode_t mode) {
+OpenatAwaitable EventManager::openat(int dirfd, const char* pathname, int flags, mode_t mode) {
   if (should_restrict_usage())
     return {};
   return OpenatAwaitable{dirfd, pathname, flags, mode, this};
 }
-StatxAwaitable EventManager::statx(int dirfd, const char *pathname, int flags, unsigned int mask,
-                                   struct statx *statxbuf) {
+StatxAwaitable EventManager::statx(int dirfd, const char* pathname, int flags, unsigned int mask,
+                                   struct statx* statxbuf) {
   if (should_restrict_usage())
     return {};
   return StatxAwaitable{dirfd, pathname, flags, mask, statxbuf, this};
 }
-UnlinkatAwaitable EventManager::unlinkat(int dirfd, const char *pathname, int flags) {
+UnlinkatAwaitable EventManager::unlinkat(int dirfd, const char* pathname, int flags) {
   if (should_restrict_usage())
     return {};
   return UnlinkatAwaitable{dirfd, pathname, flags, this};
 }
-RenameatAwaitable EventManager::renameat(int olddirfd, const char *oldpathname, int newdirfd,
-                                         const char *newpathname, int flags) {
+RenameatAwaitable EventManager::renameat(int olddirfd, const char* oldpathname, int newdirfd,
+                                         const char* newpathname, int flags) {
   if (should_restrict_usage())
     return {};
   return RenameatAwaitable{olddirfd, oldpathname, newdirfd, newpathname, flags, this};
 }
 
-RequestQueue EventManager::make_request_queue() { return RequestQueue{}; }
+RequestQueue EventManager::make_request_queue() {
+  return RequestQueue{};
+}
 
-bool EventManager::process_single_generic_request(const OperationParameterPackVariant &req,
-                                                  RequestData &single_req, EvTask::Handle handle) {
+bool EventManager::process_single_generic_request(const OperationParameterPackVariant& req,
+                                                  RequestData& single_req, EvTask::Handle handle) {
   auto req_type = static_cast<RequestType>(req.index());
 
   auto sqe = get_uring_sqe();
@@ -104,11 +110,11 @@ bool EventManager::process_single_generic_request(const OperationParameterPackVa
 
   single_req.handle = handle;
   single_req.req_type = req_type;
-  auto &specific_data = single_req.specific_data;
+  auto& specific_data = single_req.specific_data;
 
   switch (req_type) {
   case RequestType::READ: {
-    auto *pack = std::get_if<ReadParameterPack>(&req);
+    auto* pack = std::get_if<ReadParameterPack>(&req);
     if (pack) {
       specific_data.read_data = {pack->fd, pack->buffer, pack->length};
       io_uring_prep_read(sqe, pack->fd, pack->buffer, pack->length, 0);
@@ -119,7 +125,7 @@ bool EventManager::process_single_generic_request(const OperationParameterPackVa
     break;
   }
   case RequestType::WRITE: {
-    auto *pack = std::get_if<WriteParameterPack>(&req);
+    auto* pack = std::get_if<WriteParameterPack>(&req);
     if (pack) {
       specific_data.write_data = {pack->fd, pack->buffer, pack->length};
       io_uring_prep_write(sqe, pack->fd, pack->buffer, pack->length, 0);
@@ -130,7 +136,7 @@ bool EventManager::process_single_generic_request(const OperationParameterPackVa
     break;
   }
   case RequestType::CLOSE: {
-    auto *pack = std::get_if<CloseParameterPack>(&req);
+    auto* pack = std::get_if<CloseParameterPack>(&req);
     if (pack) {
       specific_data.close_data = {pack->fd};
       io_uring_prep_close(sqe, pack->fd);
@@ -141,7 +147,7 @@ bool EventManager::process_single_generic_request(const OperationParameterPackVa
     break;
   }
   case RequestType::SHUTDOWN: {
-    auto *pack = std::get_if<ShutdownParameterPack>(&req);
+    auto* pack = std::get_if<ShutdownParameterPack>(&req);
     if (pack) {
       specific_data.shutdown_data = {pack->fd};
       io_uring_prep_shutdown(sqe, pack->fd, pack->how);
@@ -152,7 +158,7 @@ bool EventManager::process_single_generic_request(const OperationParameterPackVa
     break;
   }
   case RequestType::READV: {
-    auto *pack = std::get_if<ReadvParameterPack>(&req);
+    auto* pack = std::get_if<ReadvParameterPack>(&req);
     if (pack) {
       specific_data.readv_data = {pack->fd, pack->iovs, pack->num};
       io_uring_prep_readv(sqe, pack->fd, pack->iovs, pack->num, 0);
@@ -163,7 +169,7 @@ bool EventManager::process_single_generic_request(const OperationParameterPackVa
     break;
   }
   case RequestType::WRITEV: {
-    auto *pack = std::get_if<WritevParameterPack>(&req);
+    auto* pack = std::get_if<WritevParameterPack>(&req);
     if (pack) {
       specific_data.writev_data = {pack->fd, pack->iovs, pack->num};
       io_uring_prep_writev(sqe, pack->fd, pack->iovs, pack->num, 0);
@@ -174,7 +180,7 @@ bool EventManager::process_single_generic_request(const OperationParameterPackVa
     break;
   }
   case RequestType::ACCEPT: {
-    auto *pack = std::get_if<AcceptParameterPack>(&req);
+    auto* pack = std::get_if<AcceptParameterPack>(&req);
     if (pack) {
       specific_data.accept_data = {pack->sockfd, pack->addr, pack->addrlen};
       io_uring_prep_accept(sqe, pack->sockfd, pack->addr, pack->addrlen, 0);
@@ -185,7 +191,7 @@ bool EventManager::process_single_generic_request(const OperationParameterPackVa
     break;
   }
   case RequestType::CONNECT: {
-    auto *pack = std::get_if<ConnectParameterPack>(&req);
+    auto* pack = std::get_if<ConnectParameterPack>(&req);
     if (pack) {
       specific_data.connect_data = {pack->sockfd, pack->addr, pack->addrlen};
       io_uring_prep_connect(sqe, pack->sockfd, pack->addr, pack->addrlen);
@@ -196,7 +202,7 @@ bool EventManager::process_single_generic_request(const OperationParameterPackVa
     break;
   }
   case RequestType::OPENAT: {
-    auto *pack = std::get_if<OpenatParameterPack>(&req);
+    auto* pack = std::get_if<OpenatParameterPack>(&req);
     if (pack) {
       specific_data.openat_data = {pack->dirfd, pack->pathname, pack->flags, pack->mode};
       io_uring_prep_openat(sqe, pack->dirfd, pack->pathname, pack->flags, pack->mode);
@@ -207,7 +213,7 @@ bool EventManager::process_single_generic_request(const OperationParameterPackVa
     break;
   }
   case RequestType::STATX: {
-    auto *pack = std::get_if<StatxParameterPack>(&req);
+    auto* pack = std::get_if<StatxParameterPack>(&req);
     if (pack) {
       specific_data.statx_data = {pack->dirfd, pack->pathname, pack->flags, pack->mask, pack->statxbuf};
       io_uring_prep_statx(sqe, pack->dirfd, pack->pathname, pack->flags, pack->mask, pack->statxbuf);
@@ -218,7 +224,7 @@ bool EventManager::process_single_generic_request(const OperationParameterPackVa
     break;
   }
   case RequestType::UNLINKAT: {
-    auto *pack = std::get_if<UnlinkatParameterPack>(&req);
+    auto* pack = std::get_if<UnlinkatParameterPack>(&req);
     if (pack) {
       specific_data.unlinkat_data = {pack->dirfd, pack->pathname, pack->flags};
       io_uring_prep_unlinkat(sqe, pack->dirfd, pack->pathname, pack->flags);
@@ -229,7 +235,7 @@ bool EventManager::process_single_generic_request(const OperationParameterPackVa
     break;
   }
   case RequestType::RENAMEAT: {
-    auto *pack = std::get_if<RenameatParameterPack>(&req);
+    auto* pack = std::get_if<RenameatParameterPack>(&req);
     if (pack) {
       specific_data.renameat_data = {pack->olddirfd, pack->oldpathname, pack->newdirfd, pack->newpathname,
                                      pack->flags};
@@ -248,8 +254,8 @@ bool EventManager::process_single_generic_request(const OperationParameterPackVa
   return true;
 }
 
-EvTask EventManager::submit_and_wait(const RequestQueue &request_queue, SubmitAndWaitHandler handler) {
-  auto &requests_vec = request_queue.req_vec;
+EvTask EventManager::submit_and_wait(const RequestQueue& request_queue, SubmitAndWaitHandler handler) {
+  auto& requests_vec = request_queue.req_vec;
 
   auto ret = submit_queued_entries();
   if (ret < 0) {
@@ -260,8 +266,8 @@ EvTask EventManager::submit_and_wait(const RequestQueue &request_queue, SubmitAn
   auto handle = co_await RetrieveCurrentHandle{};
 
   for (std::size_t i = 0; i < requests_vec.size(); i++) {
-    auto &req = requests_vec[i];
-    auto &single_req = req_data[i];
+    auto& req = requests_vec[i];
+    auto& single_req = req_data[i];
     process_single_generic_request(req, single_req, handle);
   }
 

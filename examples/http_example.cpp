@@ -22,21 +22,21 @@ int setup_listener(int port) {
   addrinfo hints, *server_info, *traverser;
 
   std::memset(&hints, 0, sizeof(hints));
-  hints.ai_family = AF_INET;       // IPv4 or IPv6
-  hints.ai_socktype = SOCK_STREAM; // tcp
-  hints.ai_flags = AI_PASSIVE;     // use local IP
+  hints.ai_family = AF_INET;        // IPv4 or IPv6
+  hints.ai_socktype = SOCK_STREAM;  // tcp
+  hints.ai_flags = AI_PASSIVE;      // use local IP
 
   if (getaddrinfo(NULL, std::to_string(port).c_str(), &hints, &server_info) != 0)
     fatal_error("getaddrinfo");
 
   for (traverser = server_info; traverser != NULL; traverser = traverser->ai_next) {
     if ((listener_fd = socket(traverser->ai_family, traverser->ai_socktype, traverser->ai_protocol)) ==
-        -1) // ai_protocol may be usefulin the future I believe, only UDP/TCP right now, may
+        -1)  // ai_protocol may be usefulin the future I believe, only UDP/TCP right now, may
       fatal_error("socket construction");
 
     if (setsockopt(listener_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) ==
-        -1) // 2nd param (SOL_SOCKET) is saying to do it at the socket protocol level, not TCP or anything
-            // else, just for the socket
+        -1)  // 2nd param (SOL_SOCKET) is saying to do it at the socket protocol level, not TCP or
+             // anything else, just for the socket
       fatal_error("setsockopt SO_REUSEADDR");
 
     if (setsockopt(listener_fd, SOL_SOCKET, SO_REUSEPORT, &yes, sizeof(yes)) == -1)
@@ -45,35 +45,35 @@ int setup_listener(int port) {
     if (setsockopt(listener_fd, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(yes)) == -1)
       fatal_error("setsockopt SO_KEEPALIVE");
 
-    int keep_idle = 1000; // The time (in seconds) the connection needs to remain idle before TCP starts
-                          // sending keepalive probes, if the socket option SO_KEEPALIVE has been set on this
-                          // socket.  This option should not be used in code intended to be portable.
+    int keep_idle = 1000;  // The time (in seconds) the connection needs to remain idle before TCP starts
+                           // sending keepalive probes, if the socket option SO_KEEPALIVE has been set on this
+                           // socket.  This option should not be used in code intended to be portable.
     if (setsockopt(listener_fd, IPPROTO_TCP, TCP_KEEPIDLE, &keep_idle, sizeof(keep_idle)) == -1)
       fatal_error("setsockopt TCP_KEEPIDLE");
 
-    int keep_interval = 1000; // The time (in seconds) between individual keepalive probes. This option should
-                              // not be used in code intended to be portable.
+    int keep_interval = 1000;  // The time (in seconds) between individual keepalive probes. This option
+                               // should not be used in code intended to be portable.
     if (setsockopt(listener_fd, IPPROTO_TCP, TCP_KEEPINTVL, &keep_interval, sizeof(keep_interval)) == -1)
       fatal_error("setsockopt TCP_KEEPINTVL");
 
-    int keep_count = 10; // The maximum number of keepalive probes TCP should send before dropping the
-                         // connection.  This option should not be used in code intended to be portable.
+    int keep_count = 10;  // The maximum number of keepalive probes TCP should send before dropping the
+                          // connection.  This option should not be used in code intended to be portable.
     if (setsockopt(listener_fd, IPPROTO_TCP, TCP_KEEPCNT, &keep_count, sizeof(keep_count)) == -1)
       fatal_error("setsockopt TCP_KEEPCNT");
 
     if (bind(listener_fd, traverser->ai_addr, traverser->ai_addrlen) ==
-        -1) { // try to bind the socket using the address data supplied, has internet address, address family
-              // and port in the data
+        -1) {  // try to bind the socket using the address data supplied, has internet address, address
+               // family and port in the data
       perror("bind");
-      continue; // not fatal, we can continue
+      continue;  // not fatal, we can continue
     }
 
-    break; // we got here, so we've got a working socket - so break
+    break;  // we got here, so we've got a working socket - so break
   }
 
-  freeaddrinfo(server_info); // free the server_info linked list
+  freeaddrinfo(server_info);  // free the server_info linked list
 
-  if (traverser == NULL) // means we didn't break, so never got a socket made successfully
+  if (traverser == NULL)  // means we didn't break, so never got a socket made successfully
     fatal_error("no socket made");
 
   if (listen(listener_fd, BACKLOG) == -1)
@@ -82,7 +82,7 @@ int setup_listener(int port) {
   return listener_fd;
 }
 
-EvTask send_hello_world(EventManager *ev, int user_fd) {
+EvTask send_hello_world(EventManager* ev, int user_fd) {
   using namespace ErrorProcessing;
 
   std::string headers_p1 = "HTTP/1.1 200 OK\r\n"
@@ -93,7 +93,7 @@ EvTask send_hello_world(EventManager *ev, int user_fd) {
   std::string data = headers_p1 + std::to_string(content.length()) + headers_p2 + content;
   std::cout << data.data() << "\nwas the buffer\n";
 
-  auto write_resp = co_await ev->write(user_fd, reinterpret_cast<uint8_t *>(data.data()), data.length());
+  auto write_resp = co_await ev->write(user_fd, reinterpret_cast<uint8_t*>(data.data()), data.length());
 
   if (is_there_an_error(write_resp.error)) {
     std::cerr << "There was an error in handling the request for fd " << user_fd << "\n";
@@ -152,7 +152,7 @@ EvTask send_hello_world(EventManager *ev, int user_fd) {
   co_return 0;
 }
 
-EvTask coro(EventManager *ev) {
+EvTask coro(EventManager* ev) {
   int listener_fd = setup_listener(3050);
 
   while (true) {
@@ -168,12 +168,14 @@ EvTask coro(EventManager *ev) {
   co_return 0;
 }
 
-void signal_callback_handler(int signum) { printf("Caught signal SIGPIPE %d\n", signum); }
+void signal_callback_handler(int signum) {
+  printf("Caught signal SIGPIPE %d\n", signum);
+}
 
 int main() {
   signal(SIGPIPE, signal_callback_handler);
   const size_t QUEUE_DEPTH =
-      10; // i.e how many items may be in the internal queue before it needs to be flushed, max is 4096
+      10;  // i.e how many items may be in the internal queue before it needs to be flushed, max is 4096
   std::cout << "starting program\n";
   EventManager ev{QUEUE_DEPTH};
 

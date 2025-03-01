@@ -30,14 +30,18 @@ public:
       std::exception_ptr exception_ptr{};
       CommunicationChannel com_data{};
       std::coroutine_handle<> awaiter_handle{};
-      TaskStatus *task_status_ptr{};
+      TaskStatus* task_status_ptr{};
 
-      uint64_t metadata{}; // custom user provided metadata
+      uint64_t metadata{};  // custom user provided metadata
     } state;
 
-    EvTask get_return_object() { return EvTask{Handle::from_promise(*this)}; }
+    EvTask get_return_object() {
+      return EvTask{Handle::from_promise(*this)};
+    }
 
-    std::suspend_always initial_suspend() noexcept { return {}; }
+    std::suspend_always initial_suspend() noexcept {
+      return {};
+    }
     std::suspend_never final_suspend() noexcept {
       if (state.awaiter_handle) {
         state.awaiter_handle.resume();
@@ -55,10 +59,12 @@ public:
       }
     }
 
-    void unhandled_exception() { state.exception_ptr = std::current_exception(); }
+    void unhandled_exception() {
+      state.exception_ptr = std::current_exception();
+    }
 
     template <RequestType Rt, typename RespType = RespDataTypeMap<Rt>>
-    void publish_resp_data(RespType &&data) {
+    void publish_resp_data(RespType&& data) {
       state.com_data.publish_resp_data<Rt>(std::forward<RespType>(data));
     }
 
@@ -73,12 +79,13 @@ public:
   EvTask(Handle h) : _handle(h) {
     _task_status_ptr = std::make_unique<TaskStatus>();
 
-    auto &state = h.promise().state;
+    auto& state = h.promise().state;
     state.task_status_ptr = _task_status_ptr.get();
   }
 
-  EvTask(EvTask &&other)
-      : _started_coro(other._started_coro), _task_status_ptr(std::move(other._task_status_ptr)),
+  EvTask(EvTask&& other)
+      : _started_coro(other._started_coro),
+        _task_status_ptr(std::move(other._task_status_ptr)),
         _handle(std::move(other._handle)) {
     other._task_status_ptr = {};
     other._handle = {};
@@ -87,7 +94,7 @@ public:
     _handle.promise().state.task_status_ptr = _task_status_ptr.get();
   }
 
-  EvTask &operator=(EvTask &&other) {
+  EvTask& operator=(EvTask&& other) {
     if (this == &other) {
       return *this;
     }
@@ -113,7 +120,7 @@ public:
 
   int set_coro_metadata(uint64_t metadata) {
     if (!_handle) {
-      return -1; // unable to set it as the handle is invalid
+      return -1;  // unable to set it as the handle is invalid
     }
 
     _handle.promise().state.metadata = metadata;
@@ -127,7 +134,7 @@ public:
     return std::make_optional(_handle.promise().state.metadata);
   }
 
-  CommunicationChannel *start() {
+  CommunicationChannel* start() {
     if (_started_coro) {
       std::cerr << "The coroutine was already started, this may be discarding "
                    "some data passed via await\n";
@@ -136,8 +143,8 @@ public:
 
     _started_coro = true;
 
-    auto &state = _handle.promise().state;
-    auto &com_channel = state.com_data;
+    auto& state = _handle.promise().state;
+    auto& com_channel = state.com_data;
     _handle.resume();
 
     if (_task_status_ptr && _task_status_ptr->handler_done) {
@@ -153,10 +160,12 @@ public:
     return &com_channel;
   }
 
-  void resume() { _handle.resume(); }
+  void resume() {
+    _handle.resume();
+  }
 
   template <RequestType RespT, typename ParamType = RespDataTypeMap<RespT>>
-  CommunicationChannel *resume(ParamType resp_data) {
+  CommunicationChannel* resume(ParamType resp_data) {
     if (!_started_coro) {
       std::cerr << "We may be passing data to the coroutine which it won't "
                    "read since it hasn't started yet\n";
@@ -167,8 +176,8 @@ public:
     // pass to the coroutine (if any)
     // After the coroutine pauses again (at point X) then we may have a request
     // from it
-    auto &state = _handle.promise().state;
-    auto &com_channel = state.com_data;
+    auto& state = _handle.promise().state;
+    auto& com_channel = state.com_data;
 
     com_channel.publish_resp_data<RespT>(resp_data);
     _handle.resume();
@@ -181,12 +190,18 @@ public:
     return &com_channel;
   }
 
-  bool is_done() { return _task_status_ptr->handler_done; }
+  bool is_done() {
+    return _task_status_ptr->handler_done;
+  }
 
-  explicit operator bool() { return is_done(); }
+  explicit operator bool() {
+    return is_done();
+  }
 
   // these below are what makes this task awaitable
-  bool await_ready() const noexcept { return false; };
+  bool await_ready() const noexcept {
+    return false;
+  };
 
   void await_suspend(Handle other_handle) {
     // if the coroutine hasn't started upon co_awaiting, do that first
@@ -200,8 +215,8 @@ public:
       return;
     }
 
-    auto &state = this->_handle.promise().state;
-    auto &awaiter_handle = state.awaiter_handle;
+    auto& state = this->_handle.promise().state;
+    auto& awaiter_handle = state.awaiter_handle;
     awaiter_handle = other_handle;
   }
   uint64_t await_resume() {

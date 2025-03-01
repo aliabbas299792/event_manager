@@ -11,7 +11,7 @@ private:
 
 public:
   template <RequestType Rt, typename RespType = RespDataTypeMap<Rt>>
-  CommunicationChannel &publish_resp_data(RespType &&data) {
+  CommunicationChannel& publish_resp_data(RespType&& data) {
     constexpr const auto ITEM_INDEX = static_cast<size_t>(Rt);
     _response_store.emplace<ITEM_INDEX>(std::forward<RespType>(data));
     return *this;
@@ -29,7 +29,9 @@ public:
     }
   }
 
-  RequestType response_store_current_type() { return static_cast<RequestType>(_response_store.index()); }
+  RequestType response_store_current_type() {
+    return static_cast<RequestType>(_response_store.index());
+  }
 };
 
 #endif
