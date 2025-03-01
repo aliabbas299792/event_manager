@@ -1,5 +1,9 @@
 # Event Manager
 Simple liburing based library which uses coroutines for dealing with I/O.
+## Building and Running
+The project uses `make`, `meson`, `ninja`, `gcov`, `doctest`, `threads`, `liburing`, `clang-tidy`, `clang-format`, and is in C++20 so requires a C++20 compliant compiler.
+
+Run `make list` to list all targets.
 # Usage
 Example to print the output of a file `test.txt`:
 ```cpp

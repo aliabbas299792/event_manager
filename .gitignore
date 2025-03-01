@@ -1,2 +1,10 @@
+# Cache directory
+.cache/
+
+# Build directory
 build/
-.cache
+
+# Editor files
+.vscode/
+.idea/
+*.swp

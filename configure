@@ -1,0 +1,95 @@
+#!/bin/bash
+
+# Event Manager configuration script
+# This script checks for required dependencies and configures the build environment
+
+set -e
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+NC='\033[0m' # no colour
+
+# print header
+echo -e "${GREEN}Event Manager Configuration${NC}"
+echo "Checking for required dependencies..."
+
+BUILD_DIR="build"
+
+# function to check if a command exists
+check_command() {
+    command -v $1 >/dev/null 2>&1
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}ERROR: $1 is required but not found.${NC}"
+        echo "Please install $1 and try again."
+        exit 1
+    else
+        echo -e "${GREEN}✓ Found $1${NC}"
+    fi
+}
+
+# check for required tools
+check_command "make"
+check_command "meson"
+check_command "ninja"
+check_command "gcov"
+check_command "clang-tidy"
+check_command "clang-format"
+
+# check for compiler and C++20 support
+check_command "g++"
+echo "Checking C++20 support..."
+echo "#include <coroutine>" > .test_cpp20.cpp
+echo "int main() { return 0; }" >> .test_cpp20.cpp
+g++ -std=c++20 .test_cpp20.cpp -o .test_cpp20 >/dev/null 2>&1
+if [ $? -ne 0 ]; then
+    echo -e "${RED}ERROR: Your compiler does not support C++20.${NC}"
+    echo "Please update your compiler or install a C++20 compliant compiler."
+    rm -f .test_cpp20.cpp
+    exit 1
+else
+    echo -e "${GREEN}✓ C++20 support confirmed${NC}"
+fi
+rm -f .test_cpp20.cpp .test_cpp20
+
+echo "Checking for liburing..."
+if [ ! -f "/usr/include/liburing.h" ] && [ ! -f "/usr/local/include/liburing.h" ] && [ ! -f "/usr/include/liburing/liburing.h" ]; then
+    echo -e "${RED}ERROR: liburing is required but not found.${NC}"
+    echo "Please install liburing development package and try again."
+    echo "For Ubuntu/Debian: sudo apt-get install liburing-dev"
+    exit 1
+else
+    echo -e "${GREEN}✓ Found liburing headers${NC}"
+fi
+
+echo "Checking for doctest..."
+if [ -d "vendor/doctest" ]; then
+    echo -e "${GREEN}✓ Found doctest as git submodule${NC}"
+else
+    echo -e "${YELLOW}WARNING: doctest submodule not found in vendor/doctest/${NC}"
+    echo "Initializing git submodules..."
+    git submodule init
+    git submodule update
+    
+    if [ ! -d "vendor/doctest" ]; then
+        echo -e "${RED}ERROR: Failed to initialize doctest submodule.${NC}"
+        echo "Please make sure the submodule is correctly defined in .gitmodules"
+        echo "You can manually initialize it with: git submodule init && git submodule update"
+        exit 1
+    else
+        echo -e "${GREEN}✓ doctest submodule initialized successfully${NC}"
+    fi
+fi
+
+if [ ! -d ".github/workflows" ]; then
+    echo -e "${YELLOW}Note: You might want to set up GitHub Actions for CI${NC}"
+    echo "A sample workflow file has been provided in the project"
+    echo "You can manually copy it to .github/workflows/ci.yml when ready"
+else
+    echo -e "${GREEN}✓ GitHub Actions workflow directory exists${NC}"
+fi
+
+echo -e "\n${GREEN}Configuration completed successfully!${NC}"
+echo "You can now run 'make build' to build the project."
+echo "Run 'make test' to run the tests."
+echo "Run 'make list' to see all available targets."
