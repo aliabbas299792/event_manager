@@ -3,7 +3,10 @@ project('event_manager', 'cpp', default_options: ['cpp_std=c++20'])
 io_uring_dep = declare_dependency(link_args: ['-luring'])
 thread_dep = dependency('threads')
 
-source_files = ['event_loop/core.cpp', 'event_loop/io_ops.cpp']
+source_files = [
+  'event_loop/core.cpp', 'event_loop/io_ops.cpp', 
+  'event_loop/event_manager.cpp', 'event_loop/parameter_packs.cpp'
+]
 
 root_inc = include_directories('.')
 

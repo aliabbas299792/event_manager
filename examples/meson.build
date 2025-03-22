@@ -1,39 +1,22 @@
 # sanitiser_args = ['-fsanitize=address']
 sanitiser_args = ['-fsanitize=undefined']
+other_args = ['--coverage']
 # sanitiser_args = []
 
-general_example = executable(
-  'event_loop_example',
-  'event_loop_example.cpp',
-  c_args: sanitiser_args,
-  cpp_args: sanitiser_args,
-  link_args: sanitiser_args,
-  dependencies: libevent_manager_dep
-)
+example_sources = {
+  'event_loop_example': 'event_loop_example.cpp',
+  'simple_coro_example': 'simple_coro_example.cpp',
+  'readme_example': 'readme_example.cpp',
+  'http_example': 'http_example.cpp',
+}
 
-simple_example = executable(
-  'simple_coro_example',
-  'simple_coro_example.cpp',
-  c_args: sanitiser_args,
-  cpp_args: sanitiser_args,
-  link_args: sanitiser_args,
-  dependencies: libevent_manager_dep
-)
-
-readme_example = executable(
-  'readme_example',
-  'readme_example.cpp',
-  c_args: sanitiser_args,
-  cpp_args: sanitiser_args,
-  link_args: sanitiser_args,
-  dependencies: libevent_manager_dep
-)
-
-http_example = executable(
-  'http_example',
-  'http_example.cpp',
-  c_args: sanitiser_args,
-  cpp_args: sanitiser_args,
-  link_args: sanitiser_args,
-  dependencies: libevent_manager_dep
-)
+foreach name, source : example_sources
+  executable(
+    name,
+    source,
+    c_args: sanitiser_args,
+    cpp_args: sanitiser_args + other_args,
+    link_args: sanitiser_args + other_args,
+    dependencies: libevent_manager_dep,
+  )
+endforeach
