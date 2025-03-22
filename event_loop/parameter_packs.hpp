@@ -156,54 +156,19 @@ using RequestOpVec = std::vector<OperationParameterPackVariant>;
 struct RequestQueue {
   RequestOpVec req_vec{};
 
-  void queue_read(int fd, uint8_t* buffer, size_t length) {
-    req_vec.push_back(ReadParameterPack{fd, buffer, length});
-  }
-
-  void queue_write(int fd, const uint8_t* buffer, size_t length) {
-    req_vec.push_back(WriteParameterPack{fd, buffer, length});
-  }
-
-  void queue_close(int fd) {
-    req_vec.push_back(CloseParameterPack{fd});
-  }
-
-  void queue_shutdown(int fd, int how) {
-    req_vec.push_back(ShutdownParameterPack{fd, how});
-  }
-
-  void queue_readv(int fd, struct iovec* iovs, size_t num) {
-    req_vec.push_back(ReadvParameterPack{fd, iovs, num});
-  }
-
-  void queue_writev(int fd, struct iovec* iovs, size_t num) {
-    req_vec.push_back(WritevParameterPack{fd, iovs, num});
-  }
-
-  void queue_accept(int sockfd, sockaddr* addr, socklen_t* addrlen) {
-    req_vec.push_back(AcceptParameterPack{sockfd, addr, addrlen});
-  }
-
-  void queue_connect(int sockfd, const sockaddr* addr, socklen_t addrlen) {
-    req_vec.push_back(ConnectParameterPack{sockfd, addr, addrlen});
-  }
-
-  void queue_openat(int dirfd, const char* pathname, int flags, mode_t mode) {
-    req_vec.push_back(OpenatParameterPack{dirfd, pathname, flags, mode});
-  }
-
-  void queue_statx(int dirfd, const char* pathname, int flags, unsigned int mask, struct statx* statxbuf) {
-    req_vec.push_back(StatxParameterPack{dirfd, pathname, flags, mask, statxbuf});
-  }
-
-  void queue_unlinkat(int dirfd, const char* pathname, int flags) {
-    req_vec.push_back(UnlinkatParameterPack{dirfd, pathname, flags});
-  }
-
+  void queue_read(int fd, uint8_t* buffer, size_t length);
+  void queue_write(int fd, const uint8_t* buffer, size_t length);
+  void queue_close(int fd);
+  void queue_shutdown(int fd, int how);
+  void queue_readv(int fd, struct iovec* iovs, size_t num);
+  void queue_writev(int fd, struct iovec* iovs, size_t num);
+  void queue_accept(int sockfd, sockaddr* addr, socklen_t* addrlen);
+  void queue_connect(int sockfd, const sockaddr* addr, socklen_t addrlen);
+  void queue_openat(int dirfd, const char* pathname, int flags, mode_t mode);
+  void queue_statx(int dirfd, const char* pathname, int flags, unsigned int mask, struct statx* statxbuf);
+  void queue_unlinkat(int dirfd, const char* pathname, int flags);
   void queue_renameat(int olddirfd, const char* oldpathname, int newdirfd, const char* newpathname,
-                      int flags) {
-    req_vec.push_back(RenameatParameterPack{olddirfd, oldpathname, newdirfd, newpathname, flags});
-  }
+                      int flags);
 };
 
 #endif
