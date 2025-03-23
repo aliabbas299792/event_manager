@@ -210,7 +210,7 @@ using ErrorCodes = std::variant<ErrorTypeMap<ErrorType::NO_ERR>, ErrorTypeMap<Er
 
 namespace ErrorProcessing {
 
-bool is_there_an_error(const ErrorCodes& error) {
+inline bool is_there_an_error(const ErrorCodes& error) {
   return static_cast<ErrorType>(error.index()) != ErrorType::NO_ERR;
 }
 
@@ -228,7 +228,7 @@ ErrorCodes set_error_from_num(ErrorCodes error, int error_num) {
   return error;
 }
 
-ErrorType get_error_type(ErrorCodes& error) {
+inline ErrorType get_error_type(ErrorCodes& error) {
   return static_cast<ErrorType>(error.index());
 }
 

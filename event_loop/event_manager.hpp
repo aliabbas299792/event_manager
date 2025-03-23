@@ -6,7 +6,7 @@
 #include <liburing.h>
 #include <liburing/io_uring.h>
 #include <mutex>
-#include <set>
+#include <unordered_set>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <vector>
@@ -14,10 +14,44 @@
 #include "communication/communication_channel.hpp"
 #include "communication/communication_types.hpp"
 #include "coroutine/task.hpp"
+#include "errors.hpp"
 #include "event_loop/request_data.hpp"
 #include "parameter_packs.hpp"
 
+template<typename T>
+class ItemStore {
+  std::vector<T> _items;
+  std::unordered_set<size_t> _freed_idxs{};
+public:
+  ItemStore() : _items{} {};
+
+  size_t insert(T&& item) {
+    size_t selected_idx = 0;
+    if (_freed_idxs.size() != 0) {
+      selected_idx = *_freed_idxs.begin();
+      _freed_idxs.erase(selected_idx);
+      _items[selected_idx] = std::move(item);
+    } else {
+      _items.push_back(std::move(item));
+      selected_idx = _items.size() - 1;
+    }
+    return selected_idx;
+  }
+
+  T& operator[](size_t idx) {
+    return _items[idx];
+  }
+
+  void erase(size_t idx) {
+    _freed_idxs.insert(idx);
+  }
+
+};
+
+class EventManager;
+
 using SubmitAndWaitHandler = std::function<void(RequestType, CommunicationChannel*)>;
+using PollHandler = std::function<void(EventManager*, RequestType, CommunicationChannel*)>;
 
 // forward declare the awaitable return types and request data
 struct RequestData;
@@ -56,10 +90,8 @@ class EventManager {
   static size_t ring_instances;
 
   io_uring _ring{};
-
-  std::vector<EvTask> _managed_coroutines{};
-  std::set<size_t> _managed_coroutines_freed_idxs{};
-
+  
+  ItemStore<EvTask> _managed_coroutines_store{};
   void await_message();
   void event_handler(int res, RequestData* req_data);
 
@@ -104,6 +136,7 @@ public:
   RenameatAwaitable renameat(int olddirfd, const char* oldpathname, int newdirfd, const char* newpathname,
                              int flags);
 
+  // for batch submissions
   RequestQueue make_request_queue();
   EvTask submit_and_wait(const RequestQueue& requests_vec, SubmitAndWaitHandler handler);
 };

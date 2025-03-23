@@ -173,6 +173,9 @@ void EventManager::event_handler(int res, RequestData* req_data) {
   auto& promise = req_data->handle.promise();
   auto& specific_data = req_data->specific_data;
 
+  // error num is less than 0 when there's an error, otherwise > 0 is i.e. bytes read or whatever
+  auto error_num = std::min(0, -res);
+
   if (res < 0) {
     std::cerr << "\tio_uring request failure\n";
   }
@@ -180,9 +183,7 @@ void EventManager::event_handler(int res, RequestData* req_data) {
   switch (req_data->req_type) {
   case RequestType::READ: {
     ReadResponsePack data{};
-    if (res < 0) {
-      data.error_num = -res;
-    } else {
+    if (res >= 0) {
       data = {.bytes_read = static_cast<size_t>(res), .buff = specific_data.read_data.buffer};
     }
     data.req_fd = specific_data.read_data.fd;
@@ -192,9 +193,7 @@ void EventManager::event_handler(int res, RequestData* req_data) {
   }
   case RequestType::WRITE: {
     WriteResponsePack data{};
-    if (res < 0) {
-      data.error_num = -res;
-    } else {
+    if (res >= 0) {
       data = {.bytes_wrote = static_cast<size_t>(res)};
     }
     data.req_fd = specific_data.write_data.fd;
@@ -204,9 +203,7 @@ void EventManager::event_handler(int res, RequestData* req_data) {
   }
   case RequestType::CLOSE: {
     CloseResponsePack data{};
-    if (res < 0) {
-      data.error_num = -res;
-    }
+    data.error_num = error_num;
     data.req_fd = specific_data.close_data.fd;
     promise.publish_resp_data<RequestType::CLOSE>(std::move(data));
     req_data->handle.resume();
@@ -214,9 +211,7 @@ void EventManager::event_handler(int res, RequestData* req_data) {
   }
   case RequestType::SHUTDOWN: {
     ShutdownResponsePack data{};
-    if (res < 0) {
-      data.error_num = -res;
-    }
+    data.error_num = error_num;
     data.req_fd = specific_data.shutdown_data.fd;
     promise.publish_resp_data<RequestType::SHUTDOWN>(std::move(data));
     req_data->handle.resume();
@@ -224,11 +219,10 @@ void EventManager::event_handler(int res, RequestData* req_data) {
   }
   case RequestType::READV: {
     ReadvResponsePack data{};
-    if (res < 0) {
-      data.error_num = -res;
-    } else {
+    if (res >= 0) {
       data = {.bytes_read = static_cast<size_t>(res), .buff = specific_data.read_data.buffer};
     }
+    data.error_num = error_num;
     data.req_fd = specific_data.readv_data.fd;
     promise.publish_resp_data<RequestType::READV>(std::move(data));
     req_data->handle.resume();
@@ -236,11 +230,10 @@ void EventManager::event_handler(int res, RequestData* req_data) {
   }
   case RequestType::WRITEV: {
     WritevResponsePack data{};
-    if (res < 0) {
-      data.error_num = -res;
-    } else {
+    if (res >= 0) {
       data = {.bytes_wrote = static_cast<size_t>(res)};
     }
+    data.error_num = error_num;
     data.req_fd = specific_data.writev_data.fd;
     promise.publish_resp_data<RequestType::WRITEV>(std::move(data));
     req_data->handle.resume();
@@ -248,11 +241,10 @@ void EventManager::event_handler(int res, RequestData* req_data) {
   }
   case RequestType::ACCEPT: {
     AcceptResponsePack data{};
-    if (res < 0) {
-      data.error_num = -res;
-    } else {
+    if (res >= 0) {
       data = {.fd = res};
     }
+    data.error_num = error_num;
     data.req_fd = specific_data.accept_data.sockfd;
     promise.publish_resp_data<RequestType::ACCEPT>(std::move(data));
     req_data->handle.resume();
@@ -260,9 +252,7 @@ void EventManager::event_handler(int res, RequestData* req_data) {
   }
   case RequestType::CONNECT: {
     ConnectResponsePack data{};
-    if (res < 0) {
-      data.error_num = -res;
-    }
+    data.error_num = error_num;
     data.req_fd = specific_data.accept_data.sockfd;
     promise.publish_resp_data<RequestType::CONNECT>(std::move(data));
     req_data->handle.resume();
@@ -270,9 +260,7 @@ void EventManager::event_handler(int res, RequestData* req_data) {
   }
   case RequestType::OPENAT: {
     OpenatResponsePack data{};
-    if (res < 0) {
-      data.error_num = -res;
-    }
+    data.error_num = error_num;
     data.req_fd = res;
     promise.publish_resp_data<RequestType::OPENAT>(std::move(data));
     req_data->handle.resume();
@@ -280,9 +268,7 @@ void EventManager::event_handler(int res, RequestData* req_data) {
   }
   case RequestType::STATX: {
     StatxResponsePack data{};
-    if (res < 0) {
-      data.error_num = -res;
-    }
+    data.error_num = error_num;
     data.pathname = specific_data.statx_data.pathname;
     data.req_fd = -1;  // fd is irrelevant for this operation
     promise.publish_resp_data<RequestType::STATX>(std::move(data));
@@ -291,9 +277,7 @@ void EventManager::event_handler(int res, RequestData* req_data) {
   }
   case RequestType::UNLINKAT: {
     UnlinkatResponsePack data{};
-    if (res < 0) {
-      data.error_num = -res;
-    }
+    data.error_num = error_num;
     data.pathname = specific_data.unlinkat_data.pathname;
     data.req_fd = -1;  // fd is irrelevant for this operation
     promise.publish_resp_data<RequestType::UNLINKAT>(std::move(data));
@@ -302,9 +286,7 @@ void EventManager::event_handler(int res, RequestData* req_data) {
   }
   case RequestType::RENAMEAT: {
     RenameatResponsePack data{};
-    if (res < 0) {
-      data.error_num = -res;
-    }
+    data.error_num = error_num;
     data.oldpathname = specific_data.renameat_data.oldpathname;
     data.newpathname = specific_data.renameat_data.newpathname;
     data.req_fd = -1;  // fd is irrelevant for this operation
@@ -319,7 +301,7 @@ void EventManager::event_handler(int res, RequestData* req_data) {
   // valid for suspended coroutines), so we use our own flags
   if (!req_data->handle || promise.is_done()) {
     // free the index if the coroutine has finished
-    _managed_coroutines_freed_idxs.insert(req_data->coro_idx);
+    _managed_coroutines_store.erase(req_data->coro_idx);
   }
 }
 
@@ -339,6 +321,15 @@ int EventManager::submit_queued_entries() {
     _in_flight_requests += ret;
   }
   return ret;
+}
+
+void EventManager::register_coro(EvTask&& coro) {
+  coro.start();  // start it in case it hasn't been started yet
+
+  uint64_t selected_idx = _managed_coroutines_store.insert(std::move(coro));
+
+  // we are storing the index in the vector as metadata
+  _managed_coroutines_store[selected_idx].set_coro_metadata(selected_idx);
 }
 
 io_uring_sqe* EventManager::get_uring_sqe() {

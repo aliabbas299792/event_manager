@@ -4,8 +4,8 @@ io_uring_dep = declare_dependency(link_args: ['-luring'])
 thread_dep = dependency('threads')
 
 source_files = [
-  'event_loop/core.cpp', 'event_loop/io_ops.cpp', 'coroutine/task.cpp',
-  'event_loop/event_manager.cpp', 'event_loop/parameter_packs.cpp'
+  'event_loop/core.cpp', 'event_loop/io_ops.cpp',
+  'coroutine/task.cpp', 'event_loop/parameter_packs.cpp'
 ]
 
 root_inc = include_directories('.')

@@ -41,7 +41,7 @@ EvTask example(EventManager* ev) {
     }
     }
     std::cerr << "There was an error in opening the file " << file_name
-              << " in the parent directory: " << strerror(resp.data.error_num) << "\n";
+              << " in the parent directory: " << strerror(static_cast<int>(resp.data.error_num)) << "\n";
     co_await ev->kill();
     co_return -1;
   }
