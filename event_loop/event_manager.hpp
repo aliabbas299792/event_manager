@@ -130,19 +130,20 @@ public:
   int submit_queued_entries();
   io_uring_sqe* get_uring_sqe();
 
-  ReadAwaitable read(int fd, uint8_t* buffer, size_t length);
-  WriteAwaitable write(int fd, const uint8_t* buffer, size_t length);
-  CloseAwaitable close(int fd);
-  ShutdownAwaitable shutdown(int fd, int how);
-  ReadvAwaitable readv(int fd, struct iovec* iovs, size_t num);
-  WritevAwaitable writev(int fd, struct iovec* iovs, size_t num);
-  AcceptAwaitable accept(int sockfd, sockaddr* addr, socklen_t* addrlen);
-  ConnectAwaitable connect(int sockfd, const sockaddr* addr, socklen_t addrlen);
-  OpenatAwaitable openat(int dirfd, const char* pathname, int flags, mode_t mode);
-  StatxAwaitable statx(int dirfd, const char* pathname, int flags, unsigned int mask, struct statx* statxbuf);
-  UnlinkatAwaitable unlinkat(int dirfd, const char* pathname, int flags);
-  RenameatAwaitable renameat(int olddirfd, const char* oldpathname, int newdirfd, const char* newpathname,
-                             int flags);
+  [[nodiscard]] ReadAwaitable read(int fd, uint8_t* buffer, size_t length);
+  [[nodiscard]] WriteAwaitable write(int fd, const uint8_t* buffer, size_t length);
+  [[nodiscard]] CloseAwaitable close(int fd);
+  [[nodiscard]] ShutdownAwaitable shutdown(int fd, int how);
+  [[nodiscard]] ReadvAwaitable readv(int fd, struct iovec* iovs, size_t num);
+  [[nodiscard]] WritevAwaitable writev(int fd, struct iovec* iovs, size_t num);
+  [[nodiscard]] AcceptAwaitable accept(int sockfd, sockaddr* addr, socklen_t* addrlen);
+  [[nodiscard]] ConnectAwaitable connect(int sockfd, const sockaddr* addr, socklen_t addrlen);
+  [[nodiscard]] OpenatAwaitable openat(int dirfd, const char* pathname, int flags, mode_t mode);
+  [[nodiscard]] StatxAwaitable statx(int dirfd, const char* pathname, int flags, unsigned int mask,
+                                     struct statx* statxbuf);
+  [[nodiscard]] UnlinkatAwaitable unlinkat(int dirfd, const char* pathname, int flags);
+  [[nodiscard]] RenameatAwaitable renameat(int olddirfd, const char* oldpathname, int newdirfd,
+                                           const char* newpathname, int flags);
 
   // non awaitable versions of the above functions so that they can be polled instead (_na = non awaitable)
   Errnos read_na(int fd, uint8_t* buffer, size_t length);
