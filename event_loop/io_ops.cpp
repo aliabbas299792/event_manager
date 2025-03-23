@@ -1,11 +1,15 @@
 #include "communication/communication_types.hpp"
 #include "coroutine/io_awaitables.hpp"
 #include "coroutine/task.hpp"
+#include "errors.hpp"
 #include "event_loop/parameter_packs.hpp"
 #include "event_loop/request_data.hpp"
 #include "event_manager.hpp"
 #include <cstddef>
 #include <liburing.h>
+#include <liburing/io_uring.h>
+
+using namespace ErrorProcessing;
 
 struct RetrieveCurrentHandle {
   EvTask::Handle handle;
@@ -296,6 +300,170 @@ EvTask EventManager::submit_and_wait(const RequestQueue& request_queue, SubmitAn
 
     num_submitted = 0;
   }
+
+  co_return 0;
+}
+
+Errnos EventManager::submit_request(io_uring_sqe* sqe, RequestData* req_data) {
+  io_uring_sqe_set_data(sqe, req_data);
+
+  auto ret = submit_queued_entries();
+  if (ret < 1) {  // since submit returns the number of entries submitted
+    std::cerr << "io_uring_submit failed\n";
+    return static_cast<Errnos>(-ret);
+  }
+
+  return Errnos::UNKNOWN_ERROR;  // no error == unknown error in this context
+}
+
+std::pair<io_uring_sqe*, RequestData*> EventManager::get_sqe_and_req_data(RequestType req_type) {
+  auto req_data = new RequestData{};
+  req_data->req_type = req_type;
+
+  auto sqe = get_uring_sqe();
+  return {sqe, req_data};
+}
+
+Errnos EventManager::read_na(int fd, uint8_t* buffer, size_t length) {
+  auto [sqe, req_data] = get_sqe_and_req_data(RequestType::READ);
+
+  auto& read_data = req_data->specific_data.read_data;
+  read_data = {fd, buffer, length};
+  io_uring_prep_read(sqe, fd, buffer, length, 0);
+
+  return submit_request(sqe, req_data);
+}
+
+Errnos EventManager::write_na(int fd, const uint8_t* buffer, size_t length) {
+  auto [sqe, req_data] = get_sqe_and_req_data(RequestType::WRITE);
+
+  auto& write_data = req_data->specific_data.write_data;
+  write_data = {fd, buffer, length};
+  io_uring_prep_write(sqe, write_data.fd, write_data.buffer, write_data.length, 0);
+
+  return submit_request(sqe, req_data);
+}
+
+Errnos EventManager::close_na(int fd) {
+  auto [sqe, req_data] = get_sqe_and_req_data(RequestType::CLOSE);
+
+  auto& close_data = req_data->specific_data.close_data;
+  close_data = {fd};
+  io_uring_prep_close(sqe, close_data.fd);
+
+  return submit_request(sqe, req_data);
+}
+
+Errnos EventManager::shutdown_na(int fd, int how) {
+  auto [sqe, req_data] = get_sqe_and_req_data(RequestType::SHUTDOWN);
+
+  auto& shutdown_data = req_data->specific_data.shutdown_data;
+  shutdown_data = {fd, how};
+  io_uring_prep_shutdown(sqe, shutdown_data.fd, shutdown_data.how);
+
+  return submit_request(sqe, req_data);
+}
+
+Errnos EventManager::readv_na(int fd, struct iovec* iovs, size_t num) {
+  auto [sqe, req_data] = get_sqe_and_req_data(RequestType::READV);
+
+  auto& readv_data = req_data->specific_data.readv_data;
+  readv_data = {fd, iovs, num};
+  io_uring_prep_readv(sqe, readv_data.fd, readv_data.iovs, readv_data.num, 0);
+
+  return submit_request(sqe, req_data);
+}
+
+Errnos EventManager::writev_na(int fd, struct iovec* iovs, size_t num) {
+  auto [sqe, req_data] = get_sqe_and_req_data(RequestType::WRITEV);
+
+  auto& writev_data = req_data->specific_data.writev_data;
+  writev_data = {fd, iovs, num};
+  io_uring_prep_writev(sqe, writev_data.fd, writev_data.iovs, writev_data.num, 0);
+
+  return submit_request(sqe, req_data);
+}
+
+Errnos EventManager::accept_na(int sockfd, sockaddr* addr, socklen_t* addrlen) {
+  auto [sqe, req_data] = get_sqe_and_req_data(RequestType::ACCEPT);
+
+  auto& accept_data = req_data->specific_data.accept_data;
+  accept_data = {sockfd, addr, addrlen};
+  io_uring_prep_accept(sqe, accept_data.sockfd, accept_data.addr, accept_data.addrlen, 0);
+
+  return submit_request(sqe, req_data);
+}
+
+Errnos EventManager::connect_na(int sockfd, const sockaddr* addr, socklen_t addrlen) {
+  auto [sqe, req_data] = get_sqe_and_req_data(RequestType::CONNECT);
+
+  auto& connect_data = req_data->specific_data.connect_data;
+  connect_data = {sockfd, addr, addrlen};
+  io_uring_prep_connect(sqe, connect_data.sockfd, connect_data.addr, connect_data.addrlen);
+
+  return submit_request(sqe, req_data);
+}
+
+Errnos EventManager::openat_na(int dirfd, const char* pathname, int flags, mode_t mode) {
+  auto [sqe, req_data] = get_sqe_and_req_data(RequestType::OPENAT);
+
+  auto& openat_data = req_data->specific_data.openat_data;
+  openat_data = {dirfd, pathname, flags, mode};
+  io_uring_prep_openat(sqe, openat_data.dirfd, openat_data.pathname, openat_data.flags, openat_data.mode);
+
+  return submit_request(sqe, req_data);
+}
+
+Errnos EventManager::statx_na(int dirfd, const char* pathname, int flags, unsigned int mask,
+                              struct statx* statxbuf) {
+  auto [sqe, req_data] = get_sqe_and_req_data(RequestType::STATX);
+
+  auto& statx_data = req_data->specific_data.statx_data;
+  statx_data = {dirfd, pathname, flags, mask, statxbuf};
+  io_uring_prep_statx(sqe, statx_data.dirfd, statx_data.pathname, statx_data.flags, statx_data.mask,
+                      statx_data.statxbuf);
+
+  return submit_request(sqe, req_data);
+}
+
+Errnos EventManager::unlinkat_na(int dirfd, const char* pathname, int flags) {
+  auto [sqe, req_data] = get_sqe_and_req_data(RequestType::UNLINKAT);
+
+  auto& unlinkat_data = req_data->specific_data.unlinkat_data;
+  unlinkat_data = {dirfd, pathname, flags};
+  io_uring_prep_unlinkat(sqe, unlinkat_data.dirfd, unlinkat_data.pathname, unlinkat_data.flags);
+
+  return submit_request(sqe, req_data);
+}
+
+Errnos EventManager::renameat_na(int olddirfd, const char* oldpathname, int newdirfd, const char* newpathname,
+                                 int flags) {
+  auto [sqe, req_data] = get_sqe_and_req_data(RequestType::RENAMEAT);
+
+  auto& renameat_data = req_data->specific_data.renameat_data;
+  renameat_data = {olddirfd, oldpathname, newdirfd, newpathname, flags};
+  io_uring_prep_renameat(sqe, renameat_data.olddirfd, renameat_data.oldpathname, renameat_data.newdirfd,
+                         renameat_data.newpathname, renameat_data.flags);
+
+  return submit_request(sqe, req_data);
+}
+
+EvTask EventManager::poll(PollHandler handler) {
+  if (_polling_requests) {
+    co_return -1;
+  }
+
+  _polling_requests = true;
+  PollingState continue_polling = PollingState::CONTINUE_POLLING;
+  while (continue_polling == PollingState::CONTINUE_POLLING) {
+    _polling_handle = co_await RetrieveCurrentHandle{};
+    auto channel = co_await GenericResponse{};
+    _polling_handle = nullptr;
+
+    auto response_type = channel->response_store_current_type();
+    continue_polling = handler(this, response_type, channel);
+  }
+  _polling_requests = false;
 
   co_return 0;
 }

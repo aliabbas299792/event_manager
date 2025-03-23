@@ -82,7 +82,6 @@ public:
     return &com_channel;
   }
 
-  
   bool is_done();
   explicit operator bool() {
     return is_done();

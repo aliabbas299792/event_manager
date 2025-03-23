@@ -8,6 +8,7 @@ example_sources = {
   'simple_coro_example': 'simple_coro_example.cpp',
   'readme_example': 'readme_example.cpp',
   'http_example': 'http_example.cpp',
+  'polling_example': 'polling_example.cpp',
 }
 
 foreach name, source : example_sources

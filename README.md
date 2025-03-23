@@ -59,8 +59,6 @@ You can make a queue with `EventManager::make_request_queue` and use those metho
 Errors are propagated back to the user using a `std::variant` - this can be accessed fairly easily, and there are some helper functions to aid use in `errors.hpp`. Further there are examples of how to use it in the `examples/` folder, with the most thorough one being in `http_example.cpp`.
 
 # Development
-## TODO
-- Add a poll context object, to allow for polling without having to submit all the items you want at once
 ## Adding More Operations
 To add more operations, there are a few files you need to update:
 ### In communication/

@@ -31,6 +31,13 @@ void EventManager::start() {
 }
 
 void EventManager::await_message() {
+  if (_ready_requests_store.size() != 0 && _polling_handle != nullptr) {
+    auto [res, req_data] = _ready_requests_store.back();
+    _ready_requests_store.pop_back();
+    req_data->handle = _polling_handle;
+    event_handler(res, req_data);
+  }
+
   io_uring_cqe* cqe;
   int ret = io_uring_wait_cqe(&_ring, &cqe);
 
@@ -50,7 +57,7 @@ void EventManager::await_message() {
   }
 }
 
-EventManager::EventManager(size_t queue_depth) : _kill_coro_task(kill_internal()) {
+EventManager::EventManager(size_t queue_depth) : _ready_requests_store({}), _kill_coro_task(kill_internal()) {
   std::scoped_lock<std::mutex> lock{init_mutex};
 
   // uses a shared asynchronous backend for all threads
@@ -165,8 +172,12 @@ EvTask EventManager::kill() {
 
 void EventManager::event_handler(int res, RequestData* req_data) {
   // don't have anything to process for requests with no data
-  // or if the handle is a nullptr, then there's nothing to resume
-  if (req_data == nullptr || req_data->handle == nullptr) {
+  if (req_data == nullptr) {
+    return;
+  }
+
+  if (req_data->handle == nullptr) {
+    _ready_requests_store.emplace_back(res, req_data);
     return;
   }
 

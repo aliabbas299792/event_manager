@@ -6,9 +6,9 @@
 #include <liburing.h>
 #include <liburing/io_uring.h>
 #include <mutex>
-#include <unordered_set>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <unordered_set>
 #include <vector>
 
 #include "communication/communication_channel.hpp"
@@ -18,10 +18,11 @@
 #include "event_loop/request_data.hpp"
 #include "parameter_packs.hpp"
 
-template<typename T>
+template <typename T>
 class ItemStore {
   std::vector<T> _items;
   std::unordered_set<size_t> _freed_idxs{};
+
 public:
   ItemStore() : _items{} {};
 
@@ -45,13 +46,13 @@ public:
   void erase(size_t idx) {
     _freed_idxs.insert(idx);
   }
-
 };
 
 class EventManager;
+enum class PollingState { CONTINUE_POLLING, STOP_POLLING };
 
 using SubmitAndWaitHandler = std::function<void(RequestType, CommunicationChannel*)>;
-using PollHandler = std::function<void(EventManager*, RequestType, CommunicationChannel*)>;
+using PollHandler = std::function<PollingState(EventManager*, RequestType, CommunicationChannel*)>;
 
 // forward declare the awaitable return types and request data
 struct RequestData;
@@ -90,8 +91,13 @@ class EventManager {
   static size_t ring_instances;
 
   io_uring _ring{};
-  
+
   ItemStore<EvTask> _managed_coroutines_store{};
+
+  bool _polling_requests{};  // to prevent trying to poll within the polling context
+  EvTask::Handle _polling_handle = nullptr;
+  std::vector<std::pair<int, RequestData*>> _ready_requests_store{};
+
   void await_message();
   void event_handler(int res, RequestData* req_data);
 
@@ -100,6 +106,8 @@ class EventManager {
   EvTask _kill_coro_task;
   EvTask kill_internal();
 
+  Errnos submit_request(io_uring_sqe* sqe, RequestData* req_data);
+  std::pair<io_uring_sqe*, RequestData*> get_sqe_and_req_data(RequestType req_type);
   bool process_single_generic_request(const OperationParameterPackVariant& req, RequestData& single_req,
                                       EvTask::Handle handle);
 
@@ -135,6 +143,21 @@ public:
   UnlinkatAwaitable unlinkat(int dirfd, const char* pathname, int flags);
   RenameatAwaitable renameat(int olddirfd, const char* oldpathname, int newdirfd, const char* newpathname,
                              int flags);
+
+  // non awaitable versions of the above functions so that they can be polled instead (_na = non awaitable)
+  Errnos read_na(int fd, uint8_t* buffer, size_t length);
+  Errnos write_na(int fd, const uint8_t* buffer, size_t length);
+  Errnos close_na(int fd);
+  Errnos shutdown_na(int fd, int how);
+  Errnos readv_na(int fd, struct iovec* iovs, size_t num);
+  Errnos writev_na(int fd, struct iovec* iovs, size_t num);
+  Errnos accept_na(int sockfd, sockaddr* addr, socklen_t* addrlen);
+  Errnos connect_na(int sockfd, const sockaddr* addr, socklen_t addrlen);
+  Errnos openat_na(int dirfd, const char* pathname, int flags, mode_t mode);
+  Errnos statx_na(int dirfd, const char* pathname, int flags, unsigned int mask, struct statx* statxbuf);
+  Errnos unlinkat_na(int dirfd, const char* pathname, int flags);
+  Errnos renameat_na(int olddirfd, const char* oldpathname, int newdirfd, const char* newpathname, int flags);
+  EvTask poll(PollHandler handler);
 
   // for batch submissions
   RequestQueue make_request_queue();
