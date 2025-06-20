@@ -30,13 +30,13 @@ coverage:
 	ninja coverage -C $(BUILD_DIR)
 
 example-event-loop: build
-	$(BUILD_DIR) && ./examples/event-loop
+	cd $(BUILD_DIR) && ./examples/event-loop
 
 example-http: build
-	$(BUILD_DIR) && ./examples/http
+	cd $(BUILD_DIR) && ./examples/http
 
 example-readme: build
-	$(BUILD_DIR) && ./examples/readme
+	cd $(BUILD_DIR) && ./examples/readme
 
 example-simple-coro: build
-	$(BUILD_DIR) && ./examples/simple-coro
+	cd $(BUILD_DIR) && ./examples/simple-coro
