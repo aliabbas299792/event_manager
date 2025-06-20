@@ -185,7 +185,10 @@ void EventManager::event_handler(int res, RequestData* req_data) {
   auto& specific_data = req_data->specific_data;
 
   // error num is less than 0 when there's an error, otherwise > 0 is i.e. bytes read or whatever
-  auto error_num = std::min(0, -res);
+  int error_num = 0;
+  if (res < 0) {
+    error_num = -res;  // -res since errno isn't used for io_uring
+  }
 
   if (res < 0) {
     std::cerr << "\tio_uring request failure\n";
@@ -231,7 +234,11 @@ void EventManager::event_handler(int res, RequestData* req_data) {
   case RequestType::READV: {
     ReadvResponsePack data{};
     if (res >= 0) {
-      data = {.bytes_read = static_cast<size_t>(res), .buff = specific_data.read_data.buffer};
+      uint8_t* buffer = nullptr;
+      if (specific_data.readv_data.iovs && specific_data.readv_data.num > 0) {
+        buffer = static_cast<uint8_t*>(specific_data.readv_data.iovs[0].iov_base);
+      }
+      data = {.bytes_read = static_cast<size_t>(res), .buff = buffer};
     }
     data.error_num = error_num;
     data.req_fd = specific_data.readv_data.fd;
@@ -264,7 +271,7 @@ void EventManager::event_handler(int res, RequestData* req_data) {
   case RequestType::CONNECT: {
     ConnectResponsePack data{};
     data.error_num = error_num;
-    data.req_fd = specific_data.accept_data.sockfd;
+    data.req_fd = specific_data.connect_data.sockfd;
     promise.publish_resp_data<RequestType::CONNECT>(std::move(data));
     req_data->handle.resume();
     break;
@@ -313,6 +320,10 @@ void EventManager::event_handler(int res, RequestData* req_data) {
   if (!req_data->handle || promise.is_done()) {
     // free the index if the coroutine has finished
     _managed_coroutines_store.erase(req_data->coro_idx);
+  }
+
+  if (req_data->allocated_dynamic) {
+    delete req_data;
   }
 }
 

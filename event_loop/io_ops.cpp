@@ -114,6 +114,7 @@ bool EventManager::process_single_generic_request(const OperationParameterPackVa
 
   single_req.handle = handle;
   single_req.req_type = req_type;
+  single_req.allocated_dynamic = false;
   auto& specific_data = single_req.specific_data;
 
   switch (req_type) {
@@ -153,7 +154,7 @@ bool EventManager::process_single_generic_request(const OperationParameterPackVa
   case RequestType::SHUTDOWN: {
     auto* pack = std::get_if<ShutdownParameterPack>(&req);
     if (pack) {
-      specific_data.shutdown_data = {pack->fd};
+      specific_data.shutdown_data = {pack->fd, pack->how};
       io_uring_prep_shutdown(sqe, pack->fd, pack->how);
     } else {
       std::cerr << "There was an error in retrieving queued data\n";
@@ -319,6 +320,7 @@ Errnos EventManager::submit_request(io_uring_sqe* sqe, RequestData* req_data) {
 std::pair<io_uring_sqe*, RequestData*> EventManager::get_sqe_and_req_data(RequestType req_type) {
   auto req_data = new RequestData{};
   req_data->req_type = req_type;
+  req_data->allocated_dynamic = true;
 
   auto sqe = get_uring_sqe();
   return {sqe, req_data};
