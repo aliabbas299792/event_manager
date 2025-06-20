@@ -200,6 +200,7 @@ void EventManager::event_handler(int res, RequestData* req_data) {
     if (res >= 0) {
       data = {.bytes_read = static_cast<size_t>(res), .buff = specific_data.read_data.buffer};
     }
+    data.error_num = error_num;
     data.req_fd = specific_data.read_data.fd;
     promise.publish_resp_data<RequestType::READ>(std::move(data));
     req_data->handle.resume();
@@ -210,6 +211,7 @@ void EventManager::event_handler(int res, RequestData* req_data) {
     if (res >= 0) {
       data = {.bytes_wrote = static_cast<size_t>(res)};
     }
+    data.error_num = error_num;
     data.req_fd = specific_data.write_data.fd;
     promise.publish_resp_data<RequestType::WRITE>(std::move(data));
     req_data->handle.resume();
