@@ -311,6 +311,9 @@ Errnos EventManager::submit_request(io_uring_sqe* sqe, RequestData* req_data) {
   auto ret = submit_queued_entries();
   if (ret < 1) {  // since submit returns the number of entries submitted
     std::cerr << "io_uring_submit failed\n";
+    if (req_data && req_data->allocated_dynamic) {
+      delete req_data;
+    }
     return static_cast<Errnos>(-ret);
   }
 
@@ -318,16 +321,23 @@ Errnos EventManager::submit_request(io_uring_sqe* sqe, RequestData* req_data) {
 }
 
 std::pair<io_uring_sqe*, RequestData*> EventManager::get_sqe_and_req_data(RequestType req_type) {
+  auto sqe = get_uring_sqe();
+  if (sqe == nullptr) {
+    return {nullptr, nullptr};
+  }
+
   auto req_data = new RequestData{};
   req_data->req_type = req_type;
   req_data->allocated_dynamic = true;
-
-  auto sqe = get_uring_sqe();
   return {sqe, req_data};
 }
 
 Errnos EventManager::read_na(int fd, uint8_t* buffer, size_t length) {
   auto [sqe, req_data] = get_sqe_and_req_data(RequestType::READ);
+
+  if (sqe == nullptr || req_data == nullptr) {
+    return Errnos::UNKNOWN_ERROR;
+  }
 
   auto& read_data = req_data->specific_data.read_data;
   read_data = {fd, buffer, length};
@@ -339,6 +349,10 @@ Errnos EventManager::read_na(int fd, uint8_t* buffer, size_t length) {
 Errnos EventManager::write_na(int fd, const uint8_t* buffer, size_t length) {
   auto [sqe, req_data] = get_sqe_and_req_data(RequestType::WRITE);
 
+  if (sqe == nullptr || req_data == nullptr) {
+    return Errnos::UNKNOWN_ERROR;
+  }
+
   auto& write_data = req_data->specific_data.write_data;
   write_data = {fd, buffer, length};
   io_uring_prep_write(sqe, write_data.fd, write_data.buffer, write_data.length, 0);
@@ -348,6 +362,10 @@ Errnos EventManager::write_na(int fd, const uint8_t* buffer, size_t length) {
 
 Errnos EventManager::close_na(int fd) {
   auto [sqe, req_data] = get_sqe_and_req_data(RequestType::CLOSE);
+
+  if (sqe == nullptr || req_data == nullptr) {
+    return Errnos::UNKNOWN_ERROR;
+  }
 
   auto& close_data = req_data->specific_data.close_data;
   close_data = {fd};
@@ -359,6 +377,10 @@ Errnos EventManager::close_na(int fd) {
 Errnos EventManager::shutdown_na(int fd, int how) {
   auto [sqe, req_data] = get_sqe_and_req_data(RequestType::SHUTDOWN);
 
+  if (sqe == nullptr || req_data == nullptr) {
+    return Errnos::UNKNOWN_ERROR;
+  }
+
   auto& shutdown_data = req_data->specific_data.shutdown_data;
   shutdown_data = {fd, how};
   io_uring_prep_shutdown(sqe, shutdown_data.fd, shutdown_data.how);
@@ -368,6 +390,10 @@ Errnos EventManager::shutdown_na(int fd, int how) {
 
 Errnos EventManager::readv_na(int fd, struct iovec* iovs, size_t num) {
   auto [sqe, req_data] = get_sqe_and_req_data(RequestType::READV);
+
+  if (sqe == nullptr || req_data == nullptr) {
+    return Errnos::UNKNOWN_ERROR;
+  }
 
   auto& readv_data = req_data->specific_data.readv_data;
   readv_data = {fd, iovs, num};
@@ -379,6 +405,10 @@ Errnos EventManager::readv_na(int fd, struct iovec* iovs, size_t num) {
 Errnos EventManager::writev_na(int fd, struct iovec* iovs, size_t num) {
   auto [sqe, req_data] = get_sqe_and_req_data(RequestType::WRITEV);
 
+  if (sqe == nullptr || req_data == nullptr) {
+    return Errnos::UNKNOWN_ERROR;
+  }
+
   auto& writev_data = req_data->specific_data.writev_data;
   writev_data = {fd, iovs, num};
   io_uring_prep_writev(sqe, writev_data.fd, writev_data.iovs, writev_data.num, 0);
@@ -388,6 +418,10 @@ Errnos EventManager::writev_na(int fd, struct iovec* iovs, size_t num) {
 
 Errnos EventManager::accept_na(int sockfd, sockaddr* addr, socklen_t* addrlen) {
   auto [sqe, req_data] = get_sqe_and_req_data(RequestType::ACCEPT);
+
+  if (sqe == nullptr || req_data == nullptr) {
+    return Errnos::UNKNOWN_ERROR;
+  }
 
   auto& accept_data = req_data->specific_data.accept_data;
   accept_data = {sockfd, addr, addrlen};
@@ -399,6 +433,10 @@ Errnos EventManager::accept_na(int sockfd, sockaddr* addr, socklen_t* addrlen) {
 Errnos EventManager::connect_na(int sockfd, const sockaddr* addr, socklen_t addrlen) {
   auto [sqe, req_data] = get_sqe_and_req_data(RequestType::CONNECT);
 
+  if (sqe == nullptr || req_data == nullptr) {
+    return Errnos::UNKNOWN_ERROR;
+  }
+
   auto& connect_data = req_data->specific_data.connect_data;
   connect_data = {sockfd, addr, addrlen};
   io_uring_prep_connect(sqe, connect_data.sockfd, connect_data.addr, connect_data.addrlen);
@@ -408,6 +446,10 @@ Errnos EventManager::connect_na(int sockfd, const sockaddr* addr, socklen_t addr
 
 Errnos EventManager::openat_na(int dirfd, const char* pathname, int flags, mode_t mode) {
   auto [sqe, req_data] = get_sqe_and_req_data(RequestType::OPENAT);
+
+  if (sqe == nullptr || req_data == nullptr) {
+    return Errnos::UNKNOWN_ERROR;
+  }
 
   auto& openat_data = req_data->specific_data.openat_data;
   openat_data = {dirfd, pathname, flags, mode};
@@ -420,6 +462,10 @@ Errnos EventManager::statx_na(int dirfd, const char* pathname, int flags, unsign
                               struct statx* statxbuf) {
   auto [sqe, req_data] = get_sqe_and_req_data(RequestType::STATX);
 
+  if (sqe == nullptr || req_data == nullptr) {
+    return Errnos::UNKNOWN_ERROR;
+  }
+
   auto& statx_data = req_data->specific_data.statx_data;
   statx_data = {dirfd, pathname, flags, mask, statxbuf};
   io_uring_prep_statx(sqe, statx_data.dirfd, statx_data.pathname, statx_data.flags, statx_data.mask,
@@ -431,6 +477,10 @@ Errnos EventManager::statx_na(int dirfd, const char* pathname, int flags, unsign
 Errnos EventManager::unlinkat_na(int dirfd, const char* pathname, int flags) {
   auto [sqe, req_data] = get_sqe_and_req_data(RequestType::UNLINKAT);
 
+  if (sqe == nullptr || req_data == nullptr) {
+    return Errnos::UNKNOWN_ERROR;
+  }
+
   auto& unlinkat_data = req_data->specific_data.unlinkat_data;
   unlinkat_data = {dirfd, pathname, flags};
   io_uring_prep_unlinkat(sqe, unlinkat_data.dirfd, unlinkat_data.pathname, unlinkat_data.flags);
@@ -441,6 +491,10 @@ Errnos EventManager::unlinkat_na(int dirfd, const char* pathname, int flags) {
 Errnos EventManager::renameat_na(int olddirfd, const char* oldpathname, int newdirfd, const char* newpathname,
                                  int flags) {
   auto [sqe, req_data] = get_sqe_and_req_data(RequestType::RENAMEAT);
+
+  if (sqe == nullptr || req_data == nullptr) {
+    return Errnos::UNKNOWN_ERROR;
+  }
 
   auto& renameat_data = req_data->specific_data.renameat_data;
   renameat_data = {olddirfd, oldpathname, newdirfd, newpathname, flags};
